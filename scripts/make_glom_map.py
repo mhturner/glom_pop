@@ -27,13 +27,22 @@ base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
 
 # Load glom map hdf5 as array
 fileh = h5py.File(os.path.join(base_dir, 'template_brain', 'vpn_glom_map.h5'), 'r') # dim order = zxy
+
+# Mask with VPN identity
 brain_mask = np.zeros(fileh.get('mask/array').shape, dtype='uint8')
 fileh['mask/array'].read_direct(brain_mask)
-
 brain_mask = np.moveaxis(brain_mask, (0, 1, 2), (2, 0, 1)) # to xyz
+
+# Density map
+brain_density = np.zeros(fileh.get('density/array').shape, dtype='uint8')
+fileh['density/array'].read_direct(brain_density)
+brain_density = np.moveaxis(brain_density, (0, 1, 2), (2, 0, 1)) # to xyz
+
 fileh.close()
+
 print('Full brain_mask shape = {}'.format(brain_mask.shape))
 brain_mask = np.flip(brain_mask[415:645, 250:450, 250:340], axis=2)
+brain_density = np.flip(brain_density[415:645, 250:450, 250:340], axis=2)
 print('Trimmed brain_mask shape = {}'.format(brain_mask.shape))
 
 
@@ -50,6 +59,7 @@ vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'
 # Save trimmed template & raw mask
 nib.save(nib.Nifti1Image(template, np.eye(4)), os.path.join(base_dir, 'template_brain', 'jrc2018.nii'))
 nib.save(nib.Nifti1Image(brain_mask, np.eye(4)), os.path.join(base_dir, 'template_brain', 'vpn_glom_mask.nii'))
+nib.save(nib.Nifti1Image(brain_density, np.eye(4)), os.path.join(base_dir, 'template_brain', 'vpn_glom_density.nii'))
 
 
 # %% MORPHOLOGICAL OPERATIONS ON EACH GLOMERULUS MASK
