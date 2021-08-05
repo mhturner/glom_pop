@@ -1,5 +1,5 @@
 """
-
+Process JRC2018 template brain & glomerulus map
 
 maxwellholteturner@gmail.com
 https://github.com/mhturner/glom_pop
