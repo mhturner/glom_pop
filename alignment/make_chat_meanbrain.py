@@ -66,9 +66,7 @@ for fn in file_names:
                                     interpolator='nearestNeighbor',
                                     defaultvalue=0)
 
-    red_reg = red_reg.numpy()
-
-    corrected_brains.append(red_reg)
+    corrected_brains.append(red_reg.numpy())
 
 meanbrain_1 = np.mean(np.stack(corrected_brains, -1), axis=-1)
 meanbrain_1 = ants.from_numpy(meanbrain_1, spacing=spacing)
@@ -129,11 +127,8 @@ for fn in file_names:
                                       interpolator='nearestNeighbor',
                                       defaultvalue=0)
 
-    red_reg = red_reg.numpy()
-    green_reg = green_reg.numpy()
-
-    corrected_red.append(red_reg)
-    corrected_green.append(green_reg)
+    corrected_red.append(red_reg.numpy())
+    corrected_green.append(green_reg.numpy())
 
 meanbrain_red = np.mean(np.stack(corrected_red, -1), axis=-1)
 meanbrain_green = np.mean(np.stack(corrected_green, -1), axis=-1)
