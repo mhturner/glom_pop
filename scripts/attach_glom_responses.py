@@ -18,6 +18,7 @@ import ants
 import numpy as np
 import time
 import nibabel as nib
+import pandas as pd
 
 from glom_pop import dataio, alignment
 
@@ -46,6 +47,13 @@ meanbrain_red = dataio.get_ants_brain(os.path.join(base_dir, 'mean_brains', mean
 # Load glom map, in meanbrain space
 mask_fp = os.path.join(base_dir, 'aligned', 'glom_mask_reg2meanbrain.nii')
 glom_mask_2_meanbrain = np.asanyarray(nib.load(mask_fp).dataobj).astype('uint32')
+# Load mask key for VPN types
+vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+# Filter glom map s.t. only big gloms are included
+glom_size_threshold = 300
+glom_mask_2_meanbrain = alignment.filterGlomMask(glom_mask_2_meanbrain, glom_size_threshold)
+vals = np.unique(glom_mask_2_meanbrain)[1:]  # exclude first val (=0, not a glom)
+names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
 
 for bf in brain_file_sets:
     t0 = time.time()
@@ -57,14 +65,14 @@ for bf in brain_file_sets:
     # # # Load anatomical scan # # #
     anat_filepath = os.path.join(data_dir, 'date_str', anatomical_fn)
     metadata = dataio.get_bruker_metadata(anat_filepath + '.xml')
-    red_brain = dataio.get_ants_brain(anat_filepath + '_channel_1.nii', metadata) # xyz
+    red_brain = dataio.get_ants_brain(anat_filepath + '_channel_1.nii', metadata)  # xyz
 
     # # # Compute transform from ANAT -> MEANBRAIN # # #
     reg_AM = ants.registration(meanbrain_red,
-                            red_brain,
-                            type_of_transform='SyN',
-                            flow_sigma=3,
-                            total_sigma=0)
+                               red_brain,
+                               type_of_transform='SyN',
+                               flow_sigma=3,
+                               total_sigma=0)
 
     print('Computed transform ANAT -> MEANBRAIN: {} ({} sec)'.format(anatomical_fn, time.time()-t0))
 
@@ -79,7 +87,7 @@ for bf in brain_file_sets:
 
     # # # Compute transform from FXN -> ANAT # # #
     fxn_filepath = os.path.join(data_dir, 'date_str', functional_fn)
-    fxn_red = dataio.get_time_averaged_brain(dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata, channel=0)) # xyz
+    fxn_red = dataio.get_time_averaged_brain(dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata, channel=0))  # xyz
     reg_FA = ants.registration(red_brain,
                                fxn_red,
                                type_of_transform='SyN',
@@ -90,18 +98,19 @@ for bf in brain_file_sets:
 
     # # # Apply inverse transform to glom mask # # #
     glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_red,
-                                             moving=glom_mask_2_anat,
-                                             transformlist=reg_FA['invtransforms'],
-                                             interpolator='nearestNeighbor',
-                                             defaultvalue=0)
+                                            moving=glom_mask_2_anat,
+                                            transformlist=reg_FA['invtransforms'],
+                                            interpolator='nearestNeighbor',
+                                            defaultvalue=0)
 
     print('Applied inverse transform ANAT -> FXN to glom_mask: {} ({} sec)'.format(functional_fn, time.time()-t0))
 
     # Save glom mask in Functional space
-    nib.save(nib.Nifti1Image(glom_mask_2_meanbrain.numpy(), np.eye(4)), os.path.join(base_dir, 'aligned', 'glom_mask_reg2_{}.nii'.format(functional_fn)))
+    save_path = os.path.join(base_dir, 'aligned', 'glom_mask_reg2_{}.nii'.format(functional_fn))
+    nib.save(nib.Nifti1Image(glom_mask_2_meanbrain.numpy(), np.eye(4)), save_path)
 
     # Load functional (green) brain series
-    green_brain = dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata, channel=1) # xyzt
+    green_brain = dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata, channel=1)  # xyzt
 
     # TODO: filter mask values s.t. only big gloms get pulled in
     glom_responses = alignment.getGlomResponses(green_brain,

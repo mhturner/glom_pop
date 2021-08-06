@@ -14,6 +14,7 @@ from scipy.ndimage import gaussian_filter
 # # #  Image processing # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+
 def get_smooth_brain(brain, smoothing_sigma=[1.0, 1.0, 0.0, 2.0]):
     """
     Gaussian smooth brain.
@@ -38,7 +39,7 @@ def get_time_averaged_brain(brain, frames=None):
 
     returns time-averaged brain, ants. Dim =  (spatial)
     """
-    spacing = list(np.array(brain.spacing)[...,:-1])
+    spacing = list(np.array(brain.spacing)[..., :-1])
     return ants.from_numpy(brain[..., 0:frames].mean(axis=len(brain.shape)-1), spacing=spacing)
 
 

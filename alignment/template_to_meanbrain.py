@@ -141,24 +141,15 @@ z_levels = [10, 15, 20, 25, 30]
 
 glom_size_threshold = 300
 
-vals = vpn_types.get('Unnamed: 0').values
-names = vpn_types['vpn_types'].values
-
-# mask out gloms with fewer than glom_size_threshold voxels
-vox_per_type = []
-for m_ind, mask_id in enumerate(vals):
-    voxels_in_mask = np.sum(glom_mask_2_meanbrain.numpy() == mask_id)
-    vox_per_type.append(voxels_in_mask)
-    if voxels_in_mask < glom_size_threshold:
-        glom_mask_2_meanbrain[glom_mask_2_meanbrain==mask_id] = 0
-    else:
-         pass
+glom_mask_2_meanbrain = alignment.filterGlomMask(glom_mask_2_meanbrain, glom_size_threshold)
+vals = np.unique(glom_mask_2_meanbrain)[1:] # exclude first val (=0, not a glom)
+names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
 
 
 cmap = cc.cm.glasbey
 colors = cmap(vals/vals.max())
 norm = mcolors.Normalize(vmin=0, vmax=vals.max(), clip=True)
-glom_tmp = np.ma.masked_where(glom_mask_2_meanbrain.numpy()==0, glom_mask_2_meanbrain.numpy()) # mask at 0
+glom_tmp = np.ma.masked_where(glom_mask_2_meanbrain==0, glom_mask_2_meanbrain) # mask at 0
 
 fh, ax = plt.subplots(len(z_levels), 3, figsize=(9, 12))
 [x.set_xticklabels([]) for x in ax.ravel()]
@@ -184,12 +175,7 @@ for x in ax.ravel():
     x.set_xlim([35, 220])
     x.set_ylim([190, 20])
 
-
 handles = [Patch(facecolor=color) for color in colors]
-
-handles = np.array(handles)[np.array(vox_per_type)>glom_size_threshold]
-names = np.array(names)[np.array(vox_per_type)>glom_size_threshold]
-
 fh.legend(handles, [label for label in names], fontsize=10, ncol=6, handleheight=1.0, labelspacing=0.05)
 
 
