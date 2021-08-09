@@ -139,6 +139,7 @@ def get_bruker_metadata(file_path):
 
     return metadata
 
+
 def attachResponses(file_path, series_number, mask, meanbrain, responses, mask_vals, mask_names, response_set_name='glom'):
     with h5py.File(file_path, 'r+') as experiment_file:
         find_partial = functools.partial(find_series, sn=series_number)
@@ -153,10 +154,12 @@ def attachResponses(file_path, series_number, mask, meanbrain, responses, mask_v
         current_roi_group.attrs['mask_vals'] = mask_vals
         current_roi_group.attrs['mask_names'] = mask_names
 
+
 def overwriteDataSet(group, name, data):
     if group.get(name):
         del group[name]
     group.create_dataset(name, data=data)
+
 
 def find_series(name, obj, sn):
     target_group_name = 'series_{}'.format(str(sn).zfill(3))
