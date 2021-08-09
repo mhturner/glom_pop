@@ -126,7 +126,7 @@ for bf in brain_file_sets:
     meanbrain = dataio.merge_channels(fxn_red.numpy(), fxn_green.numpy())
     dataio.attachResponses(file_path=h5_filepath,
                            series_number=series_number,
-                           mask=glom_mask_2_fxn,
+                           mask=glom_mask_2_fxn.numpy(),
                            meanbrain=meanbrain,
                            responses=glom_responses,
                            mask_vals=vals,
