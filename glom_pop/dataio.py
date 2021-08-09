@@ -165,3 +165,22 @@ def find_series(name, obj, sn):
     target_group_name = 'series_{}'.format(str(sn).zfill(3))
     if target_group_name in name:
         return obj
+
+
+def loadResponses(ID, response_set_name='glom'):
+
+    response_data = {}
+    with h5py.File(ID.file_path, 'r') as experiment_file:
+        find_partial = functools.partial(find_series, series_number=ID.series_number)
+        roi_parent_group = experiment_file.visititems(find_partial)['aligned_response']
+        roi_set_group = roi_parent_group[response_set_name]
+        response_data['response'] = list(roi_set_group.get("response")[:])
+        response_data['mask'] = list(roi_set_group.get("mask")[:])
+        response_data['meanbrain'] = roi_set_group.get("meanbrain")[:]
+
+    time_vector, response_matrix = ID.getEpochResponseMatrix(response_data.get('response'))
+
+    response_data['epoch_response'] = response_matrix
+    response_data['time_vector'] = time_vector
+
+    return response_data

@@ -130,7 +130,7 @@ for bf in brain_file_sets:
                            meanbrain=meanbrain,
                            responses=glom_responses,
                            mask_vals=vals,
-                           mask_names=names,
+                           mask_names=names.values,
                            response_set_name='glom_{}'.format(today))
 
     print('Attached responses to {} ({} sec)'.format(h5_filepath, time.time()-t0))
