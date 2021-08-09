@@ -66,6 +66,8 @@ for bf in brain_file_sets:
     functional_fn = bf[0]
     anatomical_fn = bf[1]
 
+    print('Starting brain from {}'.format(functional_fn))
+
     date_str = functional_fn.split('-')[1]
     experiment_file_name = '{}-{}-{}'.format(date_str[0:4], date_str[4:6], date_str[6:8])
     h5_filepath = os.path.join(datafile_dir, experiment_file_name + '.hdf5')
@@ -130,3 +132,7 @@ for bf in brain_file_sets:
                            mask_vals=vals,
                            mask_names=names,
                            response_set_name='glom_{}'.format(today))
+
+    print('Attached responses to {} ({} sec)'.format(h5_filepath, time.time()-t0))
+
+    print('-----------------------')
