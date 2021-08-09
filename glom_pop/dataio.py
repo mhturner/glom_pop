@@ -9,6 +9,8 @@ import ants
 import numpy as np
 import nibabel as nib
 from scipy.ndimage import gaussian_filter
+import functools
+import h5py
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # #  Image processing # # # # # # # # # # # # # # # # # # # # #
@@ -136,3 +138,27 @@ def get_bruker_metadata(file_path):
         metadata['sample_period'] = np.mean(np.diff(frame_times))
 
     return metadata
+
+    def attachResponses(file_path, series_number, mask, meanbrain, responses, mask_vals, mask_names, response_set_name='glom'):
+        with h5py.File(file_path, 'r+') as experiment_file:
+            find_partial = functools.partial(find_series, sn=series_number)
+            epoch_run_group = experiment_file.visititems(find_partial)
+            parent_roi_group = epoch_run_group.require_group('aligned_response')
+            current_roi_group = parent_roi_group.require_group(response_set_name)
+
+            overwriteDataSet(current_roi_group, 'mask', mask)
+            overwriteDataSet(current_roi_group, 'response', responses)
+            overwriteDataSet(current_roi_group, 'meanbrain', meanbrain)
+
+            current_roi_group.attrs['mask_vals'] = mask_vals
+            current_roi_group.attrs['mask_names'] = mask_names
+
+    def overwriteDataSet(group, name, data):
+        if group.get(name):
+            del group[name]
+        group.create_dataset(name, data=data)
+
+    def find_series(name, obj, sn):
+        target_group_name = 'series_{}'.format(str(sn).zfill(3))
+        if target_group_name in name:
+            return obj
