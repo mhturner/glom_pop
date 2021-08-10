@@ -42,13 +42,13 @@ vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'
 # Show z slices of meanbrain, template, & glom map for alignment
 z_levels = [10, 15, 20, 25, 30]
 
-glom_size_threshold = 300
+glom_size_threshold = 350
 
 glom_mask_2_meanbrain = alignment.filterGlomMask(glom_mask_2_meanbrain, glom_size_threshold)
 vals = np.unique(glom_mask_2_meanbrain)[1:]  # exclude first val (=0, not a glom)
 names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
 
-
+# %%
 cmap = cc.cm.glasbey
 colors = cmap(vals/vals.max())
 norm = mcolors.Normalize(vmin=0, vmax=vals.max(), clip=True)

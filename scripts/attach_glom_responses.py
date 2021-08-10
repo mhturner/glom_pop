@@ -53,7 +53,7 @@ glom_mask_2_meanbrain = np.asanyarray(nib.load(mask_fp).dataobj).astype('uint32'
 # Load mask key for VPN types
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 # Filter glom map s.t. only big gloms are included
-glom_size_threshold = 300
+glom_size_threshold = 350
 glom_mask_2_meanbrain = alignment.filterGlomMask(glom_mask_2_meanbrain, glom_size_threshold)
 vals = np.unique(glom_mask_2_meanbrain)[1:]  # exclude first val (=0, not a glom)
 names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
