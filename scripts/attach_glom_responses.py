@@ -98,8 +98,16 @@ for bf in brain_file_sets:
     t0 = time.time()
     fxn_filepath = os.path.join(data_dir, date_str, functional_fn)
     metadata_fxn = dataio.get_bruker_metadata(fxn_filepath + '.xml')
-    fxn_red = dataio.get_time_averaged_brain(dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata_fxn, channel=0))  # xyz
-    fxn_green = dataio.get_time_averaged_brain(dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata_fxn, channel=1))  # xyz
+
+    spacing = [float(metadata_fxn.get('micronsPerPixel_XAxis', 0)),
+               float(metadata_fxn.get('micronsPerPixel_YAxis', 0)),
+               float(metadata_fxn.get('micronsPerPixel_ZAxis', 0))]
+    nib_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj).astype('uint32').mean(axis=3)
+    fxn_red = ants.from_numpy(nib_brain[:, :, :, 0], spacing=spacing)  # xyz
+    fxn_green = ants.from_numpy(nib_brain[:, :, :, 1], spacing=spacing)  # xyz
+
+    # fxn_red = dataio.get_time_averaged_brain(dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata_fxn, channel=0))  # xyz
+    # fxn_green = dataio.get_time_averaged_brain(dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata_fxn, channel=1))  # xyz
     print('Loaded fxnal meanbrains ({} sec)'.format(time.time()-t0))
     t0 = time.time()
     reg_FA = ants.registration(red_brain,
