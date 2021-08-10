@@ -48,7 +48,6 @@ glom_mask_2_meanbrain = alignment.filterGlomMask(glom_mask_2_meanbrain, glom_siz
 vals = np.unique(glom_mask_2_meanbrain)[1:]  # exclude first val (=0, not a glom)
 names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
 
-# %%
 cmap = cc.cm.glasbey
 colors = cmap(vals/vals.max())
 norm = mcolors.Normalize(vmin=0, vmax=vals.max(), clip=True)

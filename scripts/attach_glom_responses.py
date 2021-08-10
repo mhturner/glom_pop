@@ -62,10 +62,9 @@ names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
 glom_mask_2_meanbrain = ants.from_numpy(glom_mask_2_meanbrain, spacing=meanbrain_red.spacing)
 
 for bf in brain_file_sets:
-    t0 = time.time()
     functional_fn = bf[0]
     anatomical_fn = bf[1]
-
+    overall_t0 = time.time()
     print('Starting brain from {}'.format(functional_fn))
 
     date_str = functional_fn.split('-')[1]
@@ -78,41 +77,48 @@ for bf in brain_file_sets:
     metadata = dataio.get_bruker_metadata(anat_filepath + '.xml')
     red_brain = dataio.get_ants_brain(anat_filepath + '_channel_1.nii', metadata)  # xyz
 
-    # # # Compute transform from ANAT -> MEANBRAIN # # #
+    # # # (1) Transform from ANAT -> MEANBRAIN # # #
+    t0 = time.time()
     reg_AM = ants.registration(meanbrain_red,
                                red_brain,
                                type_of_transform='SyN',
                                flow_sigma=3,
                                total_sigma=0)
 
-    # # # Apply inverse transform to glom mask # # #
+    # Apply inverse transform to glom mask
     glom_mask_2_anat = ants.apply_transforms(fixed=red_brain,
                                              moving=glom_mask_2_meanbrain,
                                              transformlist=reg_AM['invtransforms'],
                                              interpolator='nearestNeighbor',
                                              defaultvalue=0)
 
-    print('Applied inverse transform MEANBRAIN -> ANAT to glom_mask: {} ({} sec)'.format(anatomical_fn, time.time()-t0))
+    print('Computed transform from ANAT -> MEANBRAIN & applied inverse to glom mask ({} sec)'.format(time.time()-t0))
 
-    # # # Compute transform from FXN -> ANAT # # #
+    # # # (2) Transform from FXN -> ANAT (within fly) # # #
+    t0 = time.time()
     fxn_filepath = os.path.join(data_dir, date_str, functional_fn)
     metadata_fxn = dataio.get_bruker_metadata(fxn_filepath + '.xml')
     fxn_red = dataio.get_time_averaged_brain(dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata_fxn, channel=0))  # xyz
     fxn_green = dataio.get_time_averaged_brain(dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata_fxn, channel=1))  # xyz
+    print('Loaded fxnal meanbrains ({} sec)'.format(time.time()-t0))
+    t0 = time.time()
     reg_FA = ants.registration(red_brain,
                                fxn_red,
-                               type_of_transform='Rigid',  # Within-animal, rigid reg is OK
+                               type_of_transform='QuickRigid',  # Within-animal, rigid reg is OK
                                flow_sigma=3,
                                total_sigma=0)
+    print('FA transform computed ({} sec)'.format(time.time()-t0))
 
     # # # Apply inverse transform to glom mask # # #
+    t0 = time.time()
     glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_red,
                                             moving=glom_mask_2_anat,
                                             transformlist=reg_FA['invtransforms'],
                                             interpolator='nearestNeighbor',
                                             defaultvalue=0)
+    print('FA transform  applied ({} sec)'.format(time.time()-t0))
 
-    print('Applied inverse transform ANAT -> FXN to glom_mask: {} ({} sec)'.format(functional_fn, time.time()-t0))
+    print('Computed transform from FXN -> ANAT & applied inverse to glom mask ({} sec)'.format(time.time()-t0))
 
     # Load functional (green) brain series
     green_brain = dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata_fxn, channel=1)  # xyzt
@@ -132,6 +138,6 @@ for bf in brain_file_sets:
                            mask_vals=vals,
                            response_set_name='glom_{}'.format(today))
 
-    print('Attached responses to {} ({} sec)'.format(h5_filepath, time.time()-t0))
+    print('Done. Attached responses to {} (total: {} sec)'.format(h5_filepath, time.time()-overall_t0))
 
     print('-----------------------')
