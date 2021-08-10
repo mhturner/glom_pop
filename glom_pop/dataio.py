@@ -11,7 +11,10 @@ import nibabel as nib
 from scipy.ndimage import gaussian_filter
 import functools
 import h5py
+import os
+import pandas as pd
 
+from visanalysis.analysis import imaging_data
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # #  Image processing # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -169,16 +172,25 @@ def loadResponses(ID, response_set_name='glom'):
 
     response_data = {}
     with h5py.File(ID.file_path, 'r') as experiment_file:
-        find_partial = functools.partial(find_series, series_number=ID.series_number)
+        find_partial = functools.partial(imaging_data.find_series, series_number=ID.series_number)
         roi_parent_group = experiment_file.visititems(find_partial)['aligned_response']
         roi_set_group = roi_parent_group[response_set_name]
-        response_data['response'] = list(roi_set_group.get("response")[:])
-        response_data['mask'] = list(roi_set_group.get("mask")[:])
+        response_data['response'] = roi_set_group.get("response")[:]
+        response_data['mask'] = roi_set_group.get("mask")[:]
         response_data['meanbrain'] = roi_set_group.get("meanbrain")[:]
 
-    time_vector, response_matrix = ID.getEpochResponseMatrix(response_data.get('response'))
+    time_vector, response_matrix = ID.getTrialAlignedVoxelResponses(response_data.get('response'), dff=True)
 
     response_data['epoch_response'] = response_matrix
     response_data['time_vector'] = time_vector
 
     return response_data
+
+def getGlomMaskDecoder(mask, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
+    # Load mask key for VPN types
+    vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+
+    vals = np.unique(mask)[1:]  # exclude first val (=0, not a glom)
+
+    names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
+    return vals, names

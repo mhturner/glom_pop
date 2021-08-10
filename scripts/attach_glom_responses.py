@@ -120,7 +120,7 @@ for bf in brain_file_sets:
     # yank out glom responses
     glom_responses = alignment.getGlomResponses(green_brain,
                                                 glom_mask_2_fxn.numpy(),
-                                                mask_values=None)
+                                                mask_values=vals)
 
     # attach all this to the hdf5 file
     meanbrain = dataio.merge_channels(fxn_red.numpy(), fxn_green.numpy())
