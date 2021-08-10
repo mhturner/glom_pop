@@ -101,7 +101,7 @@ for bf in brain_file_sets:
     fxn_green = dataio.get_time_averaged_brain(dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata_fxn, channel=1))  # xyz
     reg_FA = ants.registration(red_brain,
                                fxn_red,
-                               type_of_transform='SyN',
+                               type_of_transform='Rigid',  # Within-animal, rigid reg is OK
                                flow_sigma=3,
                                total_sigma=0)
 
