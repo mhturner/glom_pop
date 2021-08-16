@@ -11,6 +11,7 @@ import nibabel as nib
 import matplotlib.pyplot as plt
 import time
 import datetime
+import shutil
 
 from glom_pop import dataio
 
@@ -18,19 +19,11 @@ from glom_pop import dataio
 
 base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
 
-# file_names = ['ZSeries-20210804-001',  # **reference brain**
-#               'ZSeries-20210804-004',  #
-#               'ZSeries-20210804-007',  #
-#               'ZSeries-20210811-001',  #
-#               'ZSeries-20210811-004',  #
-#               'ZSeries-20210811-007',  #
-#               ]
-
 file_names = [
-              # 'TSeries-20210804-003',  # **reference brain**
-              # 'TSeries-20210804-006',  #
-              # 'TSeries-20210804-009',  #
-              'TSeries-20210811-003',  #
+              'TSeries-20210804-003',  #
+              'TSeries-20210804-006',  #
+              'TSeries-20210804-009',  #
+              'TSeries-20210811-003',  # **reference brain**
               'TSeries-20210811-006',  #
               'TSeries-20210811-009',  #
               ]
@@ -39,13 +32,17 @@ file_names = [
 today = datetime.datetime.today().strftime('%Y%m%d')
 
 # %% REFERENCE BRAIN
-reference_index = 0
+reference_index = 3
 reference_fn = file_names[reference_index]
 
 filepath = os.path.join(base_dir, 'anatomical_brains', reference_fn)
 metadata = dataio.get_bruker_metadata(filepath + '.xml')
 
-reference = dataio.get_ants_brain(filepath + '_channel_1.nii', metadata)  # xyz
+spacing = [float(metadata['micronsPerPixel_XAxis']),
+           float(metadata['micronsPerPixel_YAxis']),
+           float(metadata['micronsPerPixel_ZAxis'])]
+reference = dataio.get_ants_brain(filepath + '_anatomical.nii', metadata, channel=0, spacing=spacing)  # xyz
+
 reference = ants.n3_bias_field_correction(reference)
 spacing = reference.spacing
 
@@ -61,8 +58,11 @@ corrected_brains = []
 for fn in file_names:
     filepath = os.path.join(base_dir, 'anatomical_brains', fn)
     metadata = dataio.get_bruker_metadata(filepath + '.xml')
+    spacing = [float(metadata['micronsPerPixel_XAxis']),
+               float(metadata['micronsPerPixel_YAxis']),
+               float(metadata['micronsPerPixel_ZAxis'])]
 
-    red_brain = dataio.get_ants_brain(filepath + '_channel_1.nii', metadata)  # xyz
+    red_brain = dataio.get_ants_brain(filepath + '_anatomical.nii', metadata, channel=0, spacing=spacing)  # xyz
     # bias correction
     red_brain = ants.n3_bias_field_correction(red_brain)
 
@@ -93,7 +93,7 @@ print('Computed meanbrain 1 ({} sec)'.format(time.time()-t0))
 
 stride = 5  # show every n z slices
 
-fh, ax = plt.subplots(1, len(file_names), figsize=(12, 4))
+fh, ax = plt.subplots(1, len(file_names), figsize=(12, 6))
 ax = ax.ravel()
 [x.set_axis_off() for x in ax]
 for b_ind, b in enumerate(corrected_brains):
@@ -121,9 +121,12 @@ for fn in file_names:
     date_str = fn.split('-')[1]
     filepath = os.path.join(base_dir, 'anatomical_brains', fn)
     metadata = dataio.get_bruker_metadata(filepath + '.xml')
+    spacing = [float(metadata['micronsPerPixel_XAxis']),
+               float(metadata['micronsPerPixel_YAxis']),
+               float(metadata['micronsPerPixel_ZAxis'])]
 
-    red_brain = dataio.get_ants_brain(filepath + '_channel_1.nii', metadata)  # xyz, red
-    green_brain = dataio.get_ants_brain(filepath + '_channel_2.nii', metadata)  # xyz, green
+    red_brain = dataio.get_ants_brain(filepath + '_anatomical.nii', metadata, channel=0, spacing=spacing)  # xyz, red
+    green_brain = dataio.get_ants_brain(filepath + '_anatomical.nii', metadata, channel=1, spacing=spacing)  # xyz, green
 
     reg = ants.registration(meanbrain_1,
                             ants.n3_bias_field_correction(red_brain),  # Note bias correction
@@ -170,36 +173,52 @@ print('Computed and saved final meanbrain ({} sec)'.format(time.time()-t0))
 
 # Convert red to ants for next registration step
 meanbrain_red = ants.from_numpy(meanbrain_red, spacing=spacing)
-# %% REGISTER EACH BRAIN TO MEANBRAIN
+
+# %% REGISTER EACH BRAIN TO FINAL MEANBRAIN, SAVE TRANSFORMS FOR EACH
 
 for f_ind, fn in enumerate(file_names):
-    # # # Compute transform and load raw brain channels # # #
+    # # # Compute and save transforms # # #
     t0 = time.time()
+    transform_dir = os.path.join(base_dir, 'mean_brains', fn)
+    os.makedirs(transform_dir, exist_ok=True)
+    os.makedirs(os.path.join(transform_dir, 'forward'), exist_ok=True)
+    os.makedirs(os.path.join(transform_dir, 'inverse'), exist_ok=True)
 
     filepath = os.path.join(base_dir, 'anatomical_brains', fn)
     metadata = dataio.get_bruker_metadata(filepath + '.xml')
+    spacing = [float(metadata['micronsPerPixel_XAxis']),
+               float(metadata['micronsPerPixel_YAxis']),
+               float(metadata['micronsPerPixel_ZAxis'])]
 
-    red_brain = dataio.get_ants_brain(filepath + '_channel_1.nii', metadata)  # xyz
-    green_brain = dataio.get_ants_brain(filepath + '_channel_2.nii', metadata)  # xyz
+    red_brain = dataio.get_ants_brain(filepath + '_anatomical.nii', metadata, channel=0, spacing=spacing)  # xyz, red
+    green_brain = dataio.get_ants_brain(filepath + '_anatomical.nii', metadata, channel=1, spacing=spacing)  # xyz, green
 
     reg = ants.registration(meanbrain_red,
                             red_brain,
-                            type_of_transform='SyN',
+                            type_of_transform='ElasticSyN',
                             flow_sigma=3,
                             total_sigma=0)
 
-    print('Computed transform and loaded brains: {} ({} sec)'.format(fn, time.time()-t0))
+    # Copy transforms from tmp to long-term save dir
+    shutil.copy(reg['fwdtransforms'][0], os.path.join(transform_dir, 'forward', 'warp.nii.gz'))
+    shutil.copy(reg['fwdtransforms'][1], os.path.join(transform_dir, 'forward', 'affine.mat'))
+
+    shutil.copy(reg['invtransforms'][1], os.path.join(transform_dir, 'inverse', 'warp.nii.gz'))
+    shutil.copy(reg['invtransforms'][0], os.path.join(transform_dir, 'inverse', 'affine.mat'))
+
+    print('Computed and saved transforms: {} ({} sec)'.format(fn, time.time()-t0))
 
     # # # Apply transform to each channel # # #
     t0 = time.time()
+    transformlist = [os.path.join(transform_dir, 'forward', 'warp.nii.gz'), os.path.join(transform_dir, 'forward', 'affine.mat')]
     red_reg = ants.apply_transforms(fixed=meanbrain_red,
                                     moving=red_brain,
-                                    transformlist=reg['fwdtransforms'],
+                                    transformlist=transformlist,
                                     interpolator='nearestNeighbor',
                                     defaultvalue=0)
     green_reg = ants.apply_transforms(fixed=meanbrain_red,
                                       moving=green_brain,
-                                      transformlist=reg['fwdtransforms'],
+                                      transformlist=transformlist,
                                       interpolator='nearestNeighbor',
                                       defaultvalue=0)
     print('Applied transforms to {} ({} sec)'.format(fn, time.time()-t0))
@@ -208,7 +227,8 @@ for f_ind, fn in enumerate(file_names):
     # # # Save # # #
     # Save meanbrain as .nii
     merged = dataio.merge_channels(red_reg.numpy(), green_reg.numpy())
-    nib.save(nib.Nifti1Image(merged.astype('uint16'), np.eye(4)), os.path.join(base_dir, 'mean_brains', fn) + '_meanbrain.nii')
-    print('Saved to {}'.format(os.path.join(base_dir, 'mean_brains', fn) + '_meanbrain.nii'))
+    save_path = os.path.join(base_dir, 'mean_brains', transform_dir,  'reg_meanbrain.nii')
+    nib.save(nib.Nifti1Image(merged.astype('uint16'), np.eye(4)), save_path)
+    print('Saved to {}'.format(save_path))
 
 # %%

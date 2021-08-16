@@ -18,11 +18,15 @@ from matplotlib.patches import Patch
 from glom_pop import dataio
 
 # %%
+# os.environ['ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS'] = "1"
+
+# del os.environ['ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS']
+# %%
 
 base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
-meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210805')
+meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210816')
 
-
+mask_fn = 'lobe_mask_chat_meanbrain_{}_ch1.nii'.format('20210816')
 # %% LOAD
 # Load meanbrain
 reference_fn = 'ZSeries-20210804-001'
@@ -32,10 +36,16 @@ metadata = dataio.get_bruker_metadata(filepath + '.xml')
 meanbrain_red = dataio.get_ants_brain(os.path.join(base_dir, 'mean_brains', meanbrain_fn), metadata, channel=0)
 meanbrain_green = dataio.get_ants_brain(os.path.join(base_dir, 'mean_brains', meanbrain_fn), metadata, channel=1)
 
+lobe_mask = np.asanyarray(nib.load(os.path.join(base_dir, 'mean_brains', mask_fn)).dataobj).astype('uint32')
+lobe_mask = ants.from_numpy(np.squeeze(lobe_mask), spacing=meanbrain_red.spacing)
 
 atlas_spacing = (0.38, 0.38, 0.38)  # um
 template = np.squeeze(np.asanyarray(nib.load(os.path.join(base_dir, 'template_brain', 'jrc2018.nii')).dataobj).astype('uint32'))
 glom_mask = np.squeeze(np.asanyarray(nib.load(os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_closed_eroded.nii')).dataobj).astype('uint32'))
+
+# Remove mask voxels == 1 (LC10, not in volume really, messes with synthmorph)
+glom_mask[glom_mask==1] = 0
+
 template = ants.from_numpy(template, spacing=atlas_spacing)
 glom_mask = ants.from_numpy(glom_mask, spacing=atlas_spacing)
 
@@ -43,47 +53,34 @@ glom_mask = ants.from_numpy(glom_mask, spacing=atlas_spacing)
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 
 # %% SHOW TEMPLATE BRAIN
-tmp = dataio.get_smooth_brain(template, smoothing_sigma=[3, 3, 2])
+template_smoothed = dataio.get_smooth_brain(template, smoothing_sigma=[3, 3, 2])
 
 fh, ax = plt.subplots(4, 5, figsize=(16, 8))
 ax = ax.ravel()
 [x.set_axis_off() for x in ax.ravel()]
 for z in range(18):
-    ax[z].imshow(tmp[:, :, z*5].T)
+    ax[z].imshow(template_smoothed[:, :, z*5].T)
+
+# %% SHOW MEAN BRAIN
+meanbrain_smoothed = dataio.get_smooth_brain(meanbrain_red, smoothing_sigma=[2, 2, 1])
+
+fh, ax = plt.subplots(4, 5, figsize=(16, 8))
+ax = ax.ravel()
+[x.set_axis_off() for x in ax.ravel()]
+for z in range(18):
+    ax[z].imshow(meanbrain_smoothed[:, :, z*2].T)
 
 # %% COMPUTE ALIGNMENT - affine only
-#
-# reg = ants.registration(meanbrain_red,  # fixed = meanbrain
-#                         tmp,  # Moving = smoothed template
-#                         type_of_transform='Affine',
-#                         flow_sigma=6,
-#                         total_sigma=0)
-#
-# # APPLY ALIGNMENT TO (RAW) MASK & TEMPLATE
-# template_transformed = ants.apply_transforms(meanbrain_red,
-#                                              template,
-#                                              reg['fwdtransforms'],
-#                                              interpolator='nearestNeighbor')
-#
-# glom_mask_transformed = ants.apply_transforms(meanbrain_red,
-#                                               glom_mask,
-#                                               reg['fwdtransforms'],
-#                                               interpolator='nearestNeighbor')
-#
-# # # Save transformed brains and mask
-# nib.save(nib.Nifti1Image(glom_mask_transformed.numpy(), np.eye(4)), os.path.join(base_dir, 'aligned', 'glom_mask_affine2meanbrain.nii'))
-# nib.save(nib.Nifti1Image(template_transformed.numpy(), np.eye(4)), os.path.join(base_dir, 'aligned', 'JRC2018_affine2meanbrain.nii'))
 
-# %% COMPUTE ALIGNMENT - elastic
-
-reg = ants.registration(meanbrain_red,  # fixed = meanbrain
-                        tmp,  # Moving = smoothed template
-                        type_of_transform='SyN',
+reg = ants.registration(meanbrain_smoothed,  # fixed = meanbrain
+                        template_smoothed,  # Moving = smoothed template
+                        type_of_transform='Affine',
+                        mask=lobe_mask,  # mask includes only gloms, excludes lobe
                         flow_sigma=6,
-                        total_sigma=0)
+                        total_sigma=1,
+                        random_seed=1)
 
-
-# %% APPLY ALIGNMENT TO MASK & TEMPLATE
+# APPLY ALIGNMENT TO (RAW) MASK & TEMPLATE
 template_transformed = ants.apply_transforms(meanbrain_red,
                                              template,
                                              reg['fwdtransforms'],
@@ -92,7 +89,35 @@ template_transformed = ants.apply_transforms(meanbrain_red,
 glom_mask_transformed = ants.apply_transforms(meanbrain_red,
                                               glom_mask,
                                               reg['fwdtransforms'],
-                                              interpolator='nearestNeighbor')
+                                              interpolator='genericLabel')
+
+# # Save transformed brains and mask
+nib.save(nib.Nifti1Image(glom_mask_transformed.numpy(), np.eye(4)), os.path.join(base_dir, 'aligned', 'glom_mask_affine2meanbrain.nii'))
+nib.save(nib.Nifti1Image(template_transformed.numpy(), np.eye(4)), os.path.join(base_dir, 'aligned', 'JRC2018_affine2meanbrain.nii'))
+
+# %% COMPUTE ALIGNMENT - SyN
+
+# TODO: make this more repeatable across runs?
+#   os.environ['ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS'] should be set to "1" as well, I think. But this slows everything down a lot
+reg = ants.registration(meanbrain_smoothed,  # fixed = meanbrain
+                        template_smoothed,  # Moving = smoothed template
+                        type_of_transform='SyN',
+                        mask=lobe_mask,  # mask includes only gloms, excludes lobe
+                        flow_sigma=6,
+                        total_sigma=0,
+                        random_seed=1)
+# TODO: save transforms and re-load from permanent dir in apply step
+
+# APPLY ALIGNMENT TO MASK & TEMPLATE
+template_transformed = ants.apply_transforms(meanbrain_red,
+                                             template,
+                                             reg['fwdtransforms'],
+                                             interpolator='nearestNeighbor')
+
+glom_mask_transformed = ants.apply_transforms(meanbrain_red,
+                                              glom_mask,
+                                              reg['fwdtransforms'],
+                                              interpolator='genericLabel')
 
 # # Save transformed brains and mask
 nib.save(nib.Nifti1Image(glom_mask_transformed.numpy(), np.eye(4)), os.path.join(base_dir, 'aligned', 'glom_mask_reg2meanbrain.nii'))

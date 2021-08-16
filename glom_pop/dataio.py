@@ -58,20 +58,21 @@ def merge_channels(ch1, ch2):
         merged np array, 2 channel brain (dims, c)
 
     """
-    return np.stack([ch1, ch2], axis=-1) # c is last dimension
+    return np.stack([ch1, ch2], axis=-1)  # c is last dimension
 
 
-def get_ants_brain(filepath, metadata, channel=0):
+def get_ants_brain(filepath, metadata, channel=0, spacing=None):
     """Load .nii brain file as ANTs image."""
-    image_dims = metadata.get('image_dims') # xyztc
+    image_dims = metadata.get('image_dims')  # xyztc
     nib_brain = np.asanyarray(nib.load(filepath).dataobj).astype('uint32')
-    spacing = [float(metadata.get('micronsPerPixel_XAxis', 0)),
-               float(metadata.get('micronsPerPixel_YAxis', 0)),
-               float(metadata.get('micronsPerPixel_ZAxis', 0)),
-               float(metadata.get('sample_period', 0))]
-    spacing = [spacing[x] for x in range(4) if image_dims[x] > 1]
+    if spacing is None:  # try to infer from the metadata file
+        spacing = [float(metadata.get('micronsPerPixel_XAxis', 0)),
+                   float(metadata.get('micronsPerPixel_YAxis', 0)),
+                   float(metadata.get('micronsPerPixel_ZAxis', 0)),
+                   float(metadata.get('sample_period', 0))]
+        spacing = [spacing[x] for x in range(4) if image_dims[x] > 1]
 
-    if image_dims[4] > 1: # multiple channels
+    if image_dims[4] > 1:  # multiple channels
         # trim to single channel
         return ants.from_numpy(np.squeeze(nib_brain[..., channel]), spacing=spacing)
     else:

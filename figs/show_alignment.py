@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from glom_pop import dataio, alignment
 
 base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
-meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210805')
+meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210816')
 
 # %% Load
 

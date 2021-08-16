@@ -1,7 +1,7 @@
 """
 Attach glom responses to datafile based on aligned glom map
 
-(1) Align ANAT scan to MEANBRAIN (AM)
+(1) Load pre-computed alignment from ANAT scan to MEANBRAIN (AM)
 (2) Align FXN scan to fly's own ANAT scan (FA)
 (3) Bridge meanbrain-aligned glom map into FXN: Inverse AM + Inverse FA
 (4) Use bridged glom map to pull out glom responses, and attach to visprotocol .hdf5 file
@@ -22,18 +22,25 @@ import pandas as pd
 import datetime
 
 from glom_pop import dataio, alignment
+# TODO: change to T anatomical scans, and load pre-computed individual ->  meanbrain alignments
 
-
-#                   (Time series, associated anatomical z series for this fly)
-brain_file_sets = [('TSeries-20210804-001', 'ZSeries-20210804-001'),
-                   ('TSeries-20210804-002', 'ZSeries-20210804-001'),
-                   ('TSeries-20210804-004', 'ZSeries-20210804-004'),
-                   ('TSeries-20210804-005', 'ZSeries-20210804-004'),
-                   ('TSeries-20210804-007', 'ZSeries-20210804-007'),
-                   ('TSeries-20210804-008', 'ZSeries-20210804-007'),
+#                   (Time series, associated anatomical series for this fly)
+brain_file_sets = [
+                   ('TSeries-20210804-001', 'TSeries-20210804-003'),
+                   # ('TSeries-20210804-002', 'TSeries-20210804-003'),
+                   # ('TSeries-20210804-004', 'TSeries-20210804-006'),
+                   # ('TSeries-20210804-005', 'TSeries-20210804-006'),
+                   # ('TSeries-20210804-007', 'TSeries-20210804-009'),
+                   # ('TSeries-20210804-008', 'TSeries-20210804-009'),
+                   # ('TSeries-20210811-001', 'TSeries-20210811-003'),
+                   # ('TSeries-20210811-002', 'TSeries-20210811-003'),
+                   # ('TSeries-20210811-004', 'TSeries-20210811-006'),
+                   # ('TSeries-20210811-005', 'TSeries-20210811-006'),
+                   # ('TSeries-20210811-007', 'TSeries-20210811-009'),
+                   # ('TSeries-20210811-008', 'TSeries-20210811-009'),
                    ]
 
-meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210805')
+meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210816')
 
 data_dir = '/oak/stanford/groups/trc/data/Max/ImagingData/Bruker'
 base_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop'
@@ -73,26 +80,31 @@ for bf in brain_file_sets:
     series_number = int(functional_fn.split('-')[-1])
 
     # # # Load anatomical scan # # #
-    anat_filepath = os.path.join(data_dir, date_str, anatomical_fn)
+    anat_filepath = os.path.join(base_dir, 'anatomical_brains', anatomical_fn)
     metadata = dataio.get_bruker_metadata(anat_filepath + '.xml')
-    red_brain = dataio.get_ants_brain(anat_filepath + '_channel_1.nii', metadata)  # xyz
+    spacing = [float(metadata['micronsPerPixel_XAxis']),
+               float(metadata['micronsPerPixel_YAxis']),
+               float(metadata['micronsPerPixel_ZAxis'])]
+    red_brain = dataio.get_ants_brain(anat_filepath + '_anatomical.nii', metadata, channel=0, spacing=spacing)  # xyz, red
 
-    # # # (1) Transform from ANAT -> MEANBRAIN # # #
+    # # # (1) Transform map from MEANBRAIN -> ANAT # # #
     t0 = time.time()
-    reg_AM = ants.registration(meanbrain_red,
-                               red_brain,
-                               type_of_transform='SyN',
-                               flow_sigma=3,
-                               total_sigma=0)
+    # Pre-computed is anat->meanbrain, so we want the Inverse transform
+    transform_dir = os.path.join(base_dir, 'mean_brains', anatomical_fn)
+    # Do affine then warp
+    transform_list = [
+            os.path.join(transform_dir, 'inverse', 'affine.mat'),
+            os.path.join(transform_dir, 'inverse', 'warp.nii.gz')
+        ]
 
     # Apply inverse transform to glom mask
     glom_mask_2_anat = ants.apply_transforms(fixed=red_brain,
                                              moving=glom_mask_2_meanbrain,
-                                             transformlist=reg_AM['invtransforms'],
-                                             interpolator='nearestNeighbor',
+                                             transformlist=transform_list,
+                                             interpolator='genericLabel',
                                              defaultvalue=0)
 
-    print('Computed transform from ANAT -> MEANBRAIN & applied inverse to glom mask ({:.1f} sec)'.format(time.time()-t0))
+    print('Applied inverse transform from ANAT -> MEANBRAIN to glom mask ({:.1f} sec)'.format(time.time()-t0))
 
     # # # (2) Transform from FXN -> ANAT (within fly) # # #
     t0 = time.time()

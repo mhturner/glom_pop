@@ -62,7 +62,7 @@ nib.save(nib.Nifti1Image(brain_density, np.eye(4)), os.path.join(base_dir, 'temp
 
 # %% MORPHOLOGICAL OPERATIONS ON EACH GLOMERULUS MASK
 
-mask_ids = np.unique(brain_mask)[1:] # exclude first (=0, i.e. nothing)
+mask_ids = np.unique(brain_mask)[1:]  # exclude first (=0, i.e. nothing)
 
 closed_mask = np.zeros_like(brain_mask)
 closed_eroded_mask = np.zeros_like(brain_mask)
@@ -74,8 +74,8 @@ for mask_id in mask_ids:
     closed_eroded_mask[morph_mask] = mask_id
 
 # Save closed masks
-nib.save(nib.Nifti1Image(closed_mask, np.eye(4)), os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_closed.nii')) # morpho closed each glom
-nib.save(nib.Nifti1Image(closed_eroded_mask, np.eye(4)), os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_closed_eroded.nii')) # morpho closed each glom
+nib.save(nib.Nifti1Image(closed_mask, np.eye(4)), os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_closed.nii'))  # morpho closed each glom
+nib.save(nib.Nifti1Image(closed_eroded_mask, np.eye(4)), os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_closed_eroded.nii'))  # morpho closed each glom
 
 # %% SHOW
 
