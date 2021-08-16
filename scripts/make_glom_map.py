@@ -15,41 +15,39 @@ import colorcet as cc
 import matplotlib.colors as mcolors
 from matplotlib.patches import Patch
 
-
-
 base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
 
 # %% LOAD TEMPLATE ARRAYS
 # (1) Load
 # (2) Get in xyz order
-# (3) Trim down to left PVLP/PLP area: [415:645, 250:450, 250:340] xyz
+# (3) Trim down to left PVLP/PLP area: [410:645, 250:450, 230:340] xyz
 # (4) Flip along z axis. Template has anterior at the top, but want anterior at the bottom of the stack
 
 # Load glom map hdf5 as array
-fileh = h5py.File(os.path.join(base_dir, 'template_brain', 'vpn_glom_map.h5'), 'r') # dim order = zxy
+fileh = h5py.File(os.path.join(base_dir, 'template_brain', 'vpn_glom_map.h5'), 'r')  # dim order = zxy
 
 # Mask with VPN identity
 brain_mask = np.zeros(fileh.get('mask/array').shape, dtype='uint8')
 fileh['mask/array'].read_direct(brain_mask)
-brain_mask = np.moveaxis(brain_mask, (0, 1, 2), (2, 0, 1)) # to xyz
+brain_mask = np.moveaxis(brain_mask, (0, 1, 2), (2, 0, 1))  # to xyz
 
 # Density map
 brain_density = np.zeros(fileh.get('density/array').shape, dtype='uint8')
 fileh['density/array'].read_direct(brain_density)
-brain_density = np.moveaxis(brain_density, (0, 1, 2), (2, 0, 1)) # to xyz
+brain_density = np.moveaxis(brain_density, (0, 1, 2), (2, 0, 1))  # to xyz
 
 fileh.close()
 
 print('Full brain_mask shape = {}'.format(brain_mask.shape))
-brain_mask = np.flip(brain_mask[415:645, 250:450, 250:340], axis=2)
-brain_density = np.flip(brain_density[415:645, 250:450, 250:340], axis=2)
+brain_mask = np.flip(brain_mask[410:645, 250:450, 230:340], axis=2)
+brain_density = np.flip(brain_density[410:645, 250:450, 230:340], axis=2)
 print('Trimmed brain_mask shape = {}'.format(brain_mask.shape))
 
 
 # Load template brain
 template = np.squeeze(np.asanyarray(nib.load(os.path.join(base_dir, 'template_brain', 'JRC2018_FEMALE_38um_iso_16bit.nii')).dataobj).astype('uint32')) # xyz
 print('Full template shape = {}'.format(template.shape))
-template = np.flip(template[415:645, 250:450, 250:340], axis=2)
+template = np.flip(template[410:645, 250:450, 230:340], axis=2)
 print('Trimmed template shape = {}'.format(template.shape))
 
 
@@ -87,11 +85,11 @@ fh, ax = plt.subplots(1, 4, figsize=(18, 6))
 ax[0].imshow(template[:, :, 40].T, cmap='Blues')
 ax[0].set_title('JRC2018')
 
-ax[1].imshow(np.ma.masked_where(brain_mask==0, brain_mask)[:, :, 40].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
+ax[1].imshow(np.ma.masked_where(brain_mask == 0, brain_mask)[:, :, 40].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
 ax[1].set_title('Raw Density Map')
 
-ax[2].imshow(np.ma.masked_where(closed_mask==0, closed_mask)[:, :, 40].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
+ax[2].imshow(np.ma.masked_where(closed_mask == 0, closed_mask)[:, :, 40].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
 ax[2].set_title('Closed Map')
 
-ax[3].imshow(np.ma.masked_where(closed_eroded_mask==0, closed_eroded_mask)[:, :, 40].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
+ax[3].imshow(np.ma.masked_where(closed_eroded_mask == 0, closed_eroded_mask)[:, :, 40].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
 ax[3].set_title('Closed, Eroded Map')

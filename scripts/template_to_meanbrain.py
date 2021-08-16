@@ -11,6 +11,9 @@ import nibabel as nib
 import ants
 import matplotlib.pyplot as plt
 import pandas as pd
+import colorcet as cc
+import matplotlib.colors as mcolors
+from matplotlib.patches import Patch
 
 from glom_pop import dataio
 
@@ -30,7 +33,7 @@ meanbrain_red = dataio.get_ants_brain(os.path.join(base_dir, 'mean_brains', mean
 meanbrain_green = dataio.get_ants_brain(os.path.join(base_dir, 'mean_brains', meanbrain_fn), metadata, channel=1)
 
 
-atlas_spacing = (0.38, 0.38, 0.38) # um
+atlas_spacing = (0.38, 0.38, 0.38)  # um
 template = np.squeeze(np.asanyarray(nib.load(os.path.join(base_dir, 'template_brain', 'jrc2018.nii')).dataobj).astype('uint32'))
 glom_mask = np.squeeze(np.asanyarray(nib.load(os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_closed_eroded.nii')).dataobj).astype('uint32'))
 template = ants.from_numpy(template, spacing=atlas_spacing)
@@ -48,11 +51,34 @@ ax = ax.ravel()
 for z in range(18):
     ax[z].imshow(tmp[:, :, z*5].T)
 
-# %% COMPUTE ALIGNMENT
+# %% COMPUTE ALIGNMENT - affine only
+#
+# reg = ants.registration(meanbrain_red,  # fixed = meanbrain
+#                         tmp,  # Moving = smoothed template
+#                         type_of_transform='Affine',
+#                         flow_sigma=6,
+#                         total_sigma=0)
+#
+# # APPLY ALIGNMENT TO (RAW) MASK & TEMPLATE
+# template_transformed = ants.apply_transforms(meanbrain_red,
+#                                              template,
+#                                              reg['fwdtransforms'],
+#                                              interpolator='nearestNeighbor')
+#
+# glom_mask_transformed = ants.apply_transforms(meanbrain_red,
+#                                               glom_mask,
+#                                               reg['fwdtransforms'],
+#                                               interpolator='nearestNeighbor')
+#
+# # # Save transformed brains and mask
+# nib.save(nib.Nifti1Image(glom_mask_transformed.numpy(), np.eye(4)), os.path.join(base_dir, 'aligned', 'glom_mask_affine2meanbrain.nii'))
+# nib.save(nib.Nifti1Image(template_transformed.numpy(), np.eye(4)), os.path.join(base_dir, 'aligned', 'JRC2018_affine2meanbrain.nii'))
 
-reg = ants.registration(meanbrain_red, # fixed = meanbrain
-                        tmp,
-                        type_of_transform='ElasticSyN',
+# %% COMPUTE ALIGNMENT - elastic
+
+reg = ants.registration(meanbrain_red,  # fixed = meanbrain
+                        tmp,  # Moving = smoothed template
+                        type_of_transform='SyN',
                         flow_sigma=6,
                         total_sigma=0)
 
@@ -73,17 +99,16 @@ nib.save(nib.Nifti1Image(glom_mask_transformed.numpy(), np.eye(4)), os.path.join
 nib.save(nib.Nifti1Image(template_transformed.numpy(), np.eye(4)), os.path.join(base_dir, 'aligned', 'JRC2018_reg2meanbrain.nii'))
 
 # %% CHECK OVERALL ALIGNMENT
-fh, ax = plt.subplots(1, 3, figsize=(16, 6))
+fh, ax = plt.subplots(1, 2, figsize=(16, 6))
 ax[0].imshow(meanbrain_red.max(axis=2).T)
 ax[1].imshow(template_transformed.max(axis=2).T)
-ax[2].imshow(ref.max(axis=2).T)
 
 for x in ax.ravel():
     x.grid(which='major', axis='both', linestyle='-', color='r')
 
 # %%
 # Show z slices of meanbrain, template, & glom map for alignment
-z_levels = [10, 15, 20, 25, 30]
+z_levels = [5, 10, 15, 20, 25, 30]
 
 glom_size_threshold = 300
 

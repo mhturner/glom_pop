@@ -78,4 +78,4 @@ for x in ax.ravel():
     x.set_ylim([190, 20])
 
 handles = [Patch(facecolor=color) for color in colors]
-fh.legend(handles, [label for label in names], fontsize=10, ncol=6, handleheight=1.0, labelspacing=0.05)
+fh.legend(handles, [label for label in names], fontsize=10, ncol=5, handleheight=1.0, labelspacing=0.05)

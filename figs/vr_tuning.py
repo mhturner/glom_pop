@@ -41,8 +41,6 @@ concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in rang
 cmap = cc.cm.glasbey
 colors = cmap(vals/vals.max())
 
-# %%
-
 
 # %% Glom responses
 fh, ax = plt.subplots(1 + concatenated_tuning.shape[0], len(unique_parameter_values), figsize=(18, 18))
