@@ -25,7 +25,7 @@ ID = volumetric_data.VolumetricDataObject(file_path,
                                           quiet=True)
 
 # Load response data
-response_data = dataio.loadResponses(ID, response_set_name='glom_20210810')
+response_data = dataio.loadResponses(ID, response_set_name='glom_20210816')
 
 vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
 
@@ -35,7 +35,7 @@ meanbrain_green = response_data.get('meanbrain')[..., 1]
 # Align responses
 mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, _ = ID.getMeanBrainByStimulus(response_data.get('epoch_response'))
 n_stimuli = mean_voxel_response.shape[2]
-concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in range(n_stimuli)], axis=1) # responses, time (concat stims)
+concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in range(n_stimuli)], axis=1)  # responses, time (concat stims)
 
 
 # %% GLOM MAP

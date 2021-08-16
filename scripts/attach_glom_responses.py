@@ -22,22 +22,21 @@ import pandas as pd
 import datetime
 
 from glom_pop import dataio, alignment
-# TODO: change to T anatomical scans, and load pre-computed individual ->  meanbrain alignments
 
 #                   (Time series, associated anatomical series for this fly)
 brain_file_sets = [
                    ('TSeries-20210804-001', 'TSeries-20210804-003'),
-                   # ('TSeries-20210804-002', 'TSeries-20210804-003'),
-                   # ('TSeries-20210804-004', 'TSeries-20210804-006'),
-                   # ('TSeries-20210804-005', 'TSeries-20210804-006'),
-                   # ('TSeries-20210804-007', 'TSeries-20210804-009'),
-                   # ('TSeries-20210804-008', 'TSeries-20210804-009'),
-                   # ('TSeries-20210811-001', 'TSeries-20210811-003'),
-                   # ('TSeries-20210811-002', 'TSeries-20210811-003'),
-                   # ('TSeries-20210811-004', 'TSeries-20210811-006'),
-                   # ('TSeries-20210811-005', 'TSeries-20210811-006'),
-                   # ('TSeries-20210811-007', 'TSeries-20210811-009'),
-                   # ('TSeries-20210811-008', 'TSeries-20210811-009'),
+                   ('TSeries-20210804-002', 'TSeries-20210804-003'),
+                   ('TSeries-20210804-004', 'TSeries-20210804-006'),
+                   ('TSeries-20210804-005', 'TSeries-20210804-006'),
+                   ('TSeries-20210804-007', 'TSeries-20210804-009'),
+                   ('TSeries-20210804-008', 'TSeries-20210804-009'),
+                   ('TSeries-20210811-001', 'TSeries-20210811-003'),
+                   ('TSeries-20210811-002', 'TSeries-20210811-003'),
+                   ('TSeries-20210811-004', 'TSeries-20210811-006'),
+                   ('TSeries-20210811-005', 'TSeries-20210811-006'),
+                   ('TSeries-20210811-007', 'TSeries-20210811-009'),
+                   ('TSeries-20210811-008', 'TSeries-20210811-009'),
                    ]
 
 meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210816')
@@ -127,7 +126,6 @@ for bf in brain_file_sets:
                                total_sigma=0)
 
     # # # Apply inverse transform to glom mask # # #
-    t0 = time.time()
     glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_red,
                                             moving=glom_mask_2_anat,
                                             transformlist=reg_FA['invtransforms'],
