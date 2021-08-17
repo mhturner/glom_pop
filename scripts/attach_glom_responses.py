@@ -105,7 +105,7 @@ for bf in brain_file_sets:
 
     print('Applied inverse transform from ANAT -> MEANBRAIN to glom mask ({:.1f} sec)'.format(time.time()-t0))
 
-    # # # (2) Transform from FXN -> ANAT (within fly) # # #
+    # # # (2) Transform from ANAT -> FXN (within fly) # # #
     t0 = time.time()
     fxn_filepath = os.path.join(data_dir, date_str, functional_fn)
     metadata_fxn = dataio.get_bruker_metadata(fxn_filepath + '.xml')
@@ -119,8 +119,8 @@ for bf in brain_file_sets:
 
     print('Loaded fxnal meanbrains ({:.1f} sec)'.format(time.time()-t0))
     t0 = time.time()
-    reg_FA = ants.registration(red_brain,
-                               fxn_red,
+    reg_FA = ants.registration(fxn_red,
+                               red_brain,
                                type_of_transform='Rigid',  # Within-animal, rigid reg is OK
                                flow_sigma=3,
                                total_sigma=0)
@@ -128,11 +128,11 @@ for bf in brain_file_sets:
     # # # Apply inverse transform to glom mask # # #
     glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_red,
                                             moving=glom_mask_2_anat,
-                                            transformlist=reg_FA['invtransforms'],
-                                            interpolator='nearestNeighbor',
+                                            transformlist=reg_FA['fwdtransforms'],
+                                            interpolator='genericLabel',
                                             defaultvalue=0)
 
-    print('Computed transform from FXN -> ANAT & applied inverse to glom mask ({:.1f} sec)'.format(time.time()-t0))
+    print('Computed transform from ANAT -> FXN & applied to glom mask ({:.1f} sec)'.format(time.time()-t0))
 
     # Load functional (green) brain series
     green_brain = dataio.get_ants_brain(fxn_filepath + '_reg.nii', metadata_fxn, channel=1)  # xyzt

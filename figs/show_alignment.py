@@ -40,7 +40,8 @@ vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'
 
 # %%
 # Show z slices of meanbrain, template, & glom map for alignment
-z_levels = [10, 15, 20, 25, 30]
+z_levels = [10, 15, 20, 25, 30, 35, 40, 44]
+z_levels = [10, 20, 30, 40]
 
 glom_size_threshold = 350
 
@@ -78,4 +79,4 @@ for x in ax.ravel():
     x.set_ylim([190, 20])
 
 handles = [Patch(facecolor=color) for color in colors]
-fh.legend(handles, [label for label in names], fontsize=10, ncol=5, handleheight=1.0, labelspacing=0.05)
+fh.legend(handles, [label for label in names], fontsize=10, ncol=4, handleheight=1.0, labelspacing=0.05)
