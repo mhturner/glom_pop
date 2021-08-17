@@ -1,21 +1,16 @@
-from visanalysis.analysis import imaging_data, volumetric_data
+from visanalysis.analysis import volumetric_data
 from visanalysis.util import plot_tools
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import colorcet as cc
-import matplotlib.colors as mcolors
-from matplotlib.patches import Patch
-import pandas as pd
-import seaborn as sns
-from scipy import stats
 
 from glom_pop import dataio, util
 
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
 experiment_file_name = '2021-08-04'
-series_number = 8 # 2, 5, 8,
+series_number = 8  # 2, 5, 8,
 
 file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
 
@@ -25,7 +20,7 @@ ID = volumetric_data.VolumetricDataObject(file_path,
                                           quiet=True)
 
 # Load response data
-response_data = dataio.loadResponses(ID, response_set_name='glom_20210810')
+response_data = dataio.loadResponses(ID, response_set_name='glom_20210817')
 
 vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
 

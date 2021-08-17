@@ -15,7 +15,7 @@ from glom_pop import dataio, util
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
 experiment_file_name = '2021-08-11'
-series_number = 1  # 1, 4, 7
+series_number = 7  # 1, 4, 7
 
 file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
 
@@ -25,7 +25,7 @@ ID = volumetric_data.VolumetricDataObject(file_path,
                                           quiet=True)
 
 # Load response data
-response_data = dataio.loadResponses(ID, response_set_name='glom_20210817')
+response_data = dataio.loadResponses(ID, response_set_name='glom_20210817', get_voxel_responses=False)
 
 vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
 
@@ -41,8 +41,7 @@ concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in rang
 # %% GLOM MAP
 
 z_to_show = [2, 4, 6, 8, 10]
-z_to_show = [1, 3, 5, 7, 9]
-# z_to_show = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+# z_to_show = [1, 3, 5, 7, 9]
 
 cmap = cc.cm.glasbey
 colors = cmap(vals/vals.max())
@@ -112,81 +111,6 @@ for u_ind, un in enumerate(unique_parameter_values):
             ax[g_ind+1, u_ind].set_ylabel(name)
 
 
-# %% Compare gloms across animals
-#
-# series = [
-#           ('2021-08-04', 1),
-#           ('2021-08-04', 4),
-#           ('2021-08-04', 7),
-#           ('2021-08-11', 1),
-#           ('2021-08-11', 4),  # Not very responsive gloms, see note in .h5
-#           ('2021-08-11', 7),
-#           ]
-#
-# resps = []
-# for ser in series:
-#     experiment_file_name = ser[0]
-#     series_number = ser[1]
-#
-#     file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
-#
-#     # ImagingDataObject wants a path to an hdf5 file and a series number from that file
-#     ID = volumetric_data.VolumetricDataObject(file_path,
-#                                               series_number,
-#                                               quiet=True)
-#
-#     # Load response data
-#     response_data = dataio.loadResponses(ID, response_set_name='glom_20210816')
-#
-#     vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
-#     print('{} gloms included'.format(len(names)))
-#
-#     meanbrain_red = response_data.get('meanbrain')[..., 0]
-#     meanbrain_green = response_data.get('meanbrain')[..., 1]
-#
-#     # Align responses
-#     mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, _ = ID.getMeanBrainByStimulus(response_data.get('epoch_response'))
-#     n_stimuli = mean_voxel_response.shape[2]
-#     concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in range(n_stimuli)], axis=1) # responses, time (concat stims)
-#
-#     resps.append(concatenated_tuning)
-#
-# resps = np.dstack(resps)
-#
-# # correlation within fly (i.e. between each glom within a fly)
-# within_fly = []
-# for f_ind in range(len(series)):
-#     cmat = pd.DataFrame(data=resps[:, :, f_ind].T).corr()
-#     corr_vals = cmat.to_numpy()[np.triu_indices(cmat.shape[0], k=1)]
-#     within_fly.append(corr_vals)
-#
-# # correlation between fly (for each glom type)
-# between_fly = []
-# for g_ind, name in enumerate(names):
-#     cmat = pd.DataFrame(data=resps[g_ind, :, :]).corr()
-#     corr_vals = cmat.to_numpy()[np.triu_indices(len(series), k=1)]
-#     between_fly.append(corr_vals)
-#
-# # %%
-#
-#
-# response_amp.shape
-# # %%
-#
-# between_fly[g_ind].shape
-# # %%
-# fh, ax = plt.subplots(1, 1, figsize=(10, 5))
-# for g_ind, name in enumerate(names):
-#     ax.plot(g_ind*np.ones(len(between_fly[g_ind])), between_fly[g_ind], 'ko')
-#
-# ax.set_xticks(np.arange(len(names)))
-# ax.set_xticklabels(names);
-# ax.set_ylim([-0.2, 1.0])
-# ax.axhline(color='k', alpha=0.5, linestyle='--')
-# ax.set_ylabel('Between-fly correlation', fontsize=16)
-#
-# within_fly_mean = np.median(np.stack(within_fly).ravel())
-# # ax.axhline(within_fly_mean, color='b', alpha=0.5, linestyle='--')
 
 # %%
 
@@ -195,7 +119,7 @@ series = [
           ('2021-08-04', 4),
           ('2021-08-04', 7),
           ('2021-08-11', 1),
-          ('2021-08-11', 4),  # Not very responsive gloms, see note in .h5
+          # ('2021-08-11', 4),  # Not very responsive gloms, see note in .h5
           ('2021-08-11', 7),
           ]
 

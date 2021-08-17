@@ -174,7 +174,7 @@ def find_series(name, obj, sn):
         return obj
 
 
-def loadResponses(ID, response_set_name='glom'):
+def loadResponses(ID, response_set_name='glom', get_voxel_responses=False):
 
     response_data = {}
     with h5py.File(ID.file_path, 'r') as experiment_file:
@@ -185,6 +185,20 @@ def loadResponses(ID, response_set_name='glom'):
         response_data['mask'] = roi_set_group.get("mask")[:]
         response_data['meanbrain'] = roi_set_group.get("meanbrain")[:]
 
+        if get_voxel_responses:
+            mask_vals = np.unique(response_data['mask'])[1:].astype(int)  # exclude first (0)
+            voxel_responses = {}
+            voxel_epoch_responses = {}
+            for mv in mask_vals:
+                voxel_responses[mv] = roi_set_group.get('voxel_resp_{}'.format(mv))[:].astype('float32')
+                _, response_matrix = ID.getTrialAlignedVoxelResponses(voxel_responses[mv], dff=False)
+                voxel_epoch_responses[mv] = response_matrix
+                
+    if get_voxel_responses:
+        response_data['voxel_responses'] = voxel_responses
+        response_data['voxel_epoch_responses'] = voxel_epoch_responses
+
+    # epoch_response matrix for glom responses
     time_vector, response_matrix = ID.getTrialAlignedVoxelResponses(response_data.get('response'), dff=True)
 
     response_data['epoch_response'] = response_matrix
