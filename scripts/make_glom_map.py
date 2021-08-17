@@ -78,18 +78,26 @@ nib.save(nib.Nifti1Image(closed_mask, np.eye(4)), os.path.join(base_dir, 'templa
 nib.save(nib.Nifti1Image(closed_eroded_mask, np.eye(4)), os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_closed_eroded.nii'))  # morpho closed each glom
 
 # %% SHOW
+z_slice = 60
 
 norm = mcolors.Normalize(vmin=1, vmax=brain_mask.max(), clip=True)
 
 fh, ax = plt.subplots(1, 4, figsize=(18, 6))
-ax[0].imshow(template[:, :, 40].T, cmap='Blues')
+ax[0].imshow(template[:, :, z_slice].T, cmap='Blues')
 ax[0].set_title('JRC2018')
 
-ax[1].imshow(np.ma.masked_where(brain_mask == 0, brain_mask)[:, :, 40].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
+ax[1].imshow(np.ma.masked_where(brain_mask == 0, brain_mask)[:, :, z_slice].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
 ax[1].set_title('Raw Density Map')
 
-ax[2].imshow(np.ma.masked_where(closed_mask == 0, closed_mask)[:, :, 40].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
+ax[2].imshow(np.ma.masked_where(closed_mask == 0, closed_mask)[:, :, z_slice].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
 ax[2].set_title('Closed Map')
 
-ax[3].imshow(np.ma.masked_where(closed_eroded_mask == 0, closed_eroded_mask)[:, :, 40].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
+ax[3].imshow(np.ma.masked_where(closed_eroded_mask == 0, closed_eroded_mask)[:, :, z_slice].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
 ax[3].set_title('Closed, Eroded Map')
+
+
+for x in ax.ravel():
+    x.locator_params(axis='y', nbins=6)
+    x.locator_params(axis='x', nbins=10)
+    x.grid(which='major', axis='both', linestyle='--', color='k')
+    x.grid(which='minor', axis='both', linestyle='--', color='k')

@@ -142,6 +142,10 @@ for bf in brain_file_sets:
                                                 glom_mask_2_fxn.numpy(),
                                                 mask_values=vals)
 
+    voxel_responses = alignment.getGlomVoxelResponses(green_brain,
+                                                      glom_mask_2_fxn.numpy(),
+                                                      mask_values=vals)
+
     # attach all this to the hdf5 file
     meanbrain = dataio.merge_channels(fxn_red.numpy(), fxn_green.numpy())
     dataio.attachResponses(file_path=h5_filepath,
@@ -150,7 +154,8 @@ for bf in brain_file_sets:
                            meanbrain=meanbrain,
                            responses=glom_responses,
                            mask_vals=vals,
-                           response_set_name='glom_{}'.format(today))
+                           response_set_name='glom_{}'.format(today),
+                           voxel_responses=voxel_responses)
 
     print('Done. Attached responses to {} (total: {:.1f} sec)'.format(h5_filepath, time.time()-overall_t0))
 

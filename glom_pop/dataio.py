@@ -144,7 +144,7 @@ def get_bruker_metadata(file_path):
     return metadata
 
 
-def attachResponses(file_path, series_number, mask, meanbrain, responses, mask_vals, response_set_name='glom'):
+def attachResponses(file_path, series_number, mask, meanbrain, responses, mask_vals, response_set_name='glom', voxel_responses=None):
     with h5py.File(file_path, 'r+') as experiment_file:
         find_partial = functools.partial(find_series, sn=series_number)
         epoch_run_group = experiment_file.visititems(find_partial)
@@ -155,7 +155,12 @@ def attachResponses(file_path, series_number, mask, meanbrain, responses, mask_v
         overwriteDataSet(current_roi_group, 'response', responses)
         overwriteDataSet(current_roi_group, 'meanbrain', meanbrain)
 
+        if voxel_responses is not None:
+            for ind, vr in enumerate(voxel_responses):
+                overwriteDataSet(current_roi_group, 'voxel_resp_{}'.format(mask_vals[ind]), vr)
+
         current_roi_group.attrs['mask_vals'] = mask_vals
+
 
 def overwriteDataSet(group, name, data):
     if group.get(name):
@@ -186,6 +191,7 @@ def loadResponses(ID, response_set_name='glom'):
     response_data['time_vector'] = time_vector
 
     return response_data
+
 
 def getGlomMaskDecoder(mask, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
     # Load mask key for VPN types
