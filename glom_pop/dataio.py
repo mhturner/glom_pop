@@ -193,7 +193,7 @@ def loadResponses(ID, response_set_name='glom', get_voxel_responses=False):
                 voxel_responses[mv] = roi_set_group.get('voxel_resp_{}'.format(mv))[:].astype('float32')
                 _, response_matrix = ID.getTrialAlignedVoxelResponses(voxel_responses[mv], dff=False)
                 voxel_epoch_responses[mv] = response_matrix
-                
+
     if get_voxel_responses:
         response_data['voxel_responses'] = voxel_responses
         response_data['voxel_epoch_responses'] = voxel_epoch_responses

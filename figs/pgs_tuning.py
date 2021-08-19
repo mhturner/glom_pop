@@ -15,7 +15,7 @@ from glom_pop import dataio, util
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
 experiment_file_name = '2021-08-04'
-series_number = 7  # 1, 4, 7
+series_number = 1  # 1, 4, 7
 
 save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/figs'
 
@@ -27,7 +27,7 @@ ID = volumetric_data.VolumetricDataObject(file_path,
                                           quiet=True)
 
 # Load response data
-response_data = dataio.loadResponses(ID, response_set_name='glom_20210817', get_voxel_responses=False)
+response_data = dataio.loadResponses(ID, response_set_name='glom_20210819', get_voxel_responses=False)
 
 vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
 
@@ -42,8 +42,8 @@ concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in rang
 
 # %% GLOM MAP
 
-# z_to_show = [2, 4, 6, 8, 10]
-z_to_show = [1, 3, 5, 7, 9]
+z_to_show = [2, 4, 6, 8, 10]
+# z_to_show = [1, 3, 5, 7, 9]
 
 cmap = cc.cm.glasbey
 colors = cmap(vals/vals.max())
@@ -147,7 +147,7 @@ for s_ind, ser in enumerate(series):
                                               quiet=True)
 
     # Load response data
-    response_data = dataio.loadResponses(ID, response_set_name='glom_20210817')
+    response_data = dataio.loadResponses(ID, response_set_name='glom_20210819')
     vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
 
     # Align responses

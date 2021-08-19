@@ -154,7 +154,7 @@ for bf in brain_file_sets:
                            meanbrain=meanbrain,
                            responses=glom_responses,
                            mask_vals=vals,
-                           response_set_name='glom_{}'.format(today),
+                           response_set_name='glom',
                            voxel_responses=voxel_responses)
 
     print('Done. Attached responses to {} (total: {:.1f} sec)'.format(h5_filepath, time.time()-overall_t0))
