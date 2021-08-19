@@ -9,15 +9,15 @@ from glom_pop import dataio, util
 
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
-experiment_file_name = '2021-08-04'
-series_number = 8  # 2, 5, 8,
+experiment_file_name = '2021-08-11'
+series_number = 2  # 2, 5, 8,
 
 file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
 
 # ImagingDataObject wants a path to an hdf5 file and a series number from that file
 ID = volumetric_data.VolumetricDataObject(file_path,
                                           series_number,
-                                          quiet=True)
+                                          quiet=False)
 
 # Load response data
 response_data = dataio.loadResponses(ID, response_set_name='glom_20210817')

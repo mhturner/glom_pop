@@ -14,8 +14,10 @@ from glom_pop import dataio, util
 
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
-experiment_file_name = '2021-08-11'
+experiment_file_name = '2021-08-04'
 series_number = 7  # 1, 4, 7
+
+save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/figs'
 
 file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
 
@@ -40,8 +42,8 @@ concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in rang
 
 # %% GLOM MAP
 
-z_to_show = [2, 4, 6, 8, 10]
-# z_to_show = [1, 3, 5, 7, 9]
+# z_to_show = [2, 4, 6, 8, 10]
+z_to_show = [1, 3, 5, 7, 9]
 
 cmap = cc.cm.glasbey
 colors = cmap(vals/vals.max())
@@ -74,6 +76,7 @@ for x in ax.ravel():
 
 handles = [Patch(facecolor=color) for color in colors]
 fh.legend(handles, [label for label in names], fontsize=8, ncol=4, handleheight=1.0, labelspacing=0.05)
+fh.savefig(os.path.join(save_directory, 'glom_overlay_{}_{}.pdf'.format(experiment_file_name, series_number)))
 
 # %% Glom responses
 
@@ -109,6 +112,9 @@ for u_ind, un in enumerate(unique_parameter_values):
 
         if u_ind == 0:
             ax[g_ind+1, u_ind].set_ylabel(name)
+
+fh.savefig(os.path.join(save_directory, 'ind_tuning_{}_{}.pdf'.format(experiment_file_name, series_number)))
+
 
 
 
@@ -186,6 +192,7 @@ for u_ind, un in enumerate(unique_parameter_values):
     for g_ind, name in enumerate(names):
         ax[g_ind+1, u_ind].plot(response_data.get('time_vector'), mean_responses[g_ind, :, u_ind], color=colors[g_ind, :], alpha=1.0, linewidth=2)
 
+fh.savefig(os.path.join(save_directory, 'mean_tuning.pdf'))
 # %%
 
 import umap
