@@ -38,8 +38,8 @@ res = 0.38 # um/voxel of atlas
 ito_atlas <- bioimagetools::readTIF(file.path(data_dir, 'template_brains', 'ito_2018.tif'), as.is=TRUE)
 
 # Get neuron / body IDs for different projection neuron types
-VPNs = neuprint_search("type:(LC|LPLC|LLPC|LT|MC)[0-9].*")
-# VPNs = neuprint_search("type:(LC|LPLC)[0-9].*")
+# VPNs = neuprint_search("type:(LC|LPLC|LLPC|LT|MC)[0-9].*")
+VPNs = neuprint_search("type:(LC|LPLC)[0-9].*")
 
 vpn_types = unique(VPNs[,'type'])
 

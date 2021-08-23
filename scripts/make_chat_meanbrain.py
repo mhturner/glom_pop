@@ -26,6 +26,8 @@ file_names = [
               'TSeries-20210811-003',  # **reference brain**
               'TSeries-20210811-006',  #
               'TSeries-20210811-009',  #
+              'TSeries-20210820-005',  #
+              'TSeries-20210820-009',  #
               ]
 
 
@@ -174,12 +176,14 @@ print('Computed and saved final meanbrain ({} sec)'.format(time.time()-t0))
 # Convert red to ants for next registration step
 meanbrain_red = ants.from_numpy(meanbrain_red, spacing=spacing)
 
+# %%
+
 # %% REGISTER EACH BRAIN TO FINAL MEANBRAIN, SAVE TRANSFORMS FOR EACH
 
 for f_ind, fn in enumerate(file_names):
     # # # Compute and save transforms # # #
     t0 = time.time()
-    transform_dir = os.path.join(base_dir, 'mean_brains', fn)
+    transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_anatomical', fn)
     os.makedirs(transform_dir, exist_ok=True)
     os.makedirs(os.path.join(transform_dir, 'forward'), exist_ok=True)
     os.makedirs(os.path.join(transform_dir, 'inverse'), exist_ok=True)
@@ -193,32 +197,34 @@ for f_ind, fn in enumerate(file_names):
     red_brain = dataio.get_ants_brain(filepath + '_anatomical.nii', metadata, channel=0, spacing=spacing)  # xyz, red
     green_brain = dataio.get_ants_brain(filepath + '_anatomical.nii', metadata, channel=1, spacing=spacing)  # xyz, green
 
-    reg = ants.registration(meanbrain_red,
-                            red_brain,
+    reg = ants.registration(fixed=meanbrain_red,
+                            moving=red_brain,
                             type_of_transform='ElasticSyN',
                             flow_sigma=3,
                             total_sigma=0)
 
     # Copy transforms from tmp to long-term save dir
-    shutil.copy(reg['fwdtransforms'][0], os.path.join(transform_dir, 'forward', 'warp.nii.gz'))
-    shutil.copy(reg['fwdtransforms'][1], os.path.join(transform_dir, 'forward', 'affine.mat'))
-
-    shutil.copy(reg['invtransforms'][1], os.path.join(transform_dir, 'inverse', 'warp.nii.gz'))
-    shutil.copy(reg['invtransforms'][0], os.path.join(transform_dir, 'inverse', 'affine.mat'))
+    dataio.save_transforms(reg, transform_dir)
+    # shutil.copy(reg['fwdtransforms'][0], os.path.join(transform_dir, 'forward', 'warp.nii.gz'))
+    # shutil.copy(reg['fwdtransforms'][1], os.path.join(transform_dir, 'forward', 'affine.mat'))
+    #
+    # shutil.copy(reg['invtransforms'][1], os.path.join(transform_dir, 'inverse', 'warp.nii.gz'))
+    # shutil.copy(reg['invtransforms'][0], os.path.join(transform_dir, 'inverse', 'affine.mat'))
 
     print('Computed and saved transforms: {} ({} sec)'.format(fn, time.time()-t0))
 
     # # # Apply transform to each channel # # #
     t0 = time.time()
-    transformlist = [os.path.join(transform_dir, 'forward', 'warp.nii.gz'), os.path.join(transform_dir, 'forward', 'affine.mat')]
+    transform_list = dataio.get_transform_list(transform_dir, direction='forward')
+    # transformlist = [os.path.join(transform_dir, 'forward', 'warp.nii.gz'), os.path.join(transform_dir, 'forward', 'affine.mat')]
     red_reg = ants.apply_transforms(fixed=meanbrain_red,
                                     moving=red_brain,
-                                    transformlist=transformlist,
+                                    transformlist=transform_list,
                                     interpolator='nearestNeighbor',
                                     defaultvalue=0)
     green_reg = ants.apply_transforms(fixed=meanbrain_red,
                                       moving=green_brain,
-                                      transformlist=transformlist,
+                                      transformlist=transform_list,
                                       interpolator='nearestNeighbor',
                                       defaultvalue=0)
     print('Applied transforms to {} ({} sec)'.format(fn, time.time()-t0))

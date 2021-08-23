@@ -13,6 +13,7 @@ import functools
 import h5py
 import os
 import pandas as pd
+import shutil
 
 from visanalysis.analysis import imaging_data
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -60,6 +61,27 @@ def merge_channels(ch1, ch2):
     """
     return np.stack([ch1, ch2], axis=-1)  # c is last dimension
 
+
+def save_transforms(registration_object, transform_dir):
+    """Save transforms from ANTsPy registration."""
+    os.makedirs(os.path.join(transform_dir, 'forward'), exist_ok=True)
+    os.makedirs(os.path.join(transform_dir, 'inverse'), exist_ok=True)
+
+    shutil.copy(registration_object['fwdtransforms'][0], os.path.join(transform_dir, 'forward', 'warp.nii.gz'))
+    shutil.copy(registration_object['fwdtransforms'][1], os.path.join(transform_dir, 'forward', 'affine.mat'))
+
+    shutil.copy(registration_object['invtransforms'][1], os.path.join(transform_dir, 'inverse', 'warp.nii.gz'))
+    shutil.copy(registration_object['invtransforms'][0], os.path.join(transform_dir, 'inverse', 'affine.mat'))
+
+
+def get_transform_list(transform_dir, direction='forward'):
+    """Get transform list from directory, based on direction of transform."""
+    if direction == 'forward':
+        transform_list = [os.path.join(transform_dir, 'forward', 'warp.nii.gz'), os.path.join(transform_dir, 'forward', 'affine.mat')]
+    elif direction == 'inverse':
+        transform_list = [os.path.join(transform_dir, 'inverse', 'affine.mat'), os.path.join(transform_dir, 'inverse', 'warp.nii.gz')]
+
+    return transform_list
 
 def get_ants_brain(filepath, metadata, channel=0, spacing=None):
     """Load .nii brain file as ANTs image."""
