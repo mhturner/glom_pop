@@ -18,50 +18,28 @@ from matplotlib.patches import Patch
 from glom_pop import dataio
 
 # %%
-# os.environ['ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS'] = "1"
-
-# del os.environ['ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS']
-# %%
 
 base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
-meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210823')
+meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210824')
 
 mask_fn = 'lobe_mask_chat_meanbrain_{}_ch1.nii'.format('20210816')
 # %% LOAD
 # Load meanbrain
-reference_fn = 'ZSeries-20210804-001'
-filepath = os.path.join(base_dir, 'anatomical_brains', reference_fn)
-metadata = dataio.get_bruker_metadata(filepath + '.xml')
-
-meanbrain_red = dataio.get_ants_brain(os.path.join(base_dir, 'mean_brains', meanbrain_fn), metadata, channel=0)
-meanbrain_green = dataio.get_ants_brain(os.path.join(base_dir, 'mean_brains', meanbrain_fn), metadata, channel=1)
+meanbrain = ants.image_read(os.path.join(base_dir, 'anatomical_brains', meanbrain_fn))
+[meanbrain_red, meanbrain_green] = ants.split_channels(meanbrain)
 
 lobe_mask = np.asanyarray(nib.load(os.path.join(base_dir, 'mean_brains', mask_fn)).dataobj).astype('uint32')
 lobe_mask = ants.from_numpy(np.squeeze(lobe_mask), spacing=meanbrain_red.spacing)
 
-atlas_spacing = (0.38, 0.38, 0.38)  # um
-template = np.squeeze(np.asanyarray(nib.load(os.path.join(base_dir, 'template_brain', 'jrc2018.nii')).dataobj).astype('uint32'))
-glom_mask = np.squeeze(np.asanyarray(nib.load(os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_closed.nii')).dataobj).astype('uint32'))
-
-# Remove mask voxels == 1 (LC10, not in volume, messes with synthmorph)
-glom_mask[glom_mask == 1] = 0
-
-template = ants.from_numpy(template, spacing=atlas_spacing)
-glom_mask = ants.from_numpy(glom_mask, spacing=atlas_spacing)
+# Load template & glom mask
+template = ants.image_read(os.path.join(base_dir, 'template_brain', 'jrc2018.nii'))
+glom_mask = ants.image_read(os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_closed.nii'))
 
 # Load mask key for VPN types
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
-# %%
 
-meanbrain_green
-
-
-tt=ants.merge_channels([meanbrain_red, meanbrain_green])
-tt[:, :, :].shape
-
-t = ants.split_channels(tt)
 # %% SHOW TEMPLATE BRAIN
-template_smoothed = dataio.get_smooth_brain(template, smoothing_sigma=[3, 3, 2])
+template_smoothed = ants.smooth_image(template, sigma=[3, 3, 2], sigma_in_physical_coordinates=False)
 
 fh, ax = plt.subplots(4, 5, figsize=(16, 8))
 ax = ax.ravel()
@@ -70,9 +48,9 @@ for z in range(18):
     ax[z].imshow(template_smoothed[:, :, z*5].T)
 
 # %% SHOW MEAN BRAIN - GREEN. Align on this.
-meanbrain_smoothed = dataio.get_smooth_brain(meanbrain_green, smoothing_sigma=[2, 2, 1])
+meanbrain_smoothed = ants.smooth_image(meanbrain_green, sigma=[2, 2, 1], sigma_in_physical_coordinates=False)
 
-disp_masked = np.ma.masked_where(lobe_mask.numpy()==0, meanbrain_smoothed.numpy()) # mask at 0
+disp_masked = np.ma.masked_where(lobe_mask.numpy() == 0, meanbrain_smoothed.numpy())  # mask at 0
 
 fh, ax = plt.subplots(4, 5, figsize=(16, 8))
 ax = ax.ravel()
@@ -81,42 +59,39 @@ for z in range(18):
     ax[z].imshow(disp_masked[:, :, z*2].T)
 # %% COMPUTE ALIGNMENT - SyN
 
-# TODO: make this more repeatable across runs?
-#   os.environ['ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS'] should be set to "1" as well, I think. But this slows everything down a lot
 reg = ants.registration(meanbrain_smoothed,  # fixed = meanbrain, green channel
                         template_smoothed,  # Moving = smoothed template
-                        type_of_transform='SyN',
+                        type_of_transform='ElasticSyN',
                         mask=lobe_mask,  # mask includes only gloms, excludes lobe
                         flow_sigma=6,
                         total_sigma=0,
                         random_seed=1)
 
+# Save transform
+transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_template')
+os.makedirs(transform_dir, exist_ok=True)
+dataio.save_transforms(reg, transform_dir)
+
+# Apply alignment to brain density and mask
+transform_list = dataio.get_transform_list(transform_dir, direction='forward')
+
 # APPLY ALIGNMENT TO MASK & TEMPLATE
-template_transformed = ants.apply_transforms(meanbrain_red,
-                                             template,
-                                             reg['fwdtransforms'],
+template_transformed = ants.apply_transforms(fixed=meanbrain_green,
+                                             moving=template,
+                                             transformlist=transform_list,
                                              interpolator='nearestNeighbor')
 
-glom_mask_transformed = ants.apply_transforms(meanbrain_red,
-                                              glom_mask,
-                                              reg['fwdtransforms'],
+glom_mask_transformed = ants.apply_transforms(fixed=meanbrain_green,
+                                              moving=glom_mask,
+                                              transformlist=transform_list,
                                               interpolator='genericLabel')
-# %%
-ants.image_write(template_transformed, os.path.join(base_dir, 'aligned', 'glom_mask_reg2meanbrain.nii'))
 
-# %%
-
-tt = ants.image_read(os.path.join(base_dir, 'aligned', 'glom_mask_reg2meanbrain.nii'))
-tt
-# %%
-
-# # Save transformed brains and mask
-nib.save(nib.Nifti1Image(glom_mask_transformed.numpy(), np.eye(4)), os.path.join(base_dir, 'aligned', 'glom_mask_reg2meanbrain.nii'))
-nib.save(nib.Nifti1Image(template_transformed.numpy(), np.eye(4)), os.path.join(base_dir, 'aligned', 'JRC2018_reg2meanbrain.nii'))
+ants.image_write(template_transformed, os.path.join(transform_dir, 'JRC2018_reg2meanbrain.nii'))
+ants.image_write(glom_mask_transformed, os.path.join(transform_dir, 'glom_mask_reg2meanbrain.nii'))
 
 # %% CHECK OVERALL ALIGNMENT
 fh, ax = plt.subplots(1, 2, figsize=(16, 6))
-ax[0].imshow(meanbrain_red.max(axis=2).T)
+ax[0].imshow(meanbrain_green.max(axis=2).T)
 ax[1].imshow(template_transformed.max(axis=2).T)
 
 for x in ax.ravel():
@@ -124,7 +99,7 @@ for x in ax.ravel():
 
 # %%
 # Show z slices of meanbrain, template, & glom map for alignment
-z_levels = [5, 10, 15, 20, 25, 30, 35]
+z_levels = [5, 10, 15, 20, 25, 30, 35, 40, 44]
 
 glom_size_threshold = 300
 
@@ -183,42 +158,13 @@ fh.legend(handles, [label for label in names], fontsize=10, ncol=6, handleheight
 
 
 # %%
-# slices = [10, 20, 30, 40]
-slices = [20]
-for slice in slices:
-    ants.plot(image=meanbrain_green, cmap='Greens', alpha=0.9,
-              axis=2, slices=slice, reorient=False, figsize=3)
-
-    ants.plot(image=glom_mask_transformed, cmap=cc.cm.glasbey,
-              axis=2, slices=slice, reorient=False, figsize=3, black_bg=False, bg_val_quant=0, bg_thresh_quant=0.1)
-
-    ants.plot(image=meanbrain_green, cmap='Greens', alpha=0.9,
-              overlay=glom_mask_transformed, overlay_cmap=cc.cm.glasbey, overlay_alpha=0.5,
-              axis=2, slices=slice, reorient=False, figsize=3, bg_val_quant=1.0, scale=False)
-
-
-# %%
-alpha = 0.5
-slice = 20
-
-image = meanbrain_green * alpha + glom_mask_transformed * (1 - alpha)
-image.shape
-image
-
-img_arr = image[:, :, slice]
-img_arr = img_arr / img_arr.max()
-img_arr = np.stack([img_arr[:, :, i] for i in range(3)], axis=-1)
-img_arr.shape
-
-# %%
 disp_meanbrain = meanbrain_green[55:230, 35:175, :]
 disp_glom = glom_mask_transformed[55:230, 35:175, :]
 
+glom_tmp = np.ma.masked_where(disp_glom == 0, disp_glom)  # mask at 0
 
-glom_tmp = np.ma.masked_where(disp_glom==0, disp_glom) # mask at 0
-
-slices = [10, 20, 30, 40]
-fh, ax = plt.subplots(len(slices), 3, figsize=(6, len(slices)*2))
+slices = [5, 10, 20, 30, 40, 44]
+fh, ax = plt.subplots(len(slices), 3, figsize=(12, len(slices)*3))
 [x.set_axis_off() for x in ax.ravel()]
 for s_ind, slice in enumerate(slices):
     ax[s_ind, 0].imshow(disp_meanbrain[:, :, slice].T, alpha=0.5, cmap='Greens', vmax=np.quantile(disp_meanbrain, 0.99))
