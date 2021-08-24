@@ -43,7 +43,5 @@ ch2 = ants.from_numpy(meanbrain[:, :, :, 1], spacing=spacing)
 merged = ants.merge_channels([ch1, ch2])
 save_path = os.path.join(os.path.split(file_base_path)[0], '{}_anatomical.nii'.format(fn))
 ants.image_write(merged, save_path)
-# # Save registered, merged .nii
-# save_path = os.path.join(os.path.split(file_base_path)[0], '{}_anatomical.nii'.format(fn))
-# nib.save(nib.Nifti1Image(meanbrain, np.eye(4)), save_path)
+
 print('Saved registered brain to {}. Total time = {:.1f}'.format(save_path, time.time()-t0))

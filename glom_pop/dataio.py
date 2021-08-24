@@ -7,8 +7,6 @@ https://github.com/mhturner/glom_pop
 import xml.etree.ElementTree as ET
 import ants
 import numpy as np
-import nibabel as nib
-from scipy.ndimage import gaussian_filter
 import functools
 import h5py
 import os
@@ -21,20 +19,20 @@ from visanalysis.analysis import imaging_data
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 
-def get_smooth_brain(brain, smoothing_sigma=[1.0, 1.0, 0.0, 2.0]):
-    """
-    Gaussian smooth brain.
-
-    brain: ants brain. shape = (spatial..., t)
-    smoothing_sigma: Gaussian smoothing kernel. len = rank of brain
-        Spatial dims come first. T last. Default dim is [x, y, z, t]
-
-    returns smoothed brain, ants. Same dims as input brain
-    """
-    smoothed = gaussian_filter(brain.numpy(), sigma=smoothing_sigma)
-
-    return ants.from_numpy(smoothed, spacing=brain.spacing)  # xyz
-
+# def get_smooth_brain(brain, smoothing_sigma=[1.0, 1.0, 0.0, 2.0]):
+#     """
+#     Gaussian smooth brain.
+#
+#     brain: ants brain. shape = (spatial..., t)
+#     smoothing_sigma: Gaussian smoothing kernel. len = rank of brain
+#         Spatial dims come first. T last. Default dim is [x, y, z, t]
+#
+#     returns smoothed brain, ants. Same dims as input brain
+#     """
+#     smoothed = gaussian_filter(brain.numpy(), sigma=smoothing_sigma)
+#
+#     return ants.from_numpy(smoothed, spacing=brain.spacing)  # xyz
+#
 
 def get_time_averaged_brain(brain, frames=None):
     """
@@ -49,18 +47,18 @@ def get_time_averaged_brain(brain, frames=None):
     return ants.from_numpy(brain[..., 0:frames].mean(axis=len(brain.shape)-1), spacing=spacing)
 
 
-def merge_channels(ch1, ch2):
-    """
-    Merge two channel brains into single array.
-
-    ch1, ch2: np array single channel brain (dims)
-
-    return
-        merged np array, 2 channel brain (dims, c)
-
-    """
-    return np.stack([ch1, ch2], axis=-1)  # c is last dimension
-
+# def merge_channels(ch1, ch2):
+#     """
+#     Merge two channel brains into single array.
+#
+#     ch1, ch2: np array single channel brain (dims)
+#
+#     return
+#         merged np array, 2 channel brain (dims, c)
+#
+#     """
+#     return np.stack([ch1, ch2], axis=-1)  # c is last dimension
+#
 
 def save_transforms(registration_object, transform_dir):
     """Save transforms from ANTsPy registration."""
@@ -77,28 +75,30 @@ def save_transforms(registration_object, transform_dir):
 def get_transform_list(transform_dir, direction='forward'):
     """Get transform list from directory, based on direction of transform."""
     if direction == 'forward':
-        transform_list = [os.path.join(transform_dir, 'forward', 'warp.nii.gz'), os.path.join(transform_dir, 'forward', 'affine.mat')]
+        transform_list = [os.path.join(transform_dir, 'forward', 'warp.nii.gz'),
+                          os.path.join(transform_dir, 'forward', 'affine.mat')]
     elif direction == 'inverse':
-        transform_list = [os.path.join(transform_dir, 'inverse', 'affine.mat'), os.path.join(transform_dir, 'inverse', 'warp.nii.gz')]
+        transform_list = [os.path.join(transform_dir, 'inverse', 'affine.mat'),
+                          os.path.join(transform_dir, 'inverse', 'warp.nii.gz')]
 
     return transform_list
-
-def get_ants_brain(filepath, metadata, channel=0, spacing=None):
-    """Load .nii brain file as ANTs image."""
-    image_dims = metadata.get('image_dims')  # xyztc
-    nib_brain = np.asanyarray(nib.load(filepath).dataobj).astype('uint32')
-    if spacing is None:  # try to infer from the metadata file
-        spacing = [float(metadata.get('micronsPerPixel_XAxis', 0)),
-                   float(metadata.get('micronsPerPixel_YAxis', 0)),
-                   float(metadata.get('micronsPerPixel_ZAxis', 0)),
-                   float(metadata.get('sample_period', 0))]
-        spacing = [spacing[x] for x in range(4) if image_dims[x] > 1]
-
-    if image_dims[4] > 1:  # multiple channels
-        # trim to single channel
-        return ants.from_numpy(np.squeeze(nib_brain[..., channel]), spacing=spacing)
-    else:
-        return ants.from_numpy(np.squeeze(nib_brain), spacing=spacing)
+#
+# def get_ants_brain(filepath, metadata, channel=0, spacing=None):
+#     """Load .nii brain file as ANTs image."""
+#     image_dims = metadata.get('image_dims')  # xyztc
+#     nib_brain = np.asanyarray(nib.load(filepath).dataobj).astype('uint32')
+#     if spacing is None:  # try to infer from the metadata file
+#         spacing = [float(metadata.get('micronsPerPixel_XAxis', 0)),
+#                    float(metadata.get('micronsPerPixel_YAxis', 0)),
+#                    float(metadata.get('micronsPerPixel_ZAxis', 0)),
+#                    float(metadata.get('sample_period', 0))]
+#         spacing = [spacing[x] for x in range(4) if image_dims[x] > 1]
+#
+#     if image_dims[4] > 1:  # multiple channels
+#         # trim to single channel
+#         return ants.from_numpy(np.squeeze(nib_brain[..., channel]), spacing=spacing)
+#     else:
+#         return ants.from_numpy(np.squeeze(nib_brain), spacing=spacing)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # #  Bruker / Prairie View metadata functions # # # # # # # # #

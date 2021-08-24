@@ -69,7 +69,7 @@ brain_mask = ants.image_read(os.path.join(base_dir, 'template_brain', 'vpn_glom_
 brain_density = ants.image_read(os.path.join(base_dir, 'template_brain', 'vpn_glom_density.nii'))
 
 # registration images: Smoothed template and closed density map
-template_smoothed = dataio.get_smooth_brain(template, smoothing_sigma=[3, 3, 2])
+template_smoothed = ants.smooth_image(template, sigma=[3, 3, 2], sigma_in_physical_coordinates=False)
 brain_density_closed = morphology.closing(brain_density.numpy() > 0, selem=morphology.ball(4))
 brain_density_closed = brain_density_closed * 1.0  # bool -> float
 brain_density_closed = ants.from_numpy(brain_density_closed, spacing=atlas_spacing)

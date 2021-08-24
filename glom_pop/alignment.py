@@ -21,13 +21,19 @@ def getGlomVoxelResponses(brain, glom_mask, mask_values=None):
 
 
 def filterGlomMask(mask, threshold):
+    """
+    Remove gloms in mask with fewer than <threshold> number of voxels.
+
+    :mask: ndarray of glom mask
+    :threshold: minimum no. voxels for each included glom
+    """
     vals = np.unique(mask)
     # mask out gloms with fewer than glom_size_threshold voxels
     for m_ind, mask_id in enumerate(vals):
         voxels_in_mask = np.sum(mask == mask_id)
         if voxels_in_mask < threshold:
-            mask[mask==mask_id] = 0
+            mask[mask == mask_id] = 0
         else:
-             pass
+            pass
 
     return mask
