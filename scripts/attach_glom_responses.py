@@ -37,6 +37,11 @@ brain_file_sets = [
                    ('TSeries-20210811-005', 'TSeries-20210811-006'),
                    ('TSeries-20210811-007', 'TSeries-20210811-009'),
                    ('TSeries-20210811-008', 'TSeries-20210811-009'),
+                   ('TSeries-20210820-002', 'TSeries-20210820-005'),
+                   ('TSeries-20210820-003', 'TSeries-20210820-005'),
+                   ('TSeries-20210820-004', 'TSeries-20210820-005'),
+                   ('TSeries-20210820-006', 'TSeries-20210820-009'),
+                   ('TSeries-20210820-008', 'TSeries-20210820-009'),
                    ]
 
 meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210824')
