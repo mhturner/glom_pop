@@ -9,8 +9,8 @@ from glom_pop import dataio, util
 
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
-experiment_file_name = '2021-08-11'
-series_number = 2  # 2, 5, 8,
+experiment_file_name = '2021-08-20'
+series_number = 4  # 2, 5, 8,
 
 file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
 
@@ -20,7 +20,7 @@ ID = volumetric_data.VolumetricDataObject(file_path,
                                           quiet=False)
 
 # Load response data
-response_data = dataio.loadResponses(ID, response_set_name='glom_20210817')
+response_data = dataio.loadResponses(ID, response_set_name='glom')
 
 vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
 
@@ -36,7 +36,12 @@ concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in rang
 cmap = cc.cm.glasbey
 colors = cmap(vals/vals.max())
 
+# %%
 
+fh, ax = plt.subplots(14, 1, figsize=(16, 8))
+for i in range(14):
+    ax[i].plot(response_data['response'][i, :])
+    ax[i].set_axis_off()
 # %% Glom responses
 fh, ax = plt.subplots(1 + concatenated_tuning.shape[0], len(unique_parameter_values), figsize=(18, 18))
 [util.cleanAxes(x) for x in ax.ravel()]
