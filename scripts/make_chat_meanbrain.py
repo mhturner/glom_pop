@@ -20,7 +20,7 @@ base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
 today = datetime.datetime.today().strftime('%Y%m%d')
 
 # %% REFERENCE BRAIN
-reference_filename = 'TSeries-20210811-003_anatomical.nii'
+reference_filename = 'TSeries-20210804-009_anatomical.nii'
 # 2-channel xyz
 reference_brain = ants.image_read(os.path.join(base_dir, 'anatomical_brains', reference_filename))
 spacing = reference_brain.spacing
@@ -212,6 +212,7 @@ registerBrainsToReference(brain_directory=os.path.join(base_dir, 'anatomical_bra
                           type_of_transform='ElasticSyN')
 
 # %% Compare registrations to meanbrain
+slices = [10, 20, 30, 40]
 
 brain_directory = os.path.join(base_dir, 'anatomical_brains')
 file_paths = glob.glob(os.path.join(brain_directory, '*_anatomical.nii'))
@@ -226,4 +227,31 @@ for fp in file_paths:
 
     ants.plot(image=ants.split_channels(meanbrain)[0], cmap='Reds', alpha=0.5,
               overlay=ind_red, overlay_cmap='Greens', overlay_alpha=0.5,
-              axis=2, slices=20, reorient=False, figsize=3, bg_val_quant=1.0, scale=False)
+              axis=2, slices=slices, reorient=False, figsize=3, bg_val_quant=1.0, scale=False)
+
+# %%
+slices = [10, 20, 30, 40]
+
+
+fh, ax = plt.subplots(len(file_paths), len(slices), figsize=(12, 18))
+[x.set_axis_off() for x in ax.ravel()]
+for f_ind, fp in enumerate(file_paths):
+    series_name = os.path.split(fp)[-1].split('_')[0]
+    base_dir = os.path.split(brain_directory)[0]
+    # Make save paths for transforms
+    transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_anatomical', series_name)
+    brain_fp = os.path.join(transform_dir, 'meanbrain_reg.nii')
+    ind_red = ants.split_channels(ants.image_read(brain_fp))[0]
+    for s_ind, s in enumerate(slices):
+        ax[f_ind, s_ind].imshow(ind_red[:, :, s].T, cmap='Reds')
+
+        if s_ind == 0:
+            ax[f_ind, s_ind].set_title(series_name)
+
+
+
+
+
+
+
+# %%

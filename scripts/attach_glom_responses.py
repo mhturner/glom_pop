@@ -3,7 +3,7 @@ Attach glom responses to datafile based on aligned glom map
 
 (1) Load pre-computed alignment from ANAT scan to MEANBRAIN (AM)
 (2) Align FXN scan to fly's own ANAT scan (FA)
-(3) Bridge meanbrain-aligned glom map into FXN: Inverse AM + Inverse FA
+(3) Bridge meanbrain-aligned glom map into FXN
 (4) Use bridged glom map to pull out glom responses, and attach to visprotocol .hdf5 file
 
 

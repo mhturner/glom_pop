@@ -18,7 +18,7 @@ from glom_pop import alignment
 
 base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
 meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210824')
-mask_fn = 'lobe_mask_chat_meanbrain_{}_ch1.nii'.format('20210816')
+mask_fn = 'lobe_mask_chat_meanbrain_{}.nii'.format('20210824')
 
 save_directory = os.path.join(base_dir, 'figs')
 transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
@@ -63,14 +63,14 @@ fh, ax = plt.subplots(len(z_levels), 4, figsize=(8, 8))
 [x.set_yticklabels([]) for x in ax.ravel()]
 [x.tick_params(bottom=False, left=False) for x in ax.ravel()]
 
-vmax = np.quantile(grn_tmp[55:230, 35:175, :], 0.97)
+vmax = np.quantile(grn_tmp[30:230, 5:180, :], 0.97)
 
 for z_ind, z in enumerate(z_levels):
     # Note zoomed-in, trimmed view
-    ax[z_ind, 0].imshow(meanbrain_red[55:230, 35:175, z].T, cmap='Reds')
-    ax[z_ind, 1].imshow(grn_tmp[55:230, 35:175, z].T, cmap='Greens', vmax=vmax)
-    ax[z_ind, 2].imshow(template_2_meanbrain[55:230, 35:175, z].T, cmap='Blues')
-    ax[z_ind, 3].imshow(glom_tmp[55:230, 35:175, z].T, cmap=cmap, norm=norm, interpolation='none')
+    ax[z_ind, 0].imshow(meanbrain_red[30:230, 5:180, z].T, cmap='Reds')
+    ax[z_ind, 1].imshow(grn_tmp[30:230, 5:180, z].T, cmap='Greens', vmax=vmax)
+    ax[z_ind, 2].imshow(template_2_meanbrain[30:230, 5:180, z].T, cmap='Blues')
+    ax[z_ind, 3].imshow(glom_tmp[30:230, 5:180, z].T, cmap=cmap, norm=norm, interpolation='none')
 
     if z_ind==0:
         ax[z_ind, 0].set_title('mtdTomato')
@@ -79,8 +79,8 @@ for z_ind, z in enumerate(z_levels):
         ax[z_ind, 3].set_title('Glomerulus map')
 
         dx = 25 / meanbrain_red.spacing[0]  # um -> pix
-        ax[z_ind, 0].plot([10, 10+dx], [135, 135], color='k', linestyle='-', marker='None', linewidth=2)
-        ax[z_ind, 0].annotate('25 um', (6, 130), fontweight='bold')
+        ax[z_ind, 0].plot([10, 10+dx], [160, 160], color='k', linestyle='-', marker='None', linewidth=2)
+        ax[z_ind, 0].annotate('25 um', (6, 150), fontweight='bold')
 
 for x in ax.ravel():
     d_line = 30
