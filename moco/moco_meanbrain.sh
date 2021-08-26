@@ -6,12 +6,12 @@
 #SBATCH --time=96:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --output=/home/users/mhturner/turner_analysis/job_outputs/%x.%j.out
+#SBATCH --output=/home/users/mhturner/glom_pop/moco/%x.%j.out
 #SBATCH --open-mode=append
 
 module use /home/groups/trc/modules
 module load antspy/0.2.2
 
-python3 /home/users/mhturner/turner_analysis/moco_meanbrain.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-004
+python3 /home/users/mhturner/glom_pop/moco/moco_meanbrain.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-004
 
-python3 /home/users/mhturner/turner_analysis/moco_meanbrain.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-012
+python3 /home/users/mhturner/glom_pop/moco/moco_meanbrain.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-012
