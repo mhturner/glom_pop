@@ -19,8 +19,8 @@ from glom_pop import dataio, util
 
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
-experiment_file_name = '2021-08-04'
-series_number = 1  # 1, 4, 7
+experiment_file_name = '2021-08-20'
+series_number = 2
 
 save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/figs'
 
@@ -33,6 +33,8 @@ ID = volumetric_data.VolumetricDataObject(file_path,
 
 # Load response data
 response_data = dataio.loadResponses(ID, response_set_name='glom', get_voxel_responses=True)
+
+# %%
 
 vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
 
@@ -48,25 +50,27 @@ concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in rang
 # %% GLOM MAP
 
 # z_to_show = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-z_to_show = [1, 3, 5, 7]
+z_to_show = [1, 3, 5, 7, 9]
 
 cmap = cc.cm.glasbey
 colors = cmap(vals/vals.max())
 norm = mcolors.Normalize(vmin=0, vmax=vals.max(), clip=True)
 glom_tmp = np.ma.masked_where(response_data.get('mask') == 0, response_data.get('mask'))  # mask at 0
 
-fh, ax = plt.subplots(2, len(z_to_show), figsize=(8, 4))
+fh, ax = plt.subplots(3, len(z_to_show), figsize=(8, 4))
 [x.set_xticklabels([]) for x in ax.ravel()]
 [x.set_yticklabels([]) for x in ax.ravel()]
 [x.tick_params(bottom=False, left=False) for x in ax.ravel()]
 
 for z_ind, z in enumerate(z_to_show):
     ax[0, z_ind].imshow(meanbrain_red[:, :, z].T, cmap='Reds')
-    ax[1, z_ind].imshow(glom_tmp[:, :, z].T, cmap=cmap, norm=norm, interpolation='none')
+    ax[1, z_ind].imshow(meanbrain_green[:, :, z].T, cmap='Greens')
+    ax[2, z_ind].imshow(glom_tmp[:, :, z].T, cmap=cmap, norm=norm, interpolation='none')
 
     if z_ind == 0:
-        ax[0, z_ind].set_title('mtdTomato')
-        ax[1, z_ind].set_title('Glomerulus map')
+        # ax[0, z_ind].set_title('mtdTomato')
+        # ax[1, z_ind].set_title('syt1GCaMP6F')
+        # ax[2, z_ind].set_title('Glomerulus map')
 
         dx = 25 / np.float(ID.getAcquisitionMetadata().get('micronsPerPixel_XAxis'))  # um -> pix
         ax[0, z_ind].plot([17, 17+dx], [90, 90], color='k', linestyle='-', marker='None', linewidth=2)

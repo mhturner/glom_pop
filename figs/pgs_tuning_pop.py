@@ -8,7 +8,6 @@ import colorcet as cc
 from glom_pop import dataio, util
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
-experiment_file_name = '2021-08-11'
 save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/figs'
 
 
@@ -17,10 +16,12 @@ save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/figs'
 series = [
           ('2021-08-04', 1),
           ('2021-08-04', 4),
-          # ('2021-08-04', 7), # somewhat weak responses
+          # ('2021-08-04', 7),  # somewhat weak responses
           ('2021-08-11', 1),
           # ('2021-08-11', 4),  # Not very responsive gloms, see note in .h5
           ('2021-08-11', 7),
+          ('2021-08-20', 2),
+          ('2021-08-20', 6),  # Check moco on this?
           ]
 
 
