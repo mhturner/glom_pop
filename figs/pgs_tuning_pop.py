@@ -47,6 +47,10 @@ for s_ind, ser in enumerate(series):
     cmap = cc.cm.glasbey
     colors = cmap(vals/vals.max())
 
+    # voxels per glom
+    vox_per_glom = [np.sum(response_data.get('mask') == mv) for mv in vals]
+    print(vox_per_glom)
+
     # Align responses
     mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, _ = ID.getMeanBrainByStimulus(response_data.get('epoch_response'))
     n_stimuli = mean_voxel_response.shape[2]
@@ -90,3 +94,42 @@ for u_ind, un in enumerate(unique_parameter_values):
         ax[g_ind+1, u_ind].plot(response_data.get('time_vector'), mean_responses[g_ind, :, u_ind], color=colors[g_ind, :], alpha=1.0, linewidth=2)
 
 fh.savefig(os.path.join(save_directory, 'mean_tuning.pdf'))
+
+# %%
+# series = [
+#           ('2021-08-11', 10),  # R65B05
+#           ]
+
+series = [
+          ('2021-08-20', 10),  # LC11
+          ]
+
+all_responses = []
+for ser in series:
+    experiment_file_name = ser[0]
+    series_number = ser[1]
+    file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
+    ID = volumetric_data.VolumetricDataObject(file_path,
+                                              series_number,
+                                              quiet=True)
+
+    # Align responses
+    time_vector, voxel_trial_matrix = ID.getTrialAlignedVoxelResponses(ID.getRoiResponses('LC11').get('roi_response')[0], dff=True)
+    mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, _ = ID.getMeanBrainByStimulus(voxel_trial_matrix)
+    n_stimuli = mean_voxel_response.shape[2]
+    concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in range(n_stimuli)], axis=1)  # responses, time (concat stims)
+
+    all_responses.append(concatenated_tuning)
+
+mean_responses.shape
+response_amp
+
+unique_parameter_values
+# %%
+concatenated_tuning.shape
+plt.plot(concatenated_tuning.T)
+
+
+
+
+# %%

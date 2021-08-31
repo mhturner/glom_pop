@@ -22,7 +22,7 @@ today = datetime.datetime.today().strftime('%Y%m%d')
 # %% REFERENCE BRAIN
 reference_filename = 'TSeries-20210804-009_anatomical.nii'
 # 2-channel xyz
-reference_brain = ants.image_read(os.path.join(base_dir, 'anatomical_brains', reference_filename))
+reference_brain = ants.image_read(os.path.join(base_dir, 'mean_brain', reference_filename))
 spacing = reference_brain.spacing
 
 print('Brain spacing is {}'.format(spacing))
@@ -174,7 +174,7 @@ def showBrain(brain, stride):
 
 # %% Compute meanbrain 1:
 # Align smoothed brains, to get things roughly aligned
-meanbrain_1 = computeMeanbrain(brain_directory=os.path.join(base_dir, 'anatomical_brains'),
+meanbrain_1 = computeMeanbrain(brain_directory=os.path.join(base_dir, 'mean_brain'),
                                reference_brain=reference_brain,
                                type_of_transform='SyN',
                                do_bias_correction=True,
@@ -184,7 +184,7 @@ showBrain(meanbrain_1, stride=8)
 
 # %% Compute meanbrain 2:
 # No smoothing, elastic alignment
-meanbrain_2 = computeMeanbrain(brain_directory=os.path.join(base_dir, 'anatomical_brains'),
+meanbrain_2 = computeMeanbrain(brain_directory=os.path.join(base_dir, 'mean_brain'),
                                reference_brain=meanbrain_1,
                                type_of_transform='ElasticSyN',
                                do_bias_correction=True,
@@ -192,7 +192,7 @@ meanbrain_2 = computeMeanbrain(brain_directory=os.path.join(base_dir, 'anatomica
 
 showBrain(meanbrain_2, stride=8)
 # %% Compute final meanbrain:
-meanbrain = computeMeanbrain(brain_directory=os.path.join(base_dir, 'anatomical_brains'),
+meanbrain = computeMeanbrain(brain_directory=os.path.join(base_dir, 'mean_brain'),
                              reference_brain=meanbrain_2,
                              type_of_transform='ElasticSyN',
                              do_bias_correction=True,
@@ -201,12 +201,21 @@ meanbrain = computeMeanbrain(brain_directory=os.path.join(base_dir, 'anatomical_
 showBrain(meanbrain, stride=8)
 
 # Save final meanbrain
-save_path = os.path.join(base_dir, 'anatomical_brains', 'chat_meanbrain_{}.nii'.format(today))
+save_path = os.path.join(base_dir, 'mean_brain', 'chat_meanbrain_{}.nii'.format(today))
 ants.image_write(meanbrain, save_path)
+
+# save individual channels
+ants.image_write(ants.split_channels(meanbrain)[0], os.path.join(base_dir, 'mean_brain', 'chat_meanbrain_{}_ch1.nii'.format(today)))
+ants.image_write(ants.split_channels(meanbrain)[1], os.path.join(base_dir, 'mean_brain', 'chat_meanbrain_{}_ch2.nii'.format(today)))
 
 
 # %% Register each brain to final meanbrain and save these transforms
 
+# Load meanbrain
+meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210824')
+meanbrain = ants.image_read(os.path.join(base_dir, 'mean_brain', meanbrain_fn))
+
+# Note dir. change: registering all anatomical brains to meanbrain now
 registerBrainsToReference(brain_directory=os.path.join(base_dir, 'anatomical_brains'),
                           reference_brain=meanbrain,
                           type_of_transform='ElasticSyN')
@@ -238,7 +247,6 @@ fh, ax = plt.subplots(len(file_paths), len(slices), figsize=(12, 18))
 for f_ind, fp in enumerate(file_paths):
     series_name = os.path.split(fp)[-1].split('_')[0]
     base_dir = os.path.split(brain_directory)[0]
-    # Make save paths for transforms
     transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_anatomical', series_name)
     brain_fp = os.path.join(transform_dir, 'meanbrain_reg.nii')
     ind_red = ants.split_channels(ants.image_read(brain_fp))[0]
@@ -247,11 +255,6 @@ for f_ind, fp in enumerate(file_paths):
 
         if s_ind == 0:
             ax[f_ind, s_ind].set_title(series_name)
-
-
-
-
-
 
 
 # %%

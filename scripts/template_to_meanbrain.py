@@ -24,10 +24,10 @@ meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210824')
 mask_fn = 'lobe_mask_chat_meanbrain_{}.nii'.format('20210824')
 # %% LOAD
 # Load meanbrain
-meanbrain = ants.image_read(os.path.join(base_dir, 'anatomical_brains', meanbrain_fn))
+meanbrain = ants.image_read(os.path.join(base_dir, 'mean_brain', meanbrain_fn))
 [meanbrain_red, meanbrain_green] = ants.split_channels(meanbrain)
 
-lobe_mask = np.asanyarray(nib.load(os.path.join(base_dir, 'anatomical_brains', mask_fn)).dataobj).astype('uint32')
+lobe_mask = np.asanyarray(nib.load(os.path.join(base_dir, 'mean_brain', mask_fn)).dataobj).astype('uint32')
 lobe_mask = ants.from_numpy(np.squeeze(lobe_mask), spacing=meanbrain_red.spacing)
 
 # Load template & glom mask
@@ -57,6 +57,34 @@ ax = ax.ravel()
 [x.set_axis_off() for x in ax.ravel()]
 for z in range(18):
     ax[z].imshow(disp_masked[:, :, z*2].T)
+# %% COMPUTE AFFINE ALIGNMENT
+
+reg_aff = ants.registration(meanbrain_smoothed,  # fixed = meanbrain, green channel
+                            template_smoothed,  # Moving = smoothed template
+                            type_of_transform='Affine',
+                            mask=lobe_mask,  # mask includes only gloms, excludes lobe
+                            flow_sigma=6,
+                            total_sigma=0,
+                            random_seed=1)
+
+transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_template')
+os.makedirs(transform_dir, exist_ok=True)
+
+# APPLY ALIGNMENT TO MASK & TEMPLATE
+template_transformed = ants.apply_transforms(fixed=meanbrain_green,
+                                             moving=template,
+                                             transformlist=reg_aff['fwdtransforms'],
+                                             interpolator='nearestNeighbor')
+
+glom_mask_transformed = ants.apply_transforms(fixed=meanbrain_green,
+                                              moving=glom_mask,
+                                              transformlist=reg_aff['fwdtransforms'],
+                                              interpolator='genericLabel')
+
+ants.image_write(template_transformed, os.path.join(transform_dir, 'JRC2018_affine2meanbrain.nii'))
+ants.image_write(glom_mask_transformed, os.path.join(transform_dir, 'glom_mask_affine2meanbrain.nii'))
+
+
 # %% COMPUTE ALIGNMENT - SyN
 
 reg = ants.registration(meanbrain_smoothed,  # fixed = meanbrain, green channel

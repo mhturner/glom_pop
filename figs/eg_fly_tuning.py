@@ -12,7 +12,8 @@ import os
 import colorcet as cc
 import matplotlib.colors as mcolors
 from matplotlib.patches import Patch
-import umap
+import pandas as pd
+import seaborn as sns
 
 
 from glom_pop import dataio, util
@@ -126,49 +127,54 @@ fh.savefig(os.path.join(save_directory, 'ind_tuning_{}_{}.pdf'.format(experiment
 
 
 
-# %% UMAP EMBEDDING OF VOXEL RESPONSES, WITH GLOM MEMBERSHIP COLOR CODE
+# %% VOXEL RESPONSES
 
 map_vals = list(response_data['voxel_epoch_responses'].keys())
-
+within_glom_corr = []
 all_glom_ids = []
+all_glom_inds = []
 all_voxel_responses = []
-for mv in map_vals:
-    erm = response_data['voxel_epoch_responses'][mv]
+for m_ind, mv in enumerate(map_vals):
+    name = names.iloc[m_ind]
     # Align responses
-    mean_voxel_response, _, _, _, _, _ = ID.getMeanBrainByStimulus(erm)
+    mean_voxel_response, _, _, _, _, _ = ID.getMeanBrainByStimulus(response_data['voxel_epoch_responses'][mv])
     n_stimuli = mean_voxel_response.shape[2]
     concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in range(n_stimuli)], axis=1)  # responses, time (concat stims)
 
     all_voxel_responses.append(concatenated_tuning)
     all_glom_ids.append(mv*np.ones(concatenated_tuning.shape[0]))
+    all_glom_inds.append(m_ind*np.ones(concatenated_tuning.shape[0]))
+
+    C = pd.DataFrame(concatenated_tuning.T).corr()
+    corr_vals = C.to_numpy()[np.triu_indices(C.shape[0], k=1)]
+    within_glom_corr.append(np.mean(corr_vals))
+
 
 all_voxel_responses = np.vstack(all_voxel_responses)
 all_glom_ids = np.hstack(all_glom_ids)
+all_glom_inds = np.hstack(all_glom_inds)
 
-reducer = umap.UMAP()
-embedding = reducer.fit_transform(all_voxel_responses)
+# %%
+within_glom_corr
 
-# %% Plot UMAP embedding of each glom's voxels
-
-fh, ax = plt.subplots(2, 7, figsize=(9, 3.5))
-ax = ax.ravel()
-for m_ind, mv in enumerate(map_vals):
-    ax[m_ind].scatter(embedding[:, 0], embedding[:, 1], color=[0.5, 0.5, 0.5], alpha=0.5, marker='.')
-    ax[m_ind].scatter(embedding[mv == all_glom_ids, 0], embedding[mv == all_glom_ids, 1], color=colors[m_ind], marker='.')
-    # ax[m_ind].set_title(names.values[m_ind])
-    ax[m_ind].annotate(names.values[m_ind], (embedding[:, 0].min(), 0.9*embedding[:, 1].max()))
-    if m_ind == 0:
-        ax[m_ind].set_xticks([])
-        ax[m_ind].set_yticks([])
-        ax[m_ind].set_xlabel('UMAP Dim. 1')
-        ax[m_ind].set_ylabel('UMAP Dim. 2')
-        ax[m_ind].spines['top'].set_visible(False)
-        ax[m_ind].spines['right'].set_visible(False)
-    else:
-        ax[m_ind].set_axis_off()
+np.mean(C.to_numpy()[np.triu_indices(C.shape[0], k=1)])
 
 
-fh.savefig(os.path.join(save_directory, 'embedding_{}_{}.pdf'.format(experiment_file_name, series_number)))
+# %%
 
+C = pd.DataFrame(all_voxel_responses.T).corr()
+
+# %%
+
+clustermap_colors = [colors[int(i), :] for i in all_glom_inds]
+
+# %%
+g_fxn = sns.clustermap(C, cmap='cividis',
+                       cbar_kws={},
+                       rasterized=True,
+                       row_cluster=False, col_cluster=False,
+                       row_colors=clustermap_colors, col_colors=clustermap_colors,
+                       linewidths=0, xticklabels=False, yticklabels=False,
+                       figsize=(8, 8))
 
 # %%
