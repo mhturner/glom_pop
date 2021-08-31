@@ -66,7 +66,7 @@ today = datetime.datetime.today().strftime('%Y%m%d')
 # %%
 
 # Load master meanbrain
-meanbrain = ants.image_read(os.path.join(base_dir, 'anatomical_brains', meanbrain_fn))
+meanbrain = ants.image_read(os.path.join(base_dir, 'mean_brain', meanbrain_fn))
 [meanbrain_red, meanbrain_green] = ants.split_channels(meanbrain)
 
 # load transformed mask, in meanbrain space
