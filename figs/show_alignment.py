@@ -121,6 +121,8 @@ ax[1].add_patch(rect2)
 rect3 = Rectangle(box3_xy, dx, dy, linewidth=2, edgecolor='b', facecolor='none')
 ax[1].add_patch(rect3)
 
+fh.savefig(os.path.join(save_directory, 'alignment_areas.pdf'.format()))
+
 # %%
 brain_directory = os.path.join(base_dir, 'anatomical_brains')
 file_paths = glob.glob(os.path.join(brain_directory, '*_anatomical.nii'))
@@ -159,4 +161,5 @@ for f_ind, fp in enumerate(file_paths):
 
     ax[0, f_ind+1].set_title(disp, fontsize=6)
 
+fh.savefig(os.path.join(save_directory, 'alignment_brains.pdf'.format()))
 # %%

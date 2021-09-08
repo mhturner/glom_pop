@@ -20,8 +20,8 @@ from glom_pop import dataio, util
 
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
-experiment_file_name = '2021-08-20'
-series_number = 2
+experiment_file_name = '2021-08-25'
+series_number = 1
 
 save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/figs'
 
@@ -92,7 +92,7 @@ fh.savefig(os.path.join(save_directory, 'glom_overlay_{}_{}.pdf'.format(experime
 
 fh, ax = plt.subplots(1 + concatenated_tuning.shape[0], len(unique_parameter_values), figsize=(18, 18))
 [util.cleanAxes(x) for x in ax.ravel()]
-[x.set_ylim([-0.25, 0.75]) for x in ax.ravel()]
+[x.set_ylim([-0.25, 1.0]) for x in ax.ravel()]
 
 fh.subplots_adjust(wspace=0.05, hspace=0.05)
 

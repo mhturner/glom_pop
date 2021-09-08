@@ -11,6 +11,7 @@ import h5py
 import os
 import pandas as pd
 import shutil
+import yaml
 
 from visanalysis.analysis import imaging_data
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -197,3 +198,22 @@ def getGlomMaskDecoder(mask, base_dir='/Users/mhturner/Dropbox/ClandininLab/Anal
 
     names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
     return vals, names
+
+
+def getIncludedGloms(path_to_yaml):
+    with open(path_to_yaml, 'r') as ymlfile:
+        data_file = yaml.safe_load(ymlfile)
+
+    return data_file.get('included_gloms')
+
+def getDataset(path_to_yaml, dataset_id, only_included=True):
+    with open(path_to_yaml, 'r') as ymlfile:
+        data_file = yaml.safe_load(ymlfile)
+        dataset = data_file.get(dataset_id)
+
+    if only_included:
+        dataset = {entry: dataset.get(entry) for entry in dataset if dataset.get(entry).get('included')}
+    else:
+        pass
+
+    return dataset
