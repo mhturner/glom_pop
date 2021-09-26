@@ -16,7 +16,7 @@ import ants
 from matplotlib.patches import Rectangle
 import glob
 
-from glom_pop import alignment
+from glom_pop import alignment, dataio
 
 base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
 meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210824')
@@ -25,6 +25,9 @@ mask_fn = 'lobe_mask_chat_meanbrain_{}.nii'.format('20210824')
 save_directory = os.path.join(base_dir, 'figs')
 transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 
+path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_data.yaml'
+included_gloms = dataio.getIncludedGloms(path_to_yaml)
+dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included=True)
 
 # %% Load
 
@@ -41,17 +44,16 @@ template_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'JRC201
 # Load mask key for VPN types
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 
-
 # %%
 # Show z slices of meanbrain, template, & glom map for alignment
 z_levels = [10, 20, 30, 40, 44]
 
-glom_size_threshold = 350
+glom_mask_2_meanbrain = alignment.filterGlomMask_by_name(mask=glom_mask_2_meanbrain,
+                                                         vpn_types=vpn_types,
+                                                         included_gloms=included_gloms)
 
-glom_mask_2_meanbrain = alignment.filterGlomMask(glom_mask_2_meanbrain, glom_size_threshold)
 vals = np.unique(glom_mask_2_meanbrain)[1:]  # exclude first val (=0, not a glom)
 names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
-
 
 cmap = cc.cm.glasbey
 colors = cmap(vals/vals.max())
@@ -60,7 +62,7 @@ glom_tmp = np.ma.masked_where(glom_mask_2_meanbrain == 0, glom_mask_2_meanbrain)
 grn_tmp = np.ma.masked_where(lobe_mask == 0, meanbrain_green.numpy())  # mask at 0
 
 
-fh, ax = plt.subplots(len(z_levels), 4, figsize=(8, 8))
+fh, ax = plt.subplots(len(z_levels), 4, figsize=(12, 12))
 [x.set_xticklabels([]) for x in ax.ravel()]
 [x.set_yticklabels([]) for x in ax.ravel()]
 [x.tick_params(bottom=False, left=False) for x in ax.ravel()]
@@ -74,27 +76,30 @@ for z_ind, z in enumerate(z_levels):
     ax[z_ind, 2].imshow(template_2_meanbrain[30:230, 5:180, z].T, cmap='Blues')
     ax[z_ind, 3].imshow(glom_tmp[30:230, 5:180, z].T, cmap=cmap, norm=norm, interpolation='none')
 
-    if z_ind==0:
-        ax[z_ind, 0].set_title('mtdTomato')
-        ax[z_ind, 1].set_title('syt1GCaMP6F')
-        ax[z_ind, 2].set_title('JRC2018')
-        ax[z_ind, 3].set_title('Glomerulus map')
+    if z_ind == 0:
+        ax[z_ind, 0].set_title('mtdTomato', fontsize=14)
+        ax[z_ind, 1].set_title('syt1GCaMP6F', fontsize=14)
+        ax[z_ind, 2].set_title('JRC2018', fontsize=14)
+        ax[z_ind, 3].set_title('Glomerulus map', fontsize=14)
 
         dx = 25 / meanbrain_red.spacing[0]  # um -> pix
         ax[z_ind, 0].plot([10, 10+dx], [160, 160], color='k', linestyle='-', marker='None', linewidth=2)
-        ax[z_ind, 0].annotate('25 um', (6, 150), fontweight='bold')
+        ax[z_ind, 0].annotate('25 um', (6, 150), fontweight='bold', fontsize=12)
+
+    ax[z_ind, 0].set_ylabel('{} um'.format(z*1), fontsize=14)
 
 for x in ax.ravel():
     d_line = 30
     x.set_xticks(np.arange(d_line, 175, d_line))
-    x.set_yticks(np.arange(d_line, 140, d_line))
+    x.set_yticks(np.arange(d_line, 175, d_line))
     x.grid(which='major', axis='both', linestyle='--', color='k', linewidth=0.5)
 
 
 handles = [Patch(facecolor=color) for color in colors]
-fh.legend(handles, [label for label in names], fontsize=10, ncol=4, handleheight=1.0, labelspacing=0.05)
+fh.legend(handles, [label for label in names], fontsize=14, ncol=4, handleheight=1.0, labelspacing=0.05)
 
 fh.savefig(os.path.join(save_directory, 'meanbrain_overlay.pdf'.format()))
+
 
 # %%
 cmap = 'binary_r'
@@ -109,7 +114,7 @@ box3_xy = (120, 5)
 red_meanbrain = ants.split_channels(meanbrain)[0]
 green_meanbrain = ants.split_channels(meanbrain)[1]
 
-fh, ax = plt.subplots(1, 2, figsize=(6, 2))
+fh, ax = plt.subplots(1, 2, figsize=(12, 4))
 [x.set_axis_off() for x in ax]
 ax[0].imshow(green_meanbrain[:, :, 5:15].mean(axis=2).T, cmap=cmap, vmax=np.quantile(green_meanbrain.numpy(), 0.95))
 rect1 = Rectangle(box1_xy, dx, dy, linewidth=2, edgecolor='m', facecolor='none')
@@ -127,7 +132,7 @@ fh.savefig(os.path.join(save_directory, 'alignment_areas.pdf'.format()))
 brain_directory = os.path.join(base_dir, 'anatomical_brains')
 file_paths = glob.glob(os.path.join(brain_directory, '*_anatomical.nii'))
 
-fh, ax = plt.subplots(3, len(file_paths)+1, figsize=(9, 2))
+fh, ax = plt.subplots(3, len(dataset)+1, figsize=(12, 4))
 
 # [x.set_axis_off() for x in ax.ravel()]
 ax[0, 0].imshow(green_meanbrain[box1_xy[0]:box1_xy[0]+dx, box1_xy[1]:box1_xy[1]+dy, 10].T, cmap=cmap)
@@ -138,7 +143,7 @@ ax[0, 0].imshow(glom_tmp[box1_xy[0]:box1_xy[0]+dx, box1_xy[1]:box1_xy[1]+dy, 10]
 ax[1, 0].imshow(glom_tmp[box2_xy[0]:box2_xy[0]+dx, box2_xy[1]:box2_xy[1]+dy, 39].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
 ax[2, 0].imshow(glom_tmp[box3_xy[0]:box3_xy[0]+dx, box3_xy[1]:box3_xy[1]+dy, 39].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
 
-ax[0, 0].set_title('Mean')
+ax[0, 0].set_title('Mean', fontsize=14)
 
 [x.set_xticks([]) for x in ax.ravel()]
 [x.set_yticks([]) for x in ax.ravel()]
@@ -146,11 +151,9 @@ ax[0, 0].set_title('Mean')
 [s.set_edgecolor('c') for s in ax[1, 0].spines.values()]
 [s.set_edgecolor('b') for s in ax[2, 0].spines.values()]
 
-for f_ind, fp in enumerate(file_paths):
-    series_name = os.path.split(fp)[-1].split('_')[0]
-    disp = series_name.split('-')[1] + '-' + series_name.split('-')[2]
-    base_dir = os.path.split(brain_directory)[0]
-    transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_anatomical', series_name)
+for f_ind, key in enumerate(dataset):
+    fp = dataset.get(key).get('anatomical_brain')
+    transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_anatomical', 'TSeries-{}'.format(fp))
     brain_fp = os.path.join(transform_dir, 'meanbrain_reg.nii')
     ind_red = ants.split_channels(ants.image_read(brain_fp))[0]
     ind_green = ants.split_channels(ants.image_read(brain_fp))[0]
@@ -159,7 +162,12 @@ for f_ind, fp in enumerate(file_paths):
     ax[1, f_ind+1].imshow(ind_green[box2_xy[0]:box2_xy[0]+dx, box2_xy[1]:box2_xy[1]+dy, 39].T, cmap=cmap)
     ax[2, f_ind+1].imshow(ind_green[box3_xy[0]:box3_xy[0]+dx, box3_xy[1]:box3_xy[1]+dy, 39].T, cmap=cmap)
 
-    ax[0, f_ind+1].set_title(disp, fontsize=6)
+    # ax[0, f_ind+1].set_title(fp, fontsize=6)
+    ax[0, f_ind+1].set_title('fly {}'.format(f_ind+1), fontsize=14)
 
 fh.savefig(os.path.join(save_directory, 'alignment_brains.pdf'.format()))
+
+# %% Alignment pipeline schematic images
+
+
 # %%

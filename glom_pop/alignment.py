@@ -37,3 +37,22 @@ def filterGlomMask(mask, threshold):
             pass
 
     return mask
+
+
+def filterGlomMask_by_name(mask, vpn_types, included_gloms):
+    """
+    Remove gloms in mask not in included_gloms list of names.
+
+    :mask: ndarray of glom mask
+    :vpn_types: DataFrame with val / glom name pairings
+    :included_gloms: list of included glom names
+    """
+    included_vals = vpn_types.loc[vpn_types.get('vpn_types').isin(included_gloms), 'Unnamed: 0'].values
+    all_vals = np.unique(mask)
+    for m_ind, mask_id in enumerate(all_vals):
+        if mask_id in included_vals:
+            pass
+        else:
+            mask[mask == mask_id] = 0
+
+    return mask
