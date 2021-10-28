@@ -40,8 +40,8 @@ def registerBrainsToReference(brain_file_path, reference_brain, type_of_transfor
     Register each brain in brain_directory to reference_brain.
         Saves registered brain image and transform file
 
-    :brain_file_path: .nii filepath to brain to register
-    :reference_brain: two-channel ANTs image to register each brain to
+    :brain_file_path: .nii filepath to brain to register (MOVING)
+    :reference_brain: two-channel ANTs image to register each brain to (FIXED)
     :type_of_transform: for ants.registration()
     """
 
@@ -218,10 +218,12 @@ meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210824')
 meanbrain = ants.image_read(os.path.join(base_dir, 'mean_brain', meanbrain_fn))
 
 # Note dir. change: registering all anatomical brains to meanbrain now
-
 file_paths = glob.glob(os.path.join(base_dir, 'anatomical_brains', '*_anatomical.nii'))
 
 # %% Run through all brains in dir
+# Register each anatomical brain to the meanbrain
+# For each anatomical brain, saves:
+#   -forward (anat -> meanbrain) & inverse (meanbrain -> anat) transforms
 
 for brain_file_path in file_paths:
     registerBrainsToReference(brain_file_path,

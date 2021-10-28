@@ -10,7 +10,7 @@ import seaborn as sns
 from glom_pop import dataio, util
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
-save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/figs'
+save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
 
 
 # %% PLOT MEAN RESPONSES TO TUNING SUITE

@@ -23,7 +23,7 @@ experiment_file_directory = '/Users/mhturner/CurrentData'
 experiment_file_name = '2021-08-25'
 series_number = 1
 
-save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/figs'
+save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
 
 file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
 

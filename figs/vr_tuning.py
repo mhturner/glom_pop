@@ -12,7 +12,7 @@ from glom_pop import dataio, util
 
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
-save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/figs'
+save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
 
 path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_data.yaml'
 included_gloms = dataio.getIncludedGloms(path_to_yaml)
