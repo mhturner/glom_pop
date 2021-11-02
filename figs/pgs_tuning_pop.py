@@ -9,6 +9,10 @@ import seaborn as sns
 
 from glom_pop import dataio, util
 
+plt.rcParams['svg.fonttype'] = 'none'
+plt.rcParams.update({'font.family': 'sans-serif'})
+plt.rcParams.update({'font.sans-serif': 'Helvetica'})
+
 experiment_file_directory = '/Users/mhturner/CurrentData'
 save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
 
@@ -20,7 +24,7 @@ path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_
 included_gloms = dataio.getIncludedGloms(path_to_yaml)
 dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included=True)
 
-fh, ax = plt.subplots(len(included_gloms), 30, figsize=(18, 12))
+fh, ax = plt.subplots(len(included_gloms), 30, figsize=(10, 5))
 [util.cleanAxes(x) for x in ax.ravel()]
 
 fh.subplots_adjust(wspace=0.00, hspace=0.00)
@@ -48,7 +52,7 @@ for s_ind, key in enumerate(dataset):
     erm = []
     included_vals = []
     for g_ind, name in enumerate(included_gloms):
-        pull_ind = np.where(name==names)[0][0]
+        pull_ind = np.where(name == names)[0][0]
         erm.append(response_data.get('epoch_response')[pull_ind, :, :])
         included_vals.append(vals[pull_ind])
     epoch_response_matrix = np.stack(erm, axis=0)
@@ -82,7 +86,7 @@ for u_ind, un in enumerate(unique_parameter_values[:-2]):
         if (g_ind == 0) & (u_ind == (len(unique_parameter_values[:-2])-1)):
             plot_tools.addScaleBars(ax[g_ind, u_ind], dT=-2, dF=0.25, T_value=response_data.get('time_vector')[-1], F_value=-0.08)
         if (u_ind == 0):
-            ax[g_ind, u_ind].set_ylabel(name, fontsize=15, fontweight='bold')
+            ax[g_ind, u_ind].set_ylabel(name, fontsize=11, rotation=0)
         ax[g_ind, u_ind].plot(response_data.get('time_vector'), mean_responses[g_ind, :, u_ind], color=colors[g_ind, :], alpha=1.0, linewidth=2)
         ax[g_ind, u_ind].fill_between(response_data.get('time_vector'),
                                       mean_responses[g_ind, :, u_ind] - sem_responses[g_ind, :, u_ind],
@@ -92,7 +96,7 @@ for u_ind, un in enumerate(unique_parameter_values[:-2]):
 
 [x.set_ylim([mean_responses.min(), 0.8]) for x in ax.ravel()]
 
-fh.savefig(os.path.join(save_directory, 'mean_tuning.pdf'))
+fh.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True)
 
 # %%
 
@@ -115,19 +119,19 @@ for g_ind, name in enumerate(included_gloms):
 
 # %%
 
-fh2, ax2 = plt.subplots(1, 1, figsize=(6, 4))
+fh2, ax2 = plt.subplots(1, 1, figsize=(3.5, 2))
 for g_ind, name in enumerate(included_gloms):
     inter_corr = pd.DataFrame(response_peaks[g_ind, :, :]).corr().to_numpy()[np.triu_indices(7, k=1)]
-    ax2.plot(g_ind * np.ones_like(inter_corr), inter_corr, color=colors[g_ind, :], marker='.', linestyle='none', alpha=0.5, markersize=8)
-    ax2.plot(g_ind, np.mean(inter_corr), color=colors[g_ind, :], marker='o', markersize=12)
+    ax2.plot(g_ind * np.ones_like(inter_corr), inter_corr, color=colors[g_ind, :], marker='.', linestyle='none', alpha=0.5, markersize=6)
+    ax2.plot(g_ind, np.mean(inter_corr), color=colors[g_ind, :], marker='o', markersize=10)
 
 ax2.set_xticks(np.arange(len(included_gloms)))
 ax2.set_xticklabels(included_gloms)
-ax2.set_ylabel('Inter-individual correlation (r)', fontsize=14)
-ax2.tick_params(axis='y', labelsize=14)
-ax2.tick_params(axis='x', labelsize=14, rotation=90)
+ax2.set_ylabel('Inter-individual corr. (r)', fontsize=11)
+ax2.tick_params(axis='y', labelsize=11)
+ax2.tick_params(axis='x', labelsize=11, rotation=90)
 
-fh2.savefig(os.path.join(save_directory, 'Inter_Ind_Corr.pdf'))
+fh2.savefig(os.path.join(save_directory, 'pgs_Inter_Ind_Corr.svg'), transparent=True)
 
 # %%
 all_responses.shape
@@ -136,10 +140,11 @@ mean_responses = np.mean(all_responses, axis=-1)
 mean_cat_responses = np.vstack(np.concatenate([mean_responses[:, :, x] for x in np.arange(len(unique_parameter_values[:-2]))], axis=1))
 mean_cat_responses = pd.DataFrame(mean_cat_responses, index=included_gloms)
 
-sns.set(font_scale=1.5)
+sns.set(font_scale=1.0)
 g = sns.clustermap(data=mean_cat_responses, col_cluster=False,
-                   figsize=(10, 4), cmap='Greys', vmax=0.5, linewidths=0.0, rasterized=True,
-                   tree_kws=dict(linewidths=3, colors='k'), yticklabels=True, xticklabels=False, cbar_pos=(0.98, 0.08, 0.025, 0.65))
+                   figsize=(4.5, 2.5), cmap='Greys', linewidths=0.0, rasterized=True,
+                   tree_kws=dict(linewidths=2, colors='k'), yticklabels=True, xticklabels=False, cbar_pos=(0.98, 0.08, 0.025, 0.65),
+                   cbar_kws={'label': 'Response (dF/F)'})
 
 # g.ax_heatmap.set_xticks([])
 [s.set_edgecolor('k') for s in g.ax_heatmap.spines.values()]
@@ -147,7 +152,7 @@ g = sns.clustermap(data=mean_cat_responses, col_cluster=False,
 
 fh3 = plt.gcf()
 
-fh3.savefig(os.path.join(save_directory, 'pgs_cluster.pdf'))
+fh3.savefig(os.path.join(save_directory, 'pgs_cluster.svg'), transparent=True)
 
 
 # %% Inter-glom corr
@@ -159,13 +164,13 @@ sns.heatmap(corr_mat, vmin=0, vmax=1.0, cmap='Greys', ax=ax, rasterized=True,
             xticklabels=True, yticklabels=True, cbar_kws={'label': 'Correlation (r)'})
 
 sns.set(font_scale=1.5)
-fh4.savefig(os.path.join(save_directory, 'pgs_corrmat.pdf'))
+fh4.savefig(os.path.join(save_directory, 'pgs_corrmat.svg'), transparent=True)
 
 
 # %%
 
 tmp = np.concatenate([all_responses[:, :, x, :] for x in range(all_responses.shape[2])], axis=1)
-concat_responses = np.concatenate([tmp[:, :, x] for x in range(tmp.shape[2])]) # ind glom (n gloms x n flies) x concat time
+concat_responses = np.concatenate([tmp[:, :, x] for x in range(tmp.shape[2])])  # ind glom (n gloms x n flies) x concat time
 
 
 ids = np.tile(np.arange(len(included_gloms)), tmp.shape[2])

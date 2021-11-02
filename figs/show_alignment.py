@@ -12,17 +12,15 @@ import colorcet as cc
 import matplotlib.colors as mcolors
 from matplotlib.patches import Patch
 import matplotlib.pyplot as plt
-from visanalysis.analysis import volumetric_data
 import ants
 from matplotlib.patches import Rectangle
 import glob
 
 from glom_pop import alignment, dataio
 
-import matplotlib
-
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
+plt.rcParams['svg.fonttype'] = 'none'
+plt.rcParams.update({'font.family': 'sans-serif'})
+plt.rcParams.update({'font.sans-serif': 'Helvetica'})
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
 base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
@@ -106,7 +104,7 @@ for x in ax.ravel():
 handles = [Patch(facecolor=color) for color in colors]
 fh.legend(handles, [label for label in names], fontsize=11, ncol=4, handleheight=0.65, labelspacing=0.005, loc=9)
 
-fh.savefig(os.path.join(save_directory, 'alignment_meanbrain_overlay.pdf'), transparent=True)
+fh.savefig(os.path.join(save_directory, 'alignment_meanbrain_overlay.svg'), transparent=True)
 
 # %% xyz projections of meanbrain
 
@@ -132,7 +130,7 @@ ax2[1, 1].plot([0, bar_length], [meanbrain_red.shape[1], meanbrain_red.shape[1]]
 ax2[1, 1].plot([-3, -3], [meanbrain_red.shape[1]-bar_length*2, meanbrain_red.shape[1]], color='g', linewidth=3)
 ax2[1, 1].set_xlim([-5, meanbrain_red.shape[2]])
 
-fh2.savefig(os.path.join(save_directory, 'alignment_meanbrain_projections.pdf'), transparent=True)
+fh2.savefig(os.path.join(save_directory, 'alignment_meanbrain_projections.svg'), transparent=True)
 
 # %%
 cmap = 'binary_r'
@@ -150,7 +148,7 @@ fh, ax = plt.subplots(2, 1, figsize=(3, 3))
 ax[0].imshow(meanbrain_red[:, :, 5:15].mean(axis=2).T, cmap=cmap, vmax=np.quantile(meanbrain_red.numpy(), 0.95))
 rect1 = Rectangle(box1_xy, dx, dy, linewidth=3, edgecolor='m', facecolor='none')
 ax[0].add_patch(rect1)
-ax[0].set_title('z = {} um'.format(10), fontsize=11, fontweight='bold')
+ax[0].set_title('z = {} \u03BCm'.format(10), fontsize=11, fontweight='bold')
 ax[0].plot([5, 5+bar_length], [195, 195], color='k', linestyle='-', marker='None', linewidth=2)
 
 ax[1].imshow(meanbrain_red[:, :, 35:].mean(axis=2).T, cmap=cmap, vmax=np.quantile(meanbrain_red.numpy(), 0.95))
@@ -158,9 +156,9 @@ rect2 = Rectangle(box2_xy, dx, dy, linewidth=3, edgecolor='c', facecolor='none')
 ax[1].add_patch(rect2)
 rect3 = Rectangle(box3_xy, dx, dy, linewidth=3, edgecolor='b', facecolor='none')
 ax[1].add_patch(rect3)
-ax[1].set_title('z = {} um'.format(39), fontsize=11, fontweight='bold')
+ax[1].set_title('z = {} \u03BCm'.format(39), fontsize=11, fontweight='bold')
 
-fh.savefig(os.path.join(save_directory, 'alignment_areas.pdf'), transparent=True)
+fh.savefig(os.path.join(save_directory, 'alignment_areas.svg'), transparent=True)
 
 
 brain_directory = os.path.join(base_dir, 'anatomical_brains')
@@ -208,7 +206,7 @@ for f_ind, key in enumerate(dataset):
     # ax[0, f_ind+1].set_title(fp, fontsize=6)
     ax[0, f_ind+1].set_title('Fly {}'.format(f_ind+1), fontsize=11)
 
-fh.savefig(os.path.join(save_directory, 'alignment_brains.pdf'), transparent=True)
+fh.savefig(os.path.join(save_directory, 'alignment_brains.svg'), transparent=True)
 
 
 # %% Alignment pipeline schematic images
@@ -231,7 +229,7 @@ for f_ind, key in enumerate(dataset):
 
         ax[f_ind*2+1].imshow(anat_green.max(axis=2).T, cmap='Greens', vmax=np.quantile(anat_green.numpy(), 0.98))
 
-fh.savefig(os.path.join(save_directory, 'alignment_schematic_a.pdf'), transparent=True)
+fh.savefig(os.path.join(save_directory, 'alignment_schematic_a.svg'), transparent=True)
 
 
 # %%
@@ -244,12 +242,15 @@ ax[0, 0].plot([290, 290+dx], [190, 190], color='k', linestyle='-', marker='None'
 ax[1, 0].imshow(meanbrain_green.max(axis=2).T, cmap='Greens', vmax=np.quantile(meanbrain_green.numpy(), 0.98))
 ax[1, 0].plot([290, 290+dx], [190, 190], color='k', linestyle='-', marker='None', linewidth=2)
 
+cmap = cc.cm.glasbey
+colors = cmap(vals/vals.max())
+norm = mcolors.Normalize(vmin=0, vmax=vals.max(), clip=True)
 tmp_template = np.ma.masked_where(template_2_meanbrain.max(axis=2).T == 0, template_2_meanbrain.max(axis=2).T)  # mask at 0
 ax[0, 1].imshow(tmp_template, cmap='Blues')
 ax[0, 1].plot([170, 170+dx], [190, 190], color='k', linestyle='-', marker='None', linewidth=2)
-ax[0, 2].imshow(glom_tmp.max(axis=2).T, cmap=cc.cm.glasbey, interpolation='none')
+ax[0, 2].imshow(glom_tmp.max(axis=2).T, cmap=cmap, interpolation='none', norm=norm)
 ax[0, 2].plot([170, 170+dx], [190, 190], color='k', linestyle='-', marker='None', linewidth=2)
-fh.savefig(os.path.join(save_directory, 'alignment_schematic_b.pdf'), transparent=True)
+fh.savefig(os.path.join(save_directory, 'alignment_schematic_b.svg'), transparent=True)
 
 
 # %%
@@ -264,7 +265,7 @@ ax[0].plot([290, 290+dx], [190, 190], color='k', linestyle='-', marker='None', l
 ax[1].imshow(anat_green.max(axis=2).T, cmap='Greens', vmax=np.quantile(anat_green.numpy(), 0.98))
 ax[1].plot([290, 290+dx], [190, 190], color='k', linestyle='-', marker='None', linewidth=2)
 
-fh.savefig(os.path.join(save_directory, 'alignment_singles.pdf'), transparent=True)
+fh.savefig(os.path.join(save_directory, 'alignment_singles.svg'), transparent=True)
 
 
 
