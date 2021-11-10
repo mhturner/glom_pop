@@ -89,7 +89,6 @@ for u_ind, un in enumerate(unique_parameter_values):
     # plot trajectory for this stim
     query = {'current_trajectory_index': un}
     trials, trial_inds = shared_analysis.filterTrials(response_data.get('epoch_response'), ID, query, return_inds=True)
-    # ax0[r_ind+1, p_ind].plot(roi_data.get('time_vector'), np.mean(trials, axis=(0,1)), linestyle='-', color='k')
 
     x_tv = make_tuple(epoch_parameters[trial_inds[0]].get('fly_x_trajectory', epoch_parameters[trial_inds[0]].get('stim0_fly_x_trajectory'))).get('tv_pairs')
     y_tv = make_tuple(epoch_parameters[trial_inds[0]].get('fly_y_trajectory', epoch_parameters[trial_inds[0]].get('stim0_fly_y_trajectory'))).get('tv_pairs')
@@ -109,11 +108,17 @@ for u_ind, un in enumerate(unique_parameter_values):
 
 fh.savefig(os.path.join(save_directory, 'vr_mean_resp.pdf'))
 
+# %% fly-to-fly variability
+all_concat.shape
+
+sel_glom = 8
+fh, ax = plt.subplots(1, 1, figsize=(8, 3))
+ax.plot(all_concat[sel_glom, :, :], alpha=0.5)
+ax.plot(all_concat[sel_glom, :, :].mean(axis=-1), 'k-')
 
 # %%
-mean_cat_responses.shape
 
-mean_responses = np.mean(all_resp, axis=-1)
+mean_responses = np.mean(all_resp, axis=-1)  # mean across flies
 mean_cat_responses = np.vstack(np.concatenate([mean_responses[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
 mean_cat_responses = pd.DataFrame(mean_cat_responses, index=included_gloms)
 
@@ -152,7 +157,7 @@ for u_ind, un in enumerate(unique_parameter_values):
 
 # %% STABILITY ACROSS TRIALS
 
-glom_ind = 5
+glom_ind = 1
 fh, ax = plt.subplots(n_stimuli, 1, figsize=(8, 6))
 [util.cleanAxes(x) for x in ax.ravel()]
 [x.set_ylim([-0.25, 0.75]) for x in ax.ravel()]

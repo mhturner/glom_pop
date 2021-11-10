@@ -52,7 +52,7 @@ vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'
 
 # %%
 # Show z slices of meanbrain, template, & glom map for alignment
-z_levels = [10, 20, 30, 40, 44]
+z_levels = [5, 10, 20, 30, 40]
 
 glom_mask_2_meanbrain = alignment.filterGlomMask_by_name(mask=glom_mask_2_meanbrain,
                                                          vpn_types=vpn_types,

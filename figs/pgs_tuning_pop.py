@@ -7,6 +7,9 @@ import colorcet as cc
 import pandas as pd
 import seaborn as sns
 
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
 from glom_pop import dataio, util
 
 plt.rcParams['svg.fonttype'] = 'none'
@@ -98,6 +101,8 @@ for u_ind, un in enumerate(unique_parameter_values[:-2]):
 
 fh.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True)
 
+unique_parameter_values
+
 # %%
 
 # extract peak responses for each stim, fly
@@ -107,23 +112,12 @@ stim_frames = int(ID.getRunParameters().get('stim_time') / sample_period)
 
 response_peaks = np.max(all_responses[:, pre_frames:(pre_frames+stim_frames), :, :], axis=1)  # glom, param, fly
 
-fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(6, 12))
-[x.set_axis_off() for x in ax1]
-[x.set_ylim([-0.2, 0.8]) for x in ax1]
-
-for g_ind, name in enumerate(included_gloms):
-
-    ax1[g_ind].plot(response_peaks[g_ind, :, :], color=colors[g_ind, :], marker='.', linestyle='none')
-    ax1[g_ind].axhline(0, color='k', alpha=0.5)
-
-
-# %%
 
 fh2, ax2 = plt.subplots(1, 1, figsize=(3.5, 2))
 for g_ind, name in enumerate(included_gloms):
     inter_corr = pd.DataFrame(response_peaks[g_ind, :, :]).corr().to_numpy()[np.triu_indices(7, k=1)]
-    ax2.plot(g_ind * np.ones_like(inter_corr), inter_corr, color=colors[g_ind, :], marker='.', linestyle='none', alpha=0.5, markersize=6)
-    ax2.plot(g_ind, np.mean(inter_corr), color=colors[g_ind, :], marker='o', markersize=10)
+    ax2.plot(g_ind * np.ones_like(inter_corr), inter_corr, color=colors[g_ind, :], marker='.', linestyle='none', alpha=0.5, markersize=4)
+    ax2.plot(g_ind, np.mean(inter_corr), color=colors[g_ind, :], marker='o', markersize=6)
 
 ax2.set_xticks(np.arange(len(included_gloms)))
 ax2.set_xticklabels(included_gloms)
@@ -142,7 +136,7 @@ mean_cat_responses = pd.DataFrame(mean_cat_responses, index=included_gloms)
 
 sns.set(font_scale=1.0)
 g = sns.clustermap(data=mean_cat_responses, col_cluster=False,
-                   figsize=(4.5, 2.5), cmap='Greys', linewidths=0.0, rasterized=True,
+                   figsize=(4.0, 2.5), cmap='Greys', linewidths=0.0, rasterized=True, vmax=0.6,
                    tree_kws=dict(linewidths=2, colors='k'), yticklabels=True, xticklabels=False, cbar_pos=(0.98, 0.08, 0.025, 0.65),
                    cbar_kws={'label': 'Response (dF/F)'})
 
@@ -154,7 +148,30 @@ fh3 = plt.gcf()
 
 fh3.savefig(os.path.join(save_directory, 'pgs_cluster.svg'), transparent=True)
 
+# %% PCA
 
+X = mean_cat_responses
+print('X = {} (samples, features)'.format(X.shape))
+pca = PCA(n_components=12)
+pca.fit(X)
+fh4, ax4 = plt.subplots(1, 1, figsize=(3, 3))
+ax4.plot(np.arange(1, 13), pca.explained_variance_ratio_, 'ko')
+ax4.set_xlabel('Mode')
+ax4.set_ylabel('Frac. var. explained')
+
+fh5, ax5 = plt.subplots(3, 1, figsize=(4, 3))
+ax5[0].plot(pca.components_[0, :], 'r-')
+ax5[1].plot(pca.components_[1, :], 'g-')
+ax5[2].plot(pca.components_[2, :], 'b-')
+
+x_r = pca.fit_transform(X)
+fh6, ax6 = plt.subplots(1, 1, figsize=(3, 3))
+ax6.scatter(x_r[0, :], x_r[1, :], c=colors)
+for lc_ind, lc_name in enumerate(included_gloms):
+    ax6.annotate(lc_name, (x_r[0, lc_ind], x_r[1, lc_ind]))
+
+mean_cat_responses.shape
+x_r.shape
 # %% Inter-glom corr
 
 corr_mat = mean_cat_responses.T.corr()
@@ -166,7 +183,9 @@ sns.heatmap(corr_mat, vmin=0, vmax=1.0, cmap='Greys', ax=ax, rasterized=True,
 sns.set(font_scale=1.5)
 fh4.savefig(os.path.join(save_directory, 'pgs_corrmat.svg'), transparent=True)
 
-
+corr_mat.to_pickle(os.path.join(save_directory, 'pgs_corrmat.pkl'))
+mean_cat_responses.to_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl'))
+np.save(os.path.join(save_directory, 'pgs_responsepeaks'), response_peaks)  # glom x stim x fly
 # %%
 
 tmp = np.concatenate([all_responses[:, :, x, :] for x in range(all_responses.shape[2])], axis=1)
