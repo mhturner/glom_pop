@@ -7,8 +7,10 @@ import colorcet as cc
 import pandas as pd
 import seaborn as sns
 
-from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from scipy.stats import zscore
+from sklearn.cluster import AgglomerativeClustering
+from scipy.cluster.hierarchy import dendrogram, leaves_list
 
 from glom_pop import dataio, util
 
@@ -26,11 +28,6 @@ path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_
 
 included_gloms = dataio.getIncludedGloms(path_to_yaml)
 dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included=True)
-
-fh, ax = plt.subplots(len(included_gloms), 30, figsize=(10, 5))
-[util.cleanAxes(x) for x in ax.ravel()]
-
-fh.subplots_adjust(wspace=0.00, hspace=0.00)
 
 all_responses = []
 vox_per_glom = []
@@ -71,82 +68,104 @@ for s_ind, key in enumerate(dataset):
     all_responses.append(mean_voxel_response)
     response_amplitudes.append(response_amp)
 
-    # # To plot individual fly response traces:
-    # for u_ind, un in enumerate(unique_parameter_values[:-2]):
-    #     for g_ind, name in enumerate(included_gloms):
-    #         ax[g_ind, u_ind].plot(response_data.get('time_vector'), mean_voxel_response[g_ind, :, u_ind], color=colors[g_ind, :], alpha=0.25)
-    #         ax[g_ind, u_ind].axhline(color='k', alpha=0.25)
-
+# Stack accumulated responses
 all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, time, param, fly)
-mean_responses = np.mean(all_responses, axis=-1)  # (glom, time, param)
-sem_responses = np.std(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, time, param)
-vox_per_glom = np.stack(vox_per_glom, axis=-1)
 response_amplitudes = np.stack(response_amplitudes, axis=-1)
 
 # For display, exclude last two stims (full field flashes)
+unique_parameter_values = unique_parameter_values[:-2]
+all_responses = all_responses[:, :, :-2, :]
+response_amplitudes = response_amplitudes[:, :-2, :]
+
+mean_responses = np.mean(all_responses, axis=-1)  # (glom, time, param)
+sem_responses = np.std(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, time, param)
+vox_per_glom = np.stack(vox_per_glom, axis=-1)
+
+# %% PLOTTING
+# # # Cluster on concat responses # # #
+# Concatenated response traces
+mean_responses = np.mean(all_responses, axis=-1)  # shape=(glom, time, stim, fly)
+mean_cat_responses = np.vstack(np.concatenate([mean_responses[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
+mean_cat_responses = zscore(mean_cat_responses, axis=1)
+mean_cat_responses = pd.DataFrame(mean_cat_responses, index=included_gloms)
+
+# Don't collapse clusters here. Compute the full linkage matrix to make dendrogram
+clustering = AgglomerativeClustering(n_clusters=None, affinity='euclidean', linkage='average', distance_threshold=0)
+clustering.fit(mean_cat_responses)
+
+# compute linkage matrix, Z:
+# Ref: https://scikit-learn.org/stable/auto_examples/cluster/plot_agglomerative_dendrogram.html
+#   create the counts of samples under each node
+counts = np.zeros(clustering.children_.shape[0])
+n_samples = len(clustering.labels_)
+for i, merge in enumerate(clustering.children_):
+    current_count = 0
+    for child_idx in merge:
+        if child_idx < n_samples:
+            current_count += 1  # leaf node
+        else:
+            current_count += counts[child_idx - n_samples]
+    counts[i] = current_count
+
+Z = np.column_stack([clustering.children_, clustering.distances_, counts]).astype(float)
+
+# DENDROGRAM
+fh0, ax0 = plt.subplots(1, 1, figsize=(1.5, 6))
+D = dendrogram(Z, p=12, truncate_mode='lastp', ax=ax0,
+               above_threshold_color='black',
+               color_threshold=1, orientation='left',
+               labels=mean_cat_responses.index)
+leaves = leaves_list(Z)  # glom indices
+
+# ax0.set_yticks([])
+ax0.set_xticks([])
+ax0.spines['top'].set_visible(False)
+ax0.spines['right'].set_visible(False)
+ax0.spines['bottom'].set_visible(False)
+ax0.spines['left'].set_visible(False)
+ax0.invert_yaxis()
+
+# Plot mean responses
+fh1, ax1 = plt.subplots(len(included_gloms), 30, figsize=(10.5, 6))
+[util.cleanAxes(x) for x in ax1.ravel()]
+
+fh1.subplots_adjust(wspace=0.00, hspace=0.00)
+
 for u_ind, un in enumerate(unique_parameter_values[:-2]):
-    for g_ind, name in enumerate(included_gloms):
-        if (g_ind == 0) & (u_ind == (len(unique_parameter_values[:-2])-1)):
-            plot_tools.addScaleBars(ax[g_ind, u_ind], dT=-2, dF=0.25, T_value=response_data.get('time_vector')[-1], F_value=-0.08)
-        if (u_ind == 0):
-            ax[g_ind, u_ind].set_ylabel(name, fontsize=11, rotation=0)
-        ax[g_ind, u_ind].plot(response_data.get('time_vector'), mean_responses[g_ind, :, u_ind], color=colors[g_ind, :], alpha=1.0, linewidth=2)
-        ax[g_ind, u_ind].fill_between(response_data.get('time_vector'),
-                                      mean_responses[g_ind, :, u_ind] - sem_responses[g_ind, :, u_ind],
-                                      mean_responses[g_ind, :, u_ind] + sem_responses[g_ind, :, u_ind],
-                                      color=colors[g_ind, :], alpha=0.5, linewidth=0)
+    for leaf_ind, g_ind in enumerate(leaves):
+        name = included_gloms[g_ind]
+        if (leaf_ind == 0) & (u_ind == (len(unique_parameter_values[:-2])-1)):
+            plot_tools.addScaleBars(ax1[leaf_ind, u_ind], dT=-2, dF=0.25, T_value=response_data.get('time_vector')[-1], F_value=-0.08)
+        # if (u_ind == 0):
+        #     ax1[leaf_ind, u_ind].set_ylabel(name, fontsize=11, rotation=0)
+        ax1[leaf_ind, u_ind].plot(response_data.get('time_vector'), mean_responses[g_ind, :, u_ind], color=colors[g_ind, :], alpha=1.0, linewidth=2)
+        ax1[leaf_ind, u_ind].fill_between(response_data.get('time_vector'),
+                                          mean_responses[g_ind, :, u_ind] - sem_responses[g_ind, :, u_ind],
+                                          mean_responses[g_ind, :, u_ind] + sem_responses[g_ind, :, u_ind],
+                                          color=colors[g_ind, :], alpha=0.5, linewidth=0)
 
 
-[x.set_ylim([mean_responses.min(), 0.8]) for x in ax.ravel()]
+[x.set_ylim([mean_responses.min(), 0.8]) for x in ax1.ravel()]
 
-fh.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True)
+fh0.savefig(os.path.join(save_directory, 'pgs_tuning_dendrogram.svg'), transparent=True)
+fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True)
 
-unique_parameter_values
-
-# %%
-
-# extract peak responses for each stim, fly
-sample_period = ID.getAcquisitionMetadata().get('sample_period')
-pre_frames = int(ID.getRunParameters().get('pre_time') / sample_period)
-stim_frames = int(ID.getRunParameters().get('stim_time') / sample_period)
-
-response_peaks = np.max(all_responses[:, pre_frames:(pre_frames+stim_frames), :, :], axis=1)  # glom, param, fly
-
+# %% Inter-individual correlation for each glom
 
 fh2, ax2 = plt.subplots(1, 1, figsize=(3.5, 2))
-for g_ind, name in enumerate(included_gloms):
-    inter_corr = pd.DataFrame(response_peaks[g_ind, :, :]).corr().to_numpy()[np.triu_indices(7, k=1)]
-    ax2.plot(g_ind * np.ones_like(inter_corr), inter_corr, color=colors[g_ind, :], marker='.', linestyle='none', alpha=0.5, markersize=4)
-    ax2.plot(g_ind, np.mean(inter_corr), color=colors[g_ind, :], marker='o', markersize=6)
+for leaf_ind, g_ind in enumerate(leaves):
+    name = included_gloms[g_ind]
+    inter_corr = pd.DataFrame(response_amplitudes[g_ind, :, :]).corr().to_numpy()[np.triu_indices(7, k=1)]
+    ax2.plot(leaf_ind * np.ones_like(inter_corr), inter_corr, color=colors[g_ind, :], marker='.', linestyle='none', alpha=0.5, markersize=4)
+    ax2.plot(leaf_ind, np.mean(inter_corr), color=colors[g_ind, :], marker='o', markersize=6)
 
 ax2.set_xticks(np.arange(len(included_gloms)))
-ax2.set_xticklabels(included_gloms)
+ax2.set_xticklabels([included_gloms[x] for x in leaves])
 ax2.set_ylabel('Inter-individual corr. (r)', fontsize=11)
 ax2.tick_params(axis='y', labelsize=11)
 ax2.tick_params(axis='x', labelsize=11, rotation=90)
 
 fh2.savefig(os.path.join(save_directory, 'pgs_Inter_Ind_Corr.svg'), transparent=True)
-
-# %%
-all_responses.shape
-# %% Cluster on concat responses
-mean_responses = np.mean(all_responses, axis=-1)
-mean_cat_responses = np.vstack(np.concatenate([mean_responses[:, :, x] for x in np.arange(len(unique_parameter_values[:-2]))], axis=1))
-mean_cat_responses = pd.DataFrame(mean_cat_responses, index=included_gloms)
-
-sns.set(font_scale=1.0)
-g = sns.clustermap(data=mean_cat_responses, col_cluster=False,
-                   figsize=(4.0, 2.5), cmap='Greys', linewidths=0.0, rasterized=True, vmax=0.6,
-                   tree_kws=dict(linewidths=2, colors='k'), yticklabels=True, xticklabels=False, cbar_pos=(0.98, 0.08, 0.025, 0.65),
-                   cbar_kws={'label': 'Response (dF/F)'})
-
-# g.ax_heatmap.set_xticks([])
-[s.set_edgecolor('k') for s in g.ax_heatmap.spines.values()]
-[s.set_linewidth(2) for s in g.ax_heatmap.spines.values()]
-
-fh3 = plt.gcf()
-
-fh3.savefig(os.path.join(save_directory, 'pgs_cluster.svg'), transparent=True)
 
 # %% PCA
 
@@ -170,8 +189,6 @@ ax6.scatter(x_r[0, :], x_r[1, :], c=colors)
 for lc_ind, lc_name in enumerate(included_gloms):
     ax6.annotate(lc_name, (x_r[0, lc_ind], x_r[1, lc_ind]))
 
-mean_cat_responses.shape
-x_r.shape
 # %% Inter-glom corr
 
 corr_mat = mean_cat_responses.T.corr()
@@ -185,12 +202,13 @@ fh4.savefig(os.path.join(save_directory, 'pgs_corrmat.svg'), transparent=True)
 
 corr_mat.to_pickle(os.path.join(save_directory, 'pgs_corrmat.pkl'))
 mean_cat_responses.to_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl'))
-np.save(os.path.join(save_directory, 'pgs_responsepeaks'), response_peaks)  # glom x stim x fly
+np.save(os.path.join(save_directory, 'pgs_responsepeaks'), response_amplitudes)  # glom x stim x fly
 # %%
 
-tmp = np.concatenate([all_responses[:, :, x, :] for x in range(all_responses.shape[2])], axis=1)
-concat_responses = np.concatenate([tmp[:, :, x] for x in range(tmp.shape[2])])  # ind glom (n gloms x n flies) x concat time
 
+tmp = np.concatenate([all_responses[:, :, x, :] for x in range(all_responses.shape[2]-2)], axis=1)
+concat_responses = np.concatenate([tmp[:, :, x] for x in range(tmp.shape[2])])  # ind glom (n gloms x n flies) x concat time
+concat_responses = zscore(concat_responses, axis=1)  # Zscore each glom
 
 ids = np.tile(np.arange(len(included_gloms)), tmp.shape[2])
 concat_responses = pd.DataFrame(concat_responses, index=ids)

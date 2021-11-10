@@ -225,7 +225,6 @@ print(tmp.std(axis=1))
 
 df = pd.DataFrame(data=tmp, index=LC_to_gloms.columns, columns=LC_to_gloms.index)
 sns.clustermap(df, col_cluster=False, row_cluster=True,
-               method='ward',
                figsize=(8, 6))
 # %%
 response_mat = pd.read_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl'))
