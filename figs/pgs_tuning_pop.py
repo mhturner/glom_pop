@@ -126,15 +126,15 @@ ax0.spines['left'].set_visible(False)
 ax0.invert_yaxis()
 
 # Plot mean responses
-fh1, ax1 = plt.subplots(len(included_gloms), 30, figsize=(10.5, 6))
+fh1, ax1 = plt.subplots(len(included_gloms), 30, figsize=(10, 6))
 [util.cleanAxes(x) for x in ax1.ravel()]
 
 fh1.subplots_adjust(wspace=0.00, hspace=0.00)
 
-for u_ind, un in enumerate(unique_parameter_values[:-2]):
+for u_ind, un in enumerate(unique_parameter_values):
     for leaf_ind, g_ind in enumerate(leaves):
         name = included_gloms[g_ind]
-        if (leaf_ind == 0) & (u_ind == (len(unique_parameter_values[:-2])-1)):
+        if (leaf_ind == 0) & (u_ind == (len(unique_parameter_values)-1)):
             plot_tools.addScaleBars(ax1[leaf_ind, u_ind], dT=-2, dF=0.25, T_value=response_data.get('time_vector')[-1], F_value=-0.08)
         # if (u_ind == 0):
         #     ax1[leaf_ind, u_ind].set_ylabel(name, fontsize=11, rotation=0)
@@ -184,7 +184,7 @@ ax5[1].plot(pca.components_[1, :], 'g-')
 ax5[2].plot(pca.components_[2, :], 'b-')
 
 x_r = pca.fit_transform(X)
-fh6, ax6 = plt.subplots(1, 1, figsize=(3, 3))
+fh6, ax6 = plt.subplots(1, 1, figsize=(5, 5))
 ax6.scatter(x_r[0, :], x_r[1, :], c=colors)
 for lc_ind, lc_name in enumerate(included_gloms):
     ax6.annotate(lc_name, (x_r[0, lc_ind], x_r[1, lc_ind]))
@@ -235,7 +235,7 @@ series = [
 
 
 split_responses = []
-fh, ax = plt.subplots(len(series), len(unique_parameter_values[:-2]), figsize=(14, 2))
+fh, ax = plt.subplots(len(series), len(unique_parameter_values), figsize=(14, 2))
 [x.set_axis_off() for x in ax.ravel()]
 [x.set_ylim([-0.2, 1.4]) for x in ax.ravel()]
 for s_ind, ser in enumerate(series):

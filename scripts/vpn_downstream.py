@@ -120,6 +120,68 @@ sns.heatmap(LC_to_gloms)
 
 sns.heatmap(LCLC_lobula)
 
+# %% Comparison to null connectivity model
+# Threshold: total incoming synapses across an entire LC type to a single postsynaptic cell
+thresh = 10
+
+# Calculate P(connection) for each glom type
+P_connection = (LC_to_gloms > thresh).sum(axis=0) / LC_to_gloms.shape[0]
+
+observed_convergence = pd.DataFrame(data=0, index=LC_to_gloms.columns, columns=LC_to_gloms.columns)
+null_convergence = pd.DataFrame(data=0, index=LC_to_gloms.columns, columns=LC_to_gloms.columns)
+for g1 in LC_to_gloms.columns:
+    for g2 in LC_to_gloms.columns:
+        if g1 != g2:
+            # observed convergent pairs
+            in1 = LC_to_gloms[g1]
+            in2 = LC_to_gloms[g2]
+            convergents = np.logical_and(in1 > thresh, in2 > thresh)
+            observed_convergence.loc[g1, g2] = convergents.sum()
+
+            # Null model
+            null_convergence.loc[g1, g2] = (P_connection[g1] * P_connection[g2]) * LC_to_gloms.shape[0]
+
+fh, ax = plt.subplots(1, 2, figsize=(8, 3))
+sns.heatmap(null_convergence, ax=ax[0], vmin=0, vmax=30)
+ax[0].set_title('Null model')
+sns.heatmap(observed_convergence, ax=ax[1], vmin=0, vmax=30)
+ax[1].set_title('Observed')
+
+fh, ax = plt.subplots(1, 1, figsize=(4, 3))
+sns.heatmap(observed_convergence - null_convergence, ax=ax, cmap='RdBu', vmin=-20, vmax=20)
+print('Expected {} convergent connections'.format(np.int(null_convergence.to_numpy()[np.triu_indices(12)].sum())))
+print('Observed {} convergent connections'.format(observed_convergence.to_numpy()[np.triu_indices(12)].sum()))
+# %%
+clusters = {'A': ['LC26', 'LC6', 'LC12', 'LC15'],
+            'B': ['LC9', 'LC11', 'LC18', 'LC21'],
+            'C': ['LPLC1', 'LC16', 'LPLC2']}
+
+clust_convergence_observed = pd.DataFrame(data=0, columns=clusters.keys(), index=clusters.keys())
+clust_convergence_null = pd.DataFrame(data=0, columns=clusters.keys(), index=clusters.keys())
+for clust_1 in list(clusters.keys()):
+    for clust_2 in list(clusters.keys()):
+
+        AB_observed = 0
+        AB_null = 0
+        for glom_1 in clusters.get(clust_1):
+            for glom_2 in clusters.get(clust_2):
+                AB_observed += observed_convergence.loc[glom_1, glom_2]
+                AB_null += null_convergence.loc[glom_1, glom_2]
+
+        clust_convergence_observed.loc[clust_1, clust_2] = AB_observed
+        clust_convergence_null.loc[clust_1, clust_2] = np.int(AB_null)
+
+print('Observed:')
+print(clust_convergence_observed)
+print('Null model:')
+print(clust_convergence_null)
+
+fh, ax = plt.subplots(1, 2, figsize=(8, 3))
+sns.heatmap(clust_convergence_null, ax=ax[0], vmin=0, vmax=99)
+ax[0].set_title('Null model')
+sns.heatmap(clust_convergence_observed, ax=ax[1], vmin=0, vmax=99)
+ax[1].set_title('Observed')
+
 
 # %% Euclidean distance matrix in projection space
 #   Axes are connectios to each postsynaptic cell type. Points are LC classes
@@ -127,10 +189,6 @@ X_conn = LC_to_gloms.copy().to_numpy().T
 X_conn[np.isnan(X_conn)] = 0
 X_conn = zscore(X_conn, axis=1)
 D_conn = spatial.distance_matrix(X_conn, X_conn)
-
-t = LC_to_gloms.copy()
-t.iloc[np.isnan(t)] = 0
-tt = t.apply(zscore)
 
 X_fxn = pd.read_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl')).to_numpy()
 X_fxn = zscore(X_fxn, axis=1)
@@ -144,17 +202,15 @@ fh, ax = plt.subplots(1, 3, figsize=(12, 4))
 sns.heatmap(D_conn, ax=ax[0])
 sns.heatmap(D_fxn, ax=ax[1])
 ax[2].plot(D_conn[np.triu_indices(12, k=1)], D_fxn[np.triu_indices(12, k=1)], 'bo')
-np.corrcoef(D_conn[np.triu_indices(12, k=1)], D_fxn[np.triu_indices(12, k=1)])
+# np.corrcoef(D_conn[np.triu_indices(12, k=1)], D_fxn[np.triu_indices(12, k=1)])
+#
+#
+# fh, ax = plt.subplots(1, 3, figsize=(12, 4))
+# sns.heatmap(D_conn, ax=ax[0])
+# sns.heatmap(D_peaks, ax=ax[1])
+# ax[2].plot(D_conn[np.triu_indices(12, k=1)], D_peaks[np.triu_indices(12, k=1)], 'bo')
+# # np.corrcoef(D_conn[np.triu_indices(12, k=1)], D_peaks[np.triu_indices(12, k=1)])
 
-
-fh, ax = plt.subplots(1, 3, figsize=(12, 4))
-sns.heatmap(D_conn, ax=ax[0])
-sns.heatmap(D_peaks, ax=ax[1])
-ax[2].plot(D_conn[np.triu_indices(12, k=1)], D_peaks[np.triu_indices(12, k=1)], 'bo')
-np.corrcoef(D_conn[np.triu_indices(12, k=1)], D_peaks[np.triu_indices(12, k=1)])
-
-tt = pd.read_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl'))
-np.std(tt.to_numpy(), axis=-1)
 
 
 
@@ -165,8 +221,8 @@ np.std(tt.to_numpy(), axis=-1)
 X = LC_to_gloms.copy().T  # LC x postsynaptic cell
 # Shift each feature (column) to have 0 mean and unit variance
 X[np.isnan(X)] = 0
-# X = zscore(X, axis=0)
-X = RobustScaler().fit_transform(X)
+X = zscore(X, axis=0)
+# X = RobustScaler().fit_transform(X)
 print('X = {} (samples, features)'.format(X.shape))
 
 pca = PCA(n_components=12)
@@ -244,4 +300,37 @@ tmp = zscore(tmp, axis=1)
 df = pd.DataFrame(data=tmp, index=LC_to_gloms.index, columns=LC_to_gloms.columns)
 sns.clustermap(df, col_cluster=False, row_cluster=True, figsize=(8, 6))
 
+
+# %% Which LCs project to descending neurons?
+
+DN_inds = np.where(['DN' in x or x=='Giant Fiber' for x in LC_to_gloms.index.values])[0]
+# print(LC_to_gloms.index.values[DN_inds])
+
+sns.heatmap(LC_to_gloms.iloc[DN_inds, :])
+# %%
+# Types:
+#   OA: octopamine
+#   AVLP - 160 types
+#   CL: Clamp
+#   PLP - 51
+#   PVLP - 136
+#   WED, SAD & AMMC-A1: gets LC4, LPLC1,2 inputs
+#   SLP & SMP
+
+
+type_inds = np.where(['PVLP' in x for x in LC_to_gloms.index.values])[0]
+print(LC_to_gloms.index.values[type_inds])
+print(len(type_inds))
+if len(type_inds)>0:
+    sns.heatmap(LC_to_gloms.iloc[type_inds, :])
+
+
+# %%
+
+to_lobula_neurons, to_lobula_connection = fetch_adjacencies(sources=NeuronCriteria(type=LC_source, regex=True, status='Traced'),
+                                                            targets=NeuronCriteria(status='Traced'),  # Connects to any downstream cell
+                                                            rois=['LO(R)'],
+                                                            min_total_weight=3)
+
+to_lobula_neurons
 # %%
