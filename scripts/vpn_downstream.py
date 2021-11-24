@@ -161,8 +161,8 @@ for it in range(100):
 null_convergence = np.dstack(null_convergence)
 null_convergence_mean = pd.DataFrame(data=null_convergence.mean(axis=-1), columns=LC_to_gloms.columns, index=LC_to_gloms.columns)
 
-print('Observed connnections = {}'.format(observed_total_connections))
-print('Null connections = {} +/- {}'.format(np.mean(null_total_connections), np.std(null_total_connections)))
+print('Observed total connnections = {}'.format(observed_total_connections))
+print('Null total connections = {} +/- {}'.format(np.mean(null_total_connections), np.std(null_total_connections)))
 
 # %%
 
