@@ -70,7 +70,7 @@ for s_ind, key in enumerate(dataset):
 
 # Stack accumulated responses
 all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, time, param, fly)
-response_amplitudes = np.stack(response_amplitudes, axis=-1)
+response_amplitudes = np.stack(response_amplitudes, axis=-1)  # dims = (gloms, param, fly)
 
 # For display, exclude last two stims (full field flashes)
 unique_parameter_values = unique_parameter_values[:-2]
@@ -82,6 +82,7 @@ sem_responses = np.std(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1]
 vox_per_glom = np.stack(vox_per_glom, axis=-1)
 
 # %% PLOTTING
+example_stims = [6, 19, 22]
 # # # Cluster on concat responses # # #
 # Concatenated response traces
 mean_responses = np.mean(all_responses, axis=-1)  # shape=(glom, time, stim, fly)
@@ -132,6 +133,10 @@ fh1, ax1 = plt.subplots(len(included_gloms), 30, figsize=(10, 6))
 fh1.subplots_adjust(wspace=0.00, hspace=0.00)
 
 for u_ind, un in enumerate(unique_parameter_values):
+    if u_ind in example_stims:
+        ax1[0, u_ind].set_title('*')
+        pass
+        # ax1[0, u_ind].annotate('\ast', (0, 1.0))
     for leaf_ind, g_ind in enumerate(leaves):
         name = included_gloms[g_ind]
         if (leaf_ind == 0) & (u_ind == (len(unique_parameter_values)-1)):
@@ -149,13 +154,266 @@ for u_ind, un in enumerate(unique_parameter_values):
 
 fh0.savefig(os.path.join(save_directory, 'pgs_tuning_dendrogram.svg'), transparent=True)
 fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True)
+# %% Some meaasure of fly-to-fly variability
+
+fh2, ax2 = plt.subplots(all_responses.shape[0], len(example_stims), figsize=(len(example_stims)*1.0, 16))
+[util.cleanAxes(x) for x in ax2.ravel()]
+fh1.subplots_adjust(wspace=0.00, hspace=0.00)
+for leaf_ind, g_ind in enumerate(leaves):
+    name = included_gloms[g_ind]
+    if (leaf_ind == 0):
+        plot_tools.addScaleBars(ax2[leaf_ind, 0], dT=-2, dF=0.25, T_value=response_data.get('time_vector')[-1], F_value=-0.08)
+    for stim_ind, stim in enumerate(example_stims):
+        ax2[leaf_ind, stim_ind].plot(response_data.get('time_vector'), all_responses[g_ind, :, stim, :], color='k', alpha=0.5, linewidth=1)
+        ax2[leaf_ind, stim_ind].plot(response_data.get('time_vector'), np.mean(all_responses[g_ind, :, stim, :], axis=-1), color=colors[g_ind, :], alpha=1.0, linewidth=2)
+
+[x.set_ylim([mean_responses.min(), 1.2]) for x in ax2.ravel()];
+
+
+# %%
+response_amplitudes.shape
+
+fh, ax = plt.subplots(1, 1, figsize=(8, 3))
+for leaf_ind, g_ind in enumerate(leaves):
+    name = included_gloms[g_ind]
+
+    ax.plot(np.arange(response_amplitudes.shape[1]), response_amplitudes[g_ind],
+            marker='o', alpha=0.5, color=colors[g_ind, :], linestyle='none')
+
+# %%
+# %% PCA on response amplitudes of individual gloms
+
+# X: individual gloms x features
+# Row order = LCa_fly1, LCa_fly2, ..., LCb_fly1, LCb_fly2, ... LCn_flyn
+scatter_colors = np.repeat(colors, response_amplitudes.shape[-1], axis=0)
+glom_ids = np.repeat(np.arange(0, 12), response_amplitudes.shape[-1], axis=0)
+
+# X: response traces
+all_concat = np.hstack([all_responses[:, :, x, :] for x in range(30)])
+X = np.reshape(np.swapaxes(all_concat, 1, -1), (-1, all_concat.shape[1]))
+
+# X: response amplitudes
+# X = np.reshape(np.swapaxes(response_amplitudes, 1, -1), (-1, response_amplitudes.shape[1]))
+
+X = zscore(X, axis=1)
+print('X = {} (samples, features)'.format(X.shape))
+pca = PCA(n_components=30)
+pca.fit(X)
+fh4, ax4 = plt.subplots(1, 1, figsize=(3, 3))
+ax4.plot(np.arange(1, 31), pca.explained_variance_ratio_, 'ko')
+ax4.set_xlabel('Mode')
+ax4.set_ylabel('Frac. var. explained')
+
+fh5, ax5 = plt.subplots(3, 1, figsize=(4, 3))
+ax5[0].plot(pca.components_[0, :], 'r-')
+ax5[1].plot(pca.components_[1, :], 'g-')
+ax5[2].plot(pca.components_[2, :], 'b-')
+
+x_r = pca.fit_transform(X)
+fh6, ax6 = plt.subplots(1, 1, figsize=(5, 5))
+ax6.scatter(x_r[:, 0], x_r[:, 1], c=scatter_colors)
+
+x_r.shape
+# %% LDA on individual gloms across flies
+# TODO: double check that this is right!! With all the reordering
+# TODO: split train/test and bootstrap across train/test split
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.metrics import confusion_matrix
+clf = LinearDiscriminantAnalysis()
+
+all_concat = np.hstack([all_responses[:, :, x, :] for x in range(30)])
+# reorder gloms according to clustering order above
+all_concat = all_concat[leaves, :]
+scatter_colors = np.repeat(colors[leaves, :], all_responses.shape[-1], axis=0)
+glom_ids = np.repeat(leaves, all_responses.shape[-1], axis=0)
+reordered_names = [included_gloms[x] for x in leaves]
+
+# Concatenate responses across stims
+X = np.reshape(np.swapaxes(all_concat, 1, -1), (-1, all_concat.shape[1]))
+
+train_inds = np.random.choice(np.arange(X.shape[0]), int(0.9*X.shape[0]))
+
+clf.fit(X[train_inds, :], glom_ids[train_inds])
+X.shape
+
+print(clf.score(X, glom_ids))
+pred = clf.predict(X)
+
+conf_mat = pd.DataFrame(data=confusion_matrix(glom_ids, pred, normalize='true'),
+                        columns=reordered_names,
+                        index=reordered_names)
+sns.heatmap(conf_mat)
+
+# %%
+
+# %% Single trial encoding across gloms
+
+from sklearn.preprocessing import LabelEncoder
+from ast import literal_eval
+
+parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
+
+le = LabelEncoder()
+y = le.fit_transform([str(x) for x in parameter_values])
+
+parameter_values[0]
+
+literal_eval(le.inverse_transform(y)[0])
+# %%
+
+# shape = trials x time (concatenated glom responses)
+single_trial_responses = np.reshape(epoch_response_matrix, (-1, epoch_response_matrix.shape[2])).T
+X = single_trial_responses.copy()
+
+# evaluate multinomial logistic regression model
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
+
+model = LogisticRegression(multi_class='multinomial', solver='lbfgs')
+
+# # (1) Overall cross-validated performance...
+# # define the model evaluation procedure
+# cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=10, random_state=1)
+# # evaluate the model and collect the scores
+# n_scores = cross_val_score(model, X, y, scoring='accuracy', cv=cv, n_jobs=-1)
+# # report the model performance
+# print('Mean Accuracy: %.3f (%.3f)' % (np.mean(n_scores), np.std(n_scores)))
+
+# %%
+# (2) test/train split and compute p matrix
+p_test_all = []
+y_test_all = []
+y_hat_all = []
+
+for it in range(100):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10)
+
+    model.fit(X_train, y_train)
+    # p_test = model.predict_proba(X_test)
+    y_hat = model.predict(X_test)
+
+    # p_test_all.append(p_test)
+    y_test_all.append(y_test)
+    y_hat_all.append(y_hat)
+
+# p_test_all = np.vstack(p_test_all)
+y_test_all = np.hstack(y_test_all)
+y_hat_all = np.hstack(y_hat_all)
+np.sum(y_hat_all == y_test_all) / y_test_all.shape[0]
+
+# %%
+cmat = confusion_matrix(y_test_all, y_hat_all, normalize='true')
+
+fh, ax = plt.subplots(1, 1, figsize=(6, 5))
+sns.heatmap(cmat, ax=ax, vmin=0, vmax=1.0, cmap='Reds')
+ax.set_xlabel('Predicted')
+ax.set_ylabel('True')
+
+literal_eval(le.inverse_transform(y)[0])
+
+stim_ids_sorted = [literal_eval(x) for x in le.inverse_transform(model.classes_)]
+# %% Across all flies: single trial stimulus identity encoding
+
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
+from sklearn.preprocessing import LabelEncoder
+from ast import literal_eval
+
+
+fh, ax = plt.subplots(3, 3, figsize=(12, 8))
+ax = ax.ravel()
+
+cmats = []
+overall_performances = []
+for s_ind, key in enumerate(dataset):
+    experiment_file_name = key.split('_')[0]
+    series_number = int(key.split('_')[1])
+
+    file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
+    ID = volumetric_data.VolumetricDataObject(file_path,
+                                              series_number,
+                                              quiet=True)
+
+    # Load response data
+    response_data = dataio.loadResponses(ID, response_set_name='glom', get_voxel_responses=False)
+    vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
+
+    # Only select gloms in included_gloms
+    erm = []
+    included_vals = []
+    for g_ind, name in enumerate(included_gloms):
+        pull_ind = np.where(name == names)[0][0]
+        erm.append(response_data.get('epoch_response')[pull_ind, :, :])
+        included_vals.append(vals[pull_ind])
+    epoch_response_matrix = np.stack(erm, axis=0)
+    included_vals = np.array(included_vals)
+
+    parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
+    le = LabelEncoder()
+    y = le.fit_transform([str(x) for x in parameter_values])
+
+    # Multinomial logistic regression model
+    # shape = trials x time (concatenated glom responses)
+    single_trial_responses = np.reshape(epoch_response_matrix, (-1, epoch_response_matrix.shape[2])).T
+    X = single_trial_responses.copy()
+
+    model = LogisticRegression(multi_class='multinomial', solver='lbfgs')
+
+    y_test_all = []
+    y_hat_all = []
+    for it in range(20):
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10)
+
+        model.fit(X_train, y_train)
+        y_hat = model.predict(X_test)
+
+        y_test_all.append(y_test)
+        y_hat_all.append(y_hat)
+
+    y_test_all = np.hstack(y_test_all)
+    y_hat_all = np.hstack(y_hat_all)
+    performance = np.sum(y_hat_all == y_test_all) / y_test_all.shape[0]
+    overall_performances.append(performance)
+
+    cmat = confusion_matrix(y_test_all, y_hat_all, normalize='true')
+    cmats.append(cmat)
+
+    sns.heatmap(cmat, ax=ax[s_ind], vmin=0, vmax=1.0, cmap='Reds')
+    ax[s_ind].set_xlabel('Predicted')
+    ax[s_ind].set_ylabel('True')
+    ax[s_ind].set_title('{:.2f}'.format(performance))
+cmats = np.dstack(cmats)
+
+# %%
+fh, ax = plt.subplots(1, 1, figsize=(8, 6))
+
+sns.heatmap(cmats.mean(axis=-1), ax=ax, vmin=0, vmax=1.0, cmap='Reds')
+ax.set_xlabel('Predicted')
+ax.set_ylabel('True')
+ax.set_title('{:.2f} ({:.2f})'.format(np.mean(overall_performances), np.std(overall_performances)))
 
 # %% Inter-individual correlation for each glom
+# TODO: Need some comparison here. Like, for each glom: correlation with other gloms in other flies?
+w_corrs = []
+for f_ind in range(response_amplitudes.shape[-1]):
+    within_corr = pd.DataFrame(data=response_amplitudes[:, :, f_ind].T).corr().to_numpy()[np.triu_indices(response_amplitudes.shape[0], k=1)]
+    w_corrs.append(within_corr)
 
+w_corrs = np.vstack(w_corrs)
+
+np.mean(w_corrs)
+
+ #%%
 fh2, ax2 = plt.subplots(1, 1, figsize=(3.5, 2))
 for leaf_ind, g_ind in enumerate(leaves):
     name = included_gloms[g_ind]
-    inter_corr = pd.DataFrame(response_amplitudes[g_ind, :, :]).corr().to_numpy()[np.triu_indices(7, k=1)]
+    inter_corr = pd.DataFrame(response_amplitudes[g_ind, :, :]).corr().to_numpy()[np.triu_indices(response_amplitudes.shape[-1], k=1)]
     ax2.plot(leaf_ind * np.ones_like(inter_corr), inter_corr, color=colors[g_ind, :], marker='.', linestyle='none', alpha=0.5, markersize=4)
     ax2.plot(leaf_ind, np.mean(inter_corr), color=colors[g_ind, :], marker='o', markersize=6)
 
@@ -205,24 +463,6 @@ mean_cat_responses.to_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl')
 np.save(os.path.join(save_directory, 'pgs_responsepeaks'), response_amplitudes)  # glom x stim x fly
 # %%
 
-
-tmp = np.concatenate([all_responses[:, :, x, :] for x in range(all_responses.shape[2]-2)], axis=1)
-concat_responses = np.concatenate([tmp[:, :, x] for x in range(tmp.shape[2])])  # ind glom (n gloms x n flies) x concat time
-concat_responses = zscore(concat_responses, axis=1)  # Zscore each glom
-
-ids = np.tile(np.arange(len(included_gloms)), tmp.shape[2])
-concat_responses = pd.DataFrame(concat_responses, index=ids)
-
-glom_colors = [colors[i] for i in ids]
-
-sns.clustermap(data=concat_responses, col_cluster=False, row_cluster=True,
-               figsize=(8, 6), cmap='magma', row_colors=glom_colors, method='weighted')
-# %%
-
-
-# %%
-
-pd.DataFrame(np.vstack([names.values, vox_per_glom.mean(axis=-1)]).T)
 # %% Individual splits datafiles
 # series = [
 #           ('2021-08-11', 10),  # R65B05
