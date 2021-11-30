@@ -33,6 +33,7 @@ print('Loaded {}, shape={}'.format(file_base_path + '_channel_2.nii', ch2.shape)
 # Register both channels to channel 1
 # shape = xyztc
 merged = registration.register_two_channels_to_red(ch1, ch2, spatial_dims=len(ch1.shape) - 1, reference_frames=10)
+del ch1, ch2
 
 # shape = xyzc
 meanbrain = merged.mean(axis=3)
