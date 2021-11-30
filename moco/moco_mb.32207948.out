@@ -1,0 +1,14 @@
+Making moco meanbrain from /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-004
+Loaded metadata from /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-004.xml
+Loaded /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-004_channel_1.nii, shape=(354, 202, 45, 100)
+Loaded /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-004_channel_2.nii, shape=(354, 202, 45, 100)
+Transform computed: (1208.58 sec)
+Transform applied: (234.09 sec)
+Saved registered brain to /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-004_anatomical.nii. Total time = 1497.1
+Making moco meanbrain from /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-012
+Loaded metadata from /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-012.xml
+Loaded /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-012_channel_1.nii, shape=(354, 202, 45, 100)
+Loaded /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-012_channel_2.nii, shape=(354, 202, 45, 100)
+Transform computed: (1116.84 sec)
+Transform applied: (234.61 sec)
+Saved registered brain to /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-012_anatomical.nii. Total time = 1407.3
