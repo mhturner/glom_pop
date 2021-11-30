@@ -12,6 +12,10 @@
 module use /home/groups/trc/modules
 module load antspy/0.2.2
 
-python3 /home/users/mhturner/glom_pop/moco/moco_meanbrain.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-004
+python3 /home/users/mhturner/glom_pop/moco/moco_meanbrain.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20211129/TSeries-20211129-004
 
-python3 /home/users/mhturner/glom_pop/moco/moco_meanbrain.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20210825/TSeries-20210825-012
+python3 /home/users/mhturner/glom_pop/moco/moco_meanbrain.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20211129/TSeries-20211129-007
+
+python3 /home/users/mhturner/glom_pop/moco/moco_meanbrain.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20211129/TSeries-20211129-010
+
+python3 /home/users/mhturner/glom_pop/moco/moco_meanbrain.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20211129/TSeries-20211129-012
