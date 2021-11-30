@@ -62,7 +62,7 @@ for s_ind, key in enumerate(dataset):
     colors = cmap(included_vals/included_vals.max())
 
     # Align responses
-    mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, _ = ID.getMeanBrainByStimulus(epoch_response_matrix)
+    mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, trial_response_by_stimulus = ID.getMeanBrainByStimulus(epoch_response_matrix)
     n_stimuli = mean_voxel_response.shape[2]
 
     all_responses.append(mean_voxel_response)
@@ -85,7 +85,7 @@ vox_per_glom = np.stack(vox_per_glom, axis=-1)
 
 
 # %% PLOTTING
-example_stims = [6, 18]
+
 # # # Cluster on concat responses # # #
 # Concatenated response traces
 mean_responses = np.mean(all_responses, axis=-1)  # shape=(glom, time, stim, fly)
@@ -137,10 +137,6 @@ fh1, ax1 = plt.subplots(len(included_gloms), len(unique_parameter_values), figsi
 fh1.subplots_adjust(wspace=0.00, hspace=0.00)
 
 for u_ind, un in enumerate(unique_parameter_values):
-    if u_ind in example_stims:
-        ax1[0, u_ind].set_title('*')
-        pass
-        # ax1[0, u_ind].annotate('\ast', (0, 1.0))
     for leaf_ind, g_ind in enumerate(leaves):
         name = included_gloms[g_ind]
         if (leaf_ind == 0) & (u_ind == (len(unique_parameter_values)-1)):
@@ -148,7 +144,7 @@ for u_ind, un in enumerate(unique_parameter_values):
         # if (u_ind == 0):
         #     ax1[leaf_ind, u_ind].set_ylabel(name, fontsize=11, rotation=0)
         ax1[leaf_ind, u_ind].plot(response_data.get('time_vector'), mean_responses[g_ind, :, u_ind],
-                                  color=colors[g_ind, :], alpha=1.0, linewidth=1)
+                                  color=colors[g_ind, :], alpha=1.0, linewidth=1.5)
         ax1[leaf_ind, u_ind].fill_between(response_data.get('time_vector'),
                                           mean_responses[g_ind, :, u_ind] - sem_responses[g_ind, :, u_ind],
                                           mean_responses[g_ind, :, u_ind] + sem_responses[g_ind, :, u_ind],
@@ -160,80 +156,103 @@ for u_ind, un in enumerate(unique_parameter_values):
 fh0.savefig(os.path.join(save_directory, 'pgs_tuning_dendrogram.svg'), transparent=True)
 fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True)
 # %% For example stims, show individual fly responses
+# cv := std across animals normalized by mean across animals and across all stims for that glom
+# cv = np.std(response_amplitudes, axis=-1) / np.mean(response_amplitudes, axis=(1, 2))[:, None]
 
-fh2, ax2 = plt.subplots(all_responses.shape[0], len(example_stims), figsize=(len(example_stims)*1.0, 16))
-[util.cleanAxes(x) for x in ax2.ravel()]
-fh1.subplots_adjust(wspace=0.00, hspace=0.00)
-for leaf_ind, g_ind in enumerate(leaves):
-    name = included_gloms[g_ind]
-    if (leaf_ind == 0):
-        plot_tools.addScaleBars(ax2[leaf_ind, 0], dT=-2, dF=0.25, T_value=response_data.get('time_vector')[-1], F_value=-0.08)
-    for stim_ind, stim in enumerate(example_stims):
-        ax2[leaf_ind, stim_ind].plot(response_data.get('time_vector'), all_responses[g_ind, :, stim, :], color='k', alpha=0.5, linewidth=1)
-        ax2[leaf_ind, stim_ind].plot(response_data.get('time_vector'), np.mean(all_responses[g_ind, :, stim, :], axis=-1), color=colors[g_ind, :], alpha=1.0, linewidth=2)
+# Normalize sigma by the maximum response of this glom across all stims
+scaling = np.max(np.mean(response_amplitudes, axis=-1), axis=-1)
+cv = np.std(response_amplitudes, axis=-1) / scaling[:, None]
+eg_leaf_inds = [3, 6, 11]
+eg_stim_ind = 6
+fh2, ax2 = plt.subplots(len(eg_leaf_inds), all_responses.shape[-1], figsize=(4, 2.5))
 
-[x.set_ylim([mean_responses.min(), 1.2]) for x in ax2.ravel()]
-fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=True)
-
-
-# %%
-
-eg_leaf_inds = [3, 6, 8]
-eg_stim_ind = 21
-fh2, ax2 = plt.subplots(len(eg_leaf_inds), all_responses.shape[-1], figsize=(12, 4))
-
-[x.set_ylim([mean_responses.min(), 0.8]) for x in ax2.ravel()]
+[x.set_ylim([-0.1, 1.2]) for x in ax2.ravel()]
 [x.set_axis_off() for x in ax2.ravel()]
 for li, leaf_ind in enumerate(eg_leaf_inds):
     g_ind = leaves[leaf_ind]
     for fly_ind in range(all_responses.shape[-1]):
         ax2[li, fly_ind].plot(all_responses[g_ind, :, eg_stim_ind, fly_ind], color='k', alpha=0.5)
         ax2[li, fly_ind].plot(np.mean(all_responses[g_ind, :, eg_stim_ind, :], axis=-1), color=colors[g_ind, :], linewidth=2)
+        if fly_ind == 0 & li == 0:
+            plot_tools.addScaleBars(ax2[0, 0], dT=2, dF=0.25, T_value=0, F_value=-0.05)
+
+        if fly_ind == 0:
+            ax2[li, fly_ind].annotate('cv = {:.2f}'.format(cv[g_ind, eg_stim_ind]), (0, 1.0))
+
+print(unique_parameter_values[eg_stim_ind])
+fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=True)
+
+fh3, ax3 = plt.subplots(1, 1, figsize=(3, 2.5))
+ax3.hist(cv.ravel(), bins=40)
+ax3.set_xlabel('Coefficient of Variation')
+ax3.set_ylabel('Count');
+
+fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=True)
+
+fh4, ax4 = plt.subplots(1, 1, figsize=(3, 2))
+for leaf_ind, g_ind in enumerate(leaves):
+    name = included_gloms[g_ind]
+    mean_cv = np.mean(cv[g_ind, :])
+    std_cv = np.std(cv[g_ind, :])
+    sem_cv = np.std(cv[g_ind, :]) / np.sqrt(len(cv[g_ind, :]))
+
+    ax4.plot(leaf_ind * np.ones_like(cv[g_ind, :]), cv[g_ind, :], color='k', marker='.', linestyle='none', alpha=0.25, markersize=4)
+    ax4.plot(leaf_ind, mean_cv, marker='o', color=colors[g_ind, :])
+    ax4.plot([leaf_ind, leaf_ind], [mean_cv-sem_cv, mean_cv+sem_cv], marker='None', color=colors[g_ind, :])
+
+ax4.set_xticks(np.arange(len(included_gloms)))
+ax4.set_xticklabels([included_gloms[x] for x in leaves])
+ax4.set_ylabel('Coefficient of variation', fontsize=11)
+ax4.tick_params(axis='y', labelsize=11)
+ax4.tick_params(axis='x', labelsize=11, rotation=90)
+ax4.set_ylim([0, cv.ravel().max()])
+
+fh4.savefig(os.path.join(save_directory, 'pgs_fly_cv.svg'), transparent=True)
+
+# %% Trial-to-trial variability
 
 
-# cv := std across animals normalized by mean across animals and across all stims for that glom
-cv = np.std(response_amplitudes, axis=-1) / np.mean(response_amplitudes, axis=(1, 2))[:, None]
+fh5, ax5 = plt.subplots(len(eg_leaf_inds), 5, figsize=(3.0, 2))
 
+[x.set_ylim([-0.2, 1.2]) for x in ax5.ravel()]
+[x.set_axis_off() for x in ax5.ravel()]
+for li, leaf_ind in enumerate(eg_leaf_inds):
+    g_ind = leaves[leaf_ind]
 
-# %%
+    for trial in range(5):
+        ax5[li, trial].plot(trial_response_by_stimulus[eg_stim_ind][g_ind, :, trial], color='k', alpha=0.5)
+        ax5[li, trial].plot(np.mean(trial_response_by_stimulus[eg_stim_ind][g_ind, :, :], axis=-1), color=colors[g_ind, :])
+
+        if trial == 0 & li == 0:
+            plot_tools.addScaleBars(ax5[0, 0], dT=2, dF=0.25, T_value=0, F_value=-0.08)
+
+fh5.savefig(os.path.join(save_directory, 'pgs_trial_responses.svg'), transparent=True)
+
 
 
 # %% Inter-individual correlation for each glom
 
 
-fh3, ax3 = plt.subplots(1, 1, figsize=(3.5, 2))
+fh4, ax4 = plt.subplots(1, 1, figsize=(3.5, 2))
 for leaf_ind, g_ind in enumerate(leaves):
     name = included_gloms[g_ind]
     inter_corr = pd.DataFrame(response_amplitudes[g_ind, :, :]).corr().to_numpy()[np.triu_indices(response_amplitudes.shape[-1], k=1)]
     mean_inter_corr = np.mean(inter_corr)
     std_inter_corr = np.std(inter_corr)
     sem_inter_corr = np.std(inter_corr) / np.sqrt(len(inter_corr))
-    # ax3.plot(leaf_ind * np.ones_like(inter_corr), inter_corr, color=colors[g_ind, :], marker='.', linestyle='none', alpha=0.5, markersize=4)
-    ax3.plot(leaf_ind, mean_inter_corr, color=colors[g_ind, :], marker='o', markersize=6)
-    ax3.plot([leaf_ind, leaf_ind], [mean_inter_corr-sem_inter_corr, mean_inter_corr+sem_inter_corr], marker='None', color=colors[g_ind, :])
+    # ax4.plot(leaf_ind * np.ones_like(inter_corr), inter_corr, color=colors[g_ind, :], marker='.', linestyle='none', alpha=0.5, markersize=4)
+    ax4.plot(leaf_ind, mean_inter_corr, color=colors[g_ind, :], marker='o', markersize=6)
+    ax4.plot([leaf_ind, leaf_ind], [mean_inter_corr-sem_inter_corr, mean_inter_corr+sem_inter_corr], marker='None', color=colors[g_ind, :])
 
-ax3.set_xticks(np.arange(len(included_gloms)))
-ax3.set_xticklabels([included_gloms[x] for x in leaves])
-ax3.set_ylabel('Inter-individual corr. (r)', fontsize=11)
-ax3.tick_params(axis='y', labelsize=11)
-ax3.tick_params(axis='x', labelsize=11, rotation=90)
-ax3.set_ylim([0, 1])
+ax4.set_xticks(np.arange(len(included_gloms)))
+ax4.set_xticklabels([included_gloms[x] for x in leaves])
+ax4.set_ylabel('Inter-individual corr. (r)', fontsize=11)
+ax4.tick_params(axis='y', labelsize=11)
+ax4.tick_params(axis='x', labelsize=11, rotation=90)
+ax4.set_ylim([0, 1])
 
-fh3.savefig(os.path.join(save_directory, 'pgs_Inter_Ind_Corr.svg'), transparent=True)
+fh4.savefig(os.path.join(save_directory, 'pgs_Inter_Ind_Corr.svg'), transparent=True)
 
-
-# %%
-leaves
-dataset
-pd.DataFrame(response_amplitudes[11, :, :]).corr()
-
-pd.DataFrame(response_amplitudes[1, :, :]).corr()
-
-fly_ind = 6
-cat_resp = np.vstack(np.concatenate([all_responses[:, :, x, fly_ind] for x in np.arange(len(unique_parameter_values))], axis=1))
-fh, ax = plt.subplots(12, 1, figsize=(8, 12))
-for leaf_ind, g_ind in enumerate(leaves):
-    ax[g_ind].plot(cat_resp[g_ind, :])
 
 # %% Inter-glom corr
 

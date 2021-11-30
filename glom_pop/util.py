@@ -5,7 +5,7 @@ https://github.com/mhturner/glom_pop
 """
 
 import matplotlib.pyplot as plt
-import numpy as np
+
 
 
 def cleanAxes(ax):
