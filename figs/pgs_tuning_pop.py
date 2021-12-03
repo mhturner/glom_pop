@@ -155,6 +155,9 @@ for u_ind, un in enumerate(unique_parameter_values):
 
 fh0.savefig(os.path.join(save_directory, 'pgs_tuning_dendrogram.svg'), transparent=True)
 fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True)
+
+np.save(os.path.join(save_directory, 'cluster_leaves_list.npy'), leaves)
+
 # %% For example stims, show individual fly responses
 # cv := std across animals normalized by mean across animals and across all stims for that glom
 # cv = np.std(response_amplitudes, axis=-1) / np.mean(response_amplitudes, axis=(1, 2))[:, None]
@@ -180,6 +183,7 @@ for li, leaf_ind in enumerate(eg_leaf_inds):
             ax2[li, fly_ind].annotate('cv = {:.2f}'.format(cv[g_ind, eg_stim_ind]), (0, 1.0))
 
 print(unique_parameter_values[eg_stim_ind])
+print(np.array(included_gloms)[np.array([leaves[x] for x in eg_leaf_inds])])
 fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=True)
 
 fh3, ax3 = plt.subplots(1, 1, figsize=(3, 2.5))
@@ -233,7 +237,7 @@ fh5.savefig(os.path.join(save_directory, 'pgs_trial_responses.svg'), transparent
 # %% Inter-individual correlation for each glom
 
 
-fh4, ax4 = plt.subplots(1, 1, figsize=(3.5, 2))
+fh4, ax4 = plt.subplots(1, 1, figsize=(3.0, 2))
 for leaf_ind, g_ind in enumerate(leaves):
     name = included_gloms[g_ind]
     inter_corr = pd.DataFrame(response_amplitudes[g_ind, :, :]).corr().to_numpy()[np.triu_indices(response_amplitudes.shape[-1], k=1)]
@@ -269,6 +273,7 @@ corr_mat.to_pickle(os.path.join(save_directory, 'pgs_corrmat.pkl'))
 mean_cat_responses.to_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl'))
 np.save(os.path.join(save_directory, 'pgs_responsepeaks'), response_amplitudes)  # glom x stim x fly
 # %%
+
 
 # %% Individual splits datafiles
 # series = [

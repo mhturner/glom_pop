@@ -1,4 +1,4 @@
-from neuprint import (Client, fetch_adjacencies, NeuronCriteria, fetch_neurons,
+from neuprint import (Client, fetch_adjacencies, NeuronCriteria, fetch_neurons, fetch_primary_rois,
                       merge_neuron_properties)
 import numpy as np
 import matplotlib.pyplot as plt
@@ -82,10 +82,24 @@ for LC_source in LC_keys:
 
 print('Found {} postsynaptic cells'.format(LC_to_gloms.shape[0]))
 # %%
-sns.heatmap(LC_to_gloms)
+fh0, ax0 = plt.subplots(1, 1, figsize=(5, 4))
+sns.heatmap(LC_to_gloms, ax=ax0, cbar_kws={'label': 'Total synapses'})
+ax0.set_xlabel('Presynaptic')
+ax0.set_ylabel('Postsynaptic')
+fh0.savefig(os.path.join(save_directory, 'downstream_heatmap.png'), bbox_inches='tight', dpi=350)
+# %%
 
-sns.heatmap(LCLC_lobula)
+# %%
 
+#
+# tt = LC_to_gloms.index.values[0]
+# tt
+# neur, conn = fetch_neurons(NeuronCriteria(type=tt))
+# output_rois = pd.DataFrame(columns=all_rois)
+# for cell in range(neur.shape[0]):
+#     for key in neur.roiInfo[0]:
+#         ds = neur.roiInfo[0].get(key).get('downstream', 0)
+#
 
 # %%
 # # # # # # HETEROGENEITY ACROSS CELLS WITHIN AN LC POPULATION # # # # # # # # # # # # # # # # # # # # #
@@ -167,21 +181,45 @@ print('Null total connections = {} +/- {}'.format(np.mean(null_total_connections
 # %%
 
 vmax = np.max([null_convergence_mean.to_numpy().ravel().max(), observed_convergence.to_numpy().ravel().max()])
-fh, ax = plt.subplots(1, 3, figsize=(11, 3))
-sns.heatmap(null_convergence_mean, ax=ax[0], vmin=0, vmax=vmax)
-ax[0].set_title('Null model')
-sns.heatmap(observed_convergence, ax=ax[1], vmin=0, vmax=vmax)
-ax[1].set_title('Observed')
+fh1, ax1 = plt.subplots(1, 3, figsize=(11, 3))
+sns.heatmap(null_convergence_mean, ax=ax1[0], vmin=0, vmax=vmax)
+ax1[0].set_title('Null model')
+sns.heatmap(observed_convergence, ax=ax1[1], vmin=0, vmax=vmax)
+ax1[1].set_title('Observed')
 
 diff = observed_convergence - null_convergence_mean
 v_lim = np.ceil(np.abs(diff.to_numpy().ravel()).max())
-sns.heatmap(diff, ax=ax[2], cmap='RdBu_r', vmin=-v_lim, vmax=+v_lim)
-ax[2].set_title('Observed - Null')
+sns.heatmap(diff, ax=ax1[2], cmap='RdBu_r', vmin=-v_lim, vmax=+v_lim)
+ax1[2].set_title('Observed - Null')
 print('Expected {} convergent connections'.format(np.int(null_convergence_mean.to_numpy()[np.triu_indices(null_convergence_mean.shape[0])].sum())))
 print('Observed {} convergent connections'.format(observed_convergence.to_numpy()[np.triu_indices(null_convergence_mean.shape[0])].sum()))
 
-fh, ax = plt.subplots(1, 1, figsize=(4, 6))
-sns.heatmap(observed_downstream, ax=ax, cmap='Greys')
+fh2, ax2 = plt.subplots(1, 1, figsize=(4, 6))
+sns.heatmap(observed_downstream, ax=ax2, cmap='Greys')
+
+fh1.savefig(os.path.join(save_directory, 'downstream_conv_model.png'), bbox_inches='tight', dpi=350)
+fh2.savefig(os.path.join(save_directory, 'downstream_conv_observed.png'), bbox_inches='tight', dpi=350)
+
+# %%
+
+all_rois = fetch_primary_rois()
+output_rois = pd.DataFrame(data=0, columns=all_rois, index=observed_downstream.index.values)
+
+for downstream in output_rois.index.values:
+    neur, conn = fetch_neurons(NeuronCriteria(type=downstream))
+    for cell in range(neur.shape[0]):
+        for key in neur.roiInfo[cell]:
+            ds = neur.roiInfo[cell].get(key).get('downstream', 0)
+            if key in all_rois:
+                output_rois.loc[downstream, key] += ds
+
+
+# %%
+fh, ax = plt.subplots(1, 1, figsize=(15, 4))
+
+sns.heatmap(output_rois, ax=ax)
+ax.set_xlabel('Output roi')
+
 # %%
 clusters = {'A': ['LC26', 'LC6', 'LC12', 'LC15'],
             'B': ['LC9', 'LC11', 'LC18', 'LC21'],
@@ -339,7 +377,13 @@ sns.clustermap(df, col_cluster=False, row_cluster=True, figsize=(8, 6))
 DN_inds = np.where(['DN' in x or x=='Giant Fiber' for x in LC_to_gloms.index.values])[0]
 # print(LC_to_gloms.index.values[DN_inds])
 
-sns.heatmap(LC_to_gloms.iloc[DN_inds, :])
+fh, ax = plt.subplots(1, 1, figsize=(5, 4))
+sns.heatmap(LC_to_gloms.iloc[DN_inds, :], ax=ax, cbar_kws={'label': 'Total synapses'})
+ax.set_xlabel('Presynaptic')
+ax.set_ylabel('Postsynaptic')
+
+
+fh.savefig(os.path.join(save_directory, 'DN_inputs.png'), bbox_inches='tight')
 # %%
 # Types:
 #   DN: Descending neurons

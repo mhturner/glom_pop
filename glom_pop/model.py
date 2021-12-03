@@ -59,10 +59,12 @@ class SingleTrialEncoding():
 
             # Filter trials to only include stims of interest
             # exclude last 2 (uniform flash)
-            unique_parameter_values = unique_parameter_values[:30]
-            keep_stims = np.arange(0, 30)
+            # Exclude one direction of bidirectional stims
+            # Exclude spot on grating for now
+            keep_stims = np.array([0, 2, 4, 6, 8, 10, 12, 14, 15, 16, 17, 18, 19, 20, 21])
             keep_inds = np.where([x in keep_stims for x in df['encoded'].values])[0]
 
+            included_parameter_values = unique_parameter_values[keep_stims]
             X = single_trial_responses[keep_inds, :]
             y = df['encoded'].values[keep_inds]
 
@@ -90,6 +92,7 @@ class SingleTrialEncoding():
 
             if s_ind == pull_eg:  # Pull out some example internal bits for display
                 self.unique_parameter_values = unique_parameter_values
+                self.included_parameter_values = included_parameter_values
                 self.X_test = X_test
                 self.y_test = y_test
                 self.LogRegModel = LogRegModel
