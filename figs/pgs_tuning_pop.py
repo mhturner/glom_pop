@@ -82,6 +82,9 @@ sem_responses = np.std(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1]
 std_responses = np.std(all_responses, axis=-1) # (glom, time, param)
 vox_per_glom = np.stack(vox_per_glom, axis=-1)
 
+mean_responses.shape
+np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
+np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
 
 
 # %% PLOTTING
