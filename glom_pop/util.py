@@ -18,3 +18,7 @@ def cleanAxes(ax):
     ax.spines['right'].set_visible(False)
     ax.get_xaxis().set_ticks([])
     ax.get_yaxis().set_ticks([])
+
+
+def makeGlomMap(ax):
+    pass
