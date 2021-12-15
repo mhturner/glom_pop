@@ -82,11 +82,12 @@ response_amplitudes = response_amplitudes[:, :-2, :]
 
 mean_responses = np.mean(all_responses, axis=-1)  # (glom, time, param)
 sem_responses = np.std(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, time, param)
-std_responses = np.std(all_responses, axis=-1) # (glom, time, param)
+std_responses = np.std(all_responses, axis=-1)  # (glom, time, param)
 vox_per_glom = np.stack(vox_per_glom, axis=-1)
 
 mean_responses.shape
 np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
+np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
 np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
 np.save(os.path.join(save_directory, 'colors.npy'), colors)
 
