@@ -6,20 +6,23 @@ import os
 import colorcet as cc
 import pandas as pd
 import seaborn as sns
+import ants
 
 from sklearn.decomposition import PCA
 from scipy.stats import zscore
 from sklearn.cluster import AgglomerativeClustering
 from scipy.cluster.hierarchy import dendrogram, leaves_list
 
-from glom_pop import dataio, util
+from glom_pop import dataio, util, alignment
 
 plt.rcParams['svg.fonttype'] = 'none'
 plt.rcParams.update({'font.family': 'sans-serif'})
 plt.rcParams.update({'font.sans-serif': 'Helvetica'})
 
+base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
 experiment_file_directory = '/Users/mhturner/CurrentData'
 save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
+transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 
 
 # %% PLOT MEAN RESPONSES TO TUNING SUITE
@@ -161,6 +164,31 @@ fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=Tru
 
 np.save(os.path.join(save_directory, 'cluster_leaves_list.npy'), leaves)
 
+# %% glom highlight maps
+
+# Load mask key for VPN types
+vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+glom_mask_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'glom_mask_reg2meanbrain.nii')).numpy()
+glom_mask_2_meanbrain = alignment.filterGlomMask_by_name(mask=glom_mask_2_meanbrain,
+                                                         vpn_types=vpn_types,
+                                                         included_gloms=included_gloms)
+
+fh6, ax6 = plt.subplots(len(leaves), 1, figsize=(2, 6))
+[x.set_xlim([30, 230]) for x in ax6.ravel()]
+[x.set_ylim([180, 5]) for x in ax6.ravel()]
+[x.set_axis_off() for x in ax6.ravel()]
+
+
+for leaf_ind, g_ind in enumerate(leaves):
+    name = included_gloms[g_ind]
+    glom_mask_val = vpn_types.loc[vpn_types.get('vpn_types') == name, 'Unnamed: 0'].values[0]
+
+    util.makeGlomMap(ax=ax6[leaf_ind],
+                     glom_map=glom_mask_2_meanbrain,
+                     z_val=None,
+                     highlight_vals=[glom_mask_val])
+
+fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent=True)
 # %% For example stims, show individual fly responses
 # cv := std across animals normalized by mean across animals and across all stims for that glom
 # cv = np.std(response_amplitudes, axis=-1) / np.mean(response_amplitudes, axis=(1, 2))[:, None]

@@ -16,7 +16,7 @@ import ants
 from matplotlib.patches import Rectangle
 import glob
 
-from glom_pop import alignment, dataio
+from glom_pop import alignment, dataio, util
 
 plt.rcParams['svg.fonttype'] = 'none'
 plt.rcParams.update({'font.family': 'sans-serif'})
@@ -50,21 +50,29 @@ template_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'JRC201
 # Load mask key for VPN types
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 
+glom_mask_2_meanbrain = alignment.filterGlomMask_by_name(mask=glom_mask_2_meanbrain,
+                                                         vpn_types=vpn_types,
+                                                         included_gloms=included_gloms)
+
+# %%
+vals
+
+fh, ax = plt.subplots(1, 1, figsize=(4, 4))
+util.makeGlomMap(ax=ax,
+                 glom_map=glom_mask_2_meanbrain,
+                 z_val=None,
+                 highlight_vals=[42])
+
 # %%
 # Show z slices of meanbrain, template, & glom map for alignment
 z_levels = [5, 10, 20, 30, 40]
 
-glom_mask_2_meanbrain = alignment.filterGlomMask_by_name(mask=glom_mask_2_meanbrain,
-                                                         vpn_types=vpn_types,
-                                                         included_gloms=included_gloms)
 
 vals = np.unique(glom_mask_2_meanbrain)[1:]  # exclude first val (=0, not a glom)
 names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
 
 cmap = cc.cm.glasbey
 colors = cmap(vals/vals.max())
-norm = mcolors.Normalize(vmin=0, vmax=vals.max(), clip=True)
-glom_tmp = np.ma.masked_where(glom_mask_2_meanbrain == 0, glom_mask_2_meanbrain)  # mask at 0
 grn_tmp = np.ma.masked_where(lobe_mask == 0, meanbrain_green.numpy())  # mask at 0
 
 
@@ -72,15 +80,21 @@ fh, ax = plt.subplots(len(z_levels), 4, figsize=(5, 5.5), tight_layout=True)
 [x.set_xticklabels([]) for x in ax.ravel()]
 [x.set_yticklabels([]) for x in ax.ravel()]
 [x.tick_params(bottom=False, left=False) for x in ax.ravel()]
+[x.set_xlim([30, 230]) for x in ax.ravel()]
+[x.set_ylim([180, 5]) for x in ax.ravel()]
 
 vmax = np.quantile(grn_tmp[30:230, 5:180, :], 0.97)
 
 for z_ind, z in enumerate(z_levels):
     # Note zoomed-in, trimmed view
-    ax[z_ind, 0].imshow(meanbrain_red[30:230, 5:180, z].T, cmap='Purples', vmax=np.quantile(meanbrain_red[30:230, 5:180, :], 0.97))
-    ax[z_ind, 1].imshow(grn_tmp[30:230, 5:180, z].T, cmap='Greens', vmax=vmax)
-    ax[z_ind, 2].imshow(template_2_meanbrain[30:230, 5:180, z].T, cmap='Blues')
-    ax[z_ind, 3].imshow(glom_tmp[30:230, 5:180, z].T, cmap=cmap, norm=norm, interpolation='none')
+    ax[z_ind, 0].imshow(meanbrain_red[:, :, z].T, cmap='Purples', vmax=np.quantile(meanbrain_red[30:230, 5:180, :], 0.97))
+    ax[z_ind, 1].imshow(grn_tmp[:, :, z].T, cmap='Greens', vmax=vmax)
+    ax[z_ind, 2].imshow(template_2_meanbrain[:, :, z].T, cmap='Blues')
+
+    util.makeGlomMap(ax=ax[z_ind, 3],
+                     glom_map=glom_mask_2_meanbrain,
+                     z_val=z,
+                     highlight_vals='all')
 
     if z_ind == 0:
         ax[z_ind, 0].set_title('myr::tdTomato', fontsize=11)
@@ -89,15 +103,15 @@ for z_ind, z in enumerate(z_levels):
         ax[z_ind, 3].set_title('Glomeruli', fontsize=11)
 
         dx = 25 / meanbrain_red.spacing[0]  # um -> pix
-        ax[z_ind, 0].plot([135, 135+dx], [168, 168], color='k', linestyle='-', marker='None', linewidth=2)
-        ax[z_ind, 0].annotate('25 \u03BCm', (113, 158), fontweight='bold', fontsize=10)
+        ax[z_ind, 0].plot([170, 170+dx], [170, 170], color='k', linestyle='-', marker='None', linewidth=2)
+        ax[z_ind, 0].annotate('25 \u03BCm', (150, 155), fontweight='bold', fontsize=10)
 
     ax[z_ind, 0].set_ylabel('{} \u03BCm'.format(z*1), fontsize=11, labelpad=1)
 
 for x in ax.ravel():
-    d_line = 30
-    x.set_xticks(np.arange(d_line, 175, d_line))
-    x.set_yticks(np.arange(d_line, 175, d_line))
+    d_line = 10 / meanbrain_red.spacing[0]  # um -> pix
+    x.set_xticks(np.arange(30, 230, d_line))
+    x.set_yticks(np.arange(5, 180, d_line))
     x.grid(which='major', axis='both', linestyle='--', color='k', linewidth=0.5)
 
 
@@ -105,6 +119,7 @@ handles = [Patch(facecolor=color) for color in colors]
 fh.legend(handles, [label for label in names], fontsize=11, ncol=4, handleheight=0.65, labelspacing=0.005, loc=9)
 
 fh.savefig(os.path.join(save_directory, 'alignment_meanbrain_overlay.svg'), transparent=True)
+# %%
 
 # %% xyz projections of meanbrain
 
@@ -135,6 +150,9 @@ fh2.savefig(os.path.join(save_directory, 'alignment_meanbrain_projections.svg'),
 # %%
 cmap = 'binary_r'
 bar_length = 25 / meanbrain_green.spacing[0]  # um -> pix
+
+glom_tmp = np.ma.masked_where(glom_mask_2_meanbrain == 0, glom_mask_2_meanbrain)  # mask at 0
+norm = mcolors.Normalize(vmin=0, vmax=vals.max(), clip=True)
 
 dx = 100
 dy = 60
