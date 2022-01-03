@@ -109,6 +109,7 @@ def computeMeanbrain(brain_directory,
     corrected_green = []
     file_paths = glob.glob(os.path.join(brain_directory, '*_anatomical.nii'))
     for fp in file_paths:
+        t0_fp = time.time()
         individual_red = ants.split_channels(ants.image_read(fp))[0]
         individual_green = ants.split_channels(ants.image_read(fp))[1]
 
@@ -147,6 +148,8 @@ def computeMeanbrain(brain_directory,
 
         corrected_red.append(red_reg)
         corrected_green.append(green_reg)
+
+        print('Done with brain {} ({:.2f} sec)'.format(fp.split('/')[-1], time.time()-t0_fp))
 
     meanbrain_red = np.nanmean(np.stack(corrected_red, -1), axis=-1)
     meanbrain_green = np.nanmean(np.stack(corrected_green, -1), axis=-1)
@@ -214,7 +217,8 @@ ants.image_write(ants.split_channels(meanbrain)[1], os.path.join(base_dir, 'mean
 # %% Register each brain to final meanbrain and save these transforms
 
 # Load meanbrain
-meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210824')
+# meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210824')
+meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
 meanbrain = ants.image_read(os.path.join(base_dir, 'mean_brain', meanbrain_fn))
 
 # Note dir. change: registering all anatomical brains to meanbrain now
