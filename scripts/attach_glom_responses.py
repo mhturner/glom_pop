@@ -52,9 +52,14 @@ brain_file_sets = [
                    ('TSeries-20210825-010', 'TSeries-20210825-012'),
                    ('TSeries-20210825-011', 'TSeries-20210825-012'),
 
+                   ('TSeries-20211129-002', 'TSeries-20211129-004'),
+                   ('TSeries-20211129-003', 'TSeries-20211129-004'),
+                   ('TSeries-20211129-008', 'TSeries-20211129-010'),
+                   ('TSeries-20211129-009', 'TSeries-20211129-010'),
+
                    ]
 
-meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210824')
+meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
 
 data_dir = '/oak/stanford/groups/trc/data/Max/ImagingData/Bruker'
 base_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop'
@@ -76,7 +81,7 @@ glom_mask_2_meanbrain = ants.image_read(fp_mask).numpy()
 # Load mask key for VPN types
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 # Filter glom map s.t. only big gloms are included
-glom_size_threshold = 350
+glom_size_threshold = 100
 glom_mask_2_meanbrain = alignment.filterGlomMask(glom_mask_2_meanbrain, glom_size_threshold)
 vals = np.unique(glom_mask_2_meanbrain)[1:].astype('int')  # exclude first val (=0, not a glom)
 names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']

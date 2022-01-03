@@ -35,7 +35,14 @@ ax[1].imshow(ants.split_channels(reference_brain)[1].max(axis=2).T, cmap='Greens
 # %%
 
 
-def registerBrainsToReference(brain_file_path, reference_brain, type_of_transform='ElasticSyN', flow_sigma=3, total_sigma=0, mask=None):
+def registerBrainsToReference(brain_file_path,
+                              reference_brain,
+                              type_of_transform='ElasticSyN',
+                              flow_sigma=3,
+                              total_sigma=0,
+                              initial_transform=None,
+                              mask=None,
+                              do_bias_correction=False):
     """
     Register each brain in brain_directory to reference_brain.
         Saves registered brain image and transform file
@@ -58,18 +65,28 @@ def registerBrainsToReference(brain_file_path, reference_brain, type_of_transfor
 
     individual_brain = ants.image_read(brain_file_path)
 
-    reg = ants.registration(fixed=ants.split_channels(reference_brain)[0],
-                            moving=ants.split_channels(individual_brain)[0],
+    if do_bias_correction:
+        fixed_red = ants.n4_bias_field_correction(ants.split_channels(reference_brain)[0])
+        moving_red = ants.n4_bias_field_correction(ants.split_channels(individual_brain)[0])
+
+    else:
+        fixed_red = ants.split_channels(reference_brain)[0]
+        moving_red = ants.split_channels(individual_brain)[0]
+
+    reg = ants.registration(fixed=fixed_red,
+                            moving=moving_red,
                             type_of_transform=type_of_transform,
                             flow_sigma=flow_sigma,
                             total_sigma=total_sigma,
-                            mask=mask)
+                            mask=mask,
+                            initial_transform=initial_transform)
 
     # Copy transforms from tmp to long-term save dir
     dataio.save_transforms(reg, transform_dir)
 
     # Apply transform to each channel
     transform_list = dataio.get_transform_list(transform_dir, direction='forward')
+
     red_reg = ants.apply_transforms(fixed=ants.split_channels(reference_brain)[0],
                                     moving=ants.split_channels(individual_brain)[0],
                                     transformlist=transform_list,
@@ -86,6 +103,12 @@ def registerBrainsToReference(brain_file_path, reference_brain, type_of_transfor
     merged = ants.merge_channels([red_reg, green_reg])
     save_path = os.path.join(transform_dir,  'meanbrain_reg.nii')
     ants.image_write(merged, save_path)
+
+    # Merge and save an overlay to check the registration
+    overlay = ants.merge_channels([ants.split_channels(reference_brain)[0], red_reg])
+    save_path = os.path.join(transform_dir,  'overlay_reg.nii')
+    ants.image_write(overlay, save_path)
+
     print('Computed and saved transforms to {} ({} sec)'.format(transform_dir, time.time()-t0))
     print('--------------------')
 
@@ -232,22 +255,46 @@ file_paths = glob.glob(os.path.join(base_dir, 'anatomical_brains', '*_anatomical
 for brain_file_path in file_paths:
     registerBrainsToReference(brain_file_path,
                               reference_brain=meanbrain,
-                              type_of_transform='ElasticSyN')
+                              type_of_transform='SyN')
 
 # %% tweak individual brain registrations that are problematic
+# Problematic:
+#   20210811-003 is way off
+    # Split affine & Syn, then lobe mask. Looks OK now
+#   20210820-005 is a little off, down by 12 & 17 esp.
+    # Helps to split affine & syn only
+#   20210820-009 is way off
+    # Lobe mask helps. Brain missing part of 6 & 16 at top
 
-reg_mask = np.ones_like(meanbrain.numpy()[:, :, :, 0])
-reg_mask[20:250, 0:15, :] = 0
-reg_mask = ants.from_numpy(np.squeeze(reg_mask), spacing=meanbrain.spacing)
+mask_fn = 'lobe_mask_chat_meanbrain_{}.nii'.format('20210824')
+lobe_mask = np.asanyarray(nib.load(os.path.join(base_dir, 'mean_brain', mask_fn)).dataobj).astype('uint32')
+lobe_mask = ants.from_numpy(np.squeeze(lobe_mask), spacing=meanbrain.spacing)
 
 file_path = os.path.join(base_dir, 'anatomical_brains', 'TSeries-20210811-003_anatomical.nii')
+individual_brain = ants.image_read(file_path)
+
+fixed_red = ants.n4_bias_field_correction(ants.split_channels(meanbrain)[0])
+moving_red = ants.n4_bias_field_correction(ants.split_channels(individual_brain)[0])
+
+reg_aff = ants.registration(fixed=fixed_red,
+                            moving=moving_red,
+                            type_of_transform='Affine',
+                            flow_sigma=6,
+                            total_sigma=0,
+                            random_seed=0,
+                            aff_sampling=32,
+                            grad_step=0.05,
+                            reg_iterations=[250, 100, 50],
+                            mask=lobe_mask)
 
 registerBrainsToReference(file_path,
                           reference_brain=meanbrain,
-                          type_of_transform='ElasticSyN',
+                          type_of_transform='SyNOnly',
                           flow_sigma=6,
-                          total_sigma=1e6,
-                          mask=reg_mask)
+                          total_sigma=0,
+                          initial_transform=reg_aff['fwdtransforms'][0],
+                          do_bias_correction=True,
+                          mask=lobe_mask)
 
 # %%
 # check the overlay
@@ -275,7 +322,6 @@ fh, ax = plt.subplots(len(file_paths), len(slices), figsize=(12, 18))
 [x.set_axis_off() for x in ax.ravel()]
 for f_ind, fp in enumerate(file_paths):
     series_name = os.path.split(fp)[-1].split('_')[0]
-    base_dir = os.path.split(brain_directory)[0]
     transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_anatomical', series_name)
     brain_fp = os.path.join(transform_dir, 'meanbrain_reg.nii')
     ind_red = ants.split_channels(ants.image_read(brain_fp))[0]
