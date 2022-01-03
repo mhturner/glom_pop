@@ -158,10 +158,14 @@ for bf in brain_file_sets:
     green_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj)[..., 1]
 
     # yank out glom responses
+    # glom_responses: mean response across all voxels in each glom
+    # shape = glom ID x Time
     glom_responses = alignment.getGlomResponses(green_brain,
                                                 glom_mask_2_fxn.numpy(),
                                                 mask_values=vals)
 
+    # voxel_responses: list of arrays, each is all individual voxel responses for that glom
+    # list of len=gloms, each with array nvoxels x time
     voxel_responses = alignment.getGlomVoxelResponses(green_brain,
                                                       glom_mask_2_fxn.numpy(),
                                                       mask_values=vals)
