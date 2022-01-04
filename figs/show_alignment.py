@@ -24,7 +24,7 @@ plt.rcParams.update({'font.sans-serif': 'Helvetica'})
 
 experiment_file_directory = '/Users/mhturner/CurrentData'
 base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
-meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20210824')
+meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
 mask_fn = 'lobe_mask_chat_meanbrain_{}.nii'.format('20210824')
 
 save_directory = os.path.join(base_dir, 'fig_panels')
@@ -55,13 +55,17 @@ glom_mask_2_meanbrain = alignment.filterGlomMask_by_name(mask=glom_mask_2_meanbr
                                                          included_gloms=included_gloms)
 
 # %%
-vals
 
-fh, ax = plt.subplots(1, 1, figsize=(4, 4))
-util.makeGlomMap(ax=ax,
+fh, ax = plt.subplots(1, 2, figsize=(6, 4))
+util.makeGlomMap(ax=ax[0],
                  glom_map=glom_mask_2_meanbrain,
                  z_val=None,
                  highlight_vals=[42])
+
+util.makeGlomMap(ax=ax[1],
+                 glom_map=glom_mask_2_meanbrain,
+                 z_val=None,
+                 highlight_vals='all')
 
 # %%
 # Show z slices of meanbrain, template, & glom map for alignment

@@ -29,6 +29,17 @@ transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 
 path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_data.yaml'
 
+# Load overall glom map
+vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+glom_mask_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'glom_mask_reg2meanbrain.nii')).numpy()
+all_vals, all_names = dataio.getGlomMaskDecoder(glom_mask_2_meanbrain)
+all_glom_sizes = pd.DataFrame(data=[np.sum(glom_mask_2_meanbrain == mv) for mv in all_vals],
+                              index=all_names.values)
+
+all_names.values
+
+print(all_glom_sizes)
+
 included_gloms = dataio.getIncludedGloms(path_to_yaml)
 dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included=True)
 
@@ -47,6 +58,7 @@ for s_ind, key in enumerate(dataset):
     # Load response data
     response_data = dataio.loadResponses(ID, response_set_name='glom', get_voxel_responses=False)
     vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
+    print(len(vals))
 
     # voxels per glom
     vox_per_glom.append([np.sum(response_data.get('mask') == mv) for mv in vals])
@@ -85,11 +97,23 @@ sem_responses = np.std(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1]
 std_responses = np.std(all_responses, axis=-1)  # (glom, time, param)
 vox_per_glom = np.stack(vox_per_glom, axis=-1)
 
+response_data.keys()
+names
+vals
+
+
+len(vox_per_glom)
 mean_responses.shape
-np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
-np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
-np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
-np.save(os.path.join(save_directory, 'colors.npy'), colors)
+
+[len(x) for x in vox_per_glom]
+
+vox_per_glom
+
+print(mean_responses.shape)
+# np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
+# np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
+# np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
+# np.save(os.path.join(save_directory, 'colors.npy'), colors)
 
 # %% PLOTTING
 
@@ -165,11 +189,12 @@ fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=Tru
 
 np.save(os.path.join(save_directory, 'cluster_leaves_list.npy'), leaves)
 
+# %%
+
 # %% glom highlight maps
 
 # Load mask key for VPN types
-vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
-glom_mask_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'glom_mask_reg2meanbrain.nii')).numpy()
+
 glom_mask_2_meanbrain = alignment.filterGlomMask_by_name(mask=glom_mask_2_meanbrain,
                                                          vpn_types=vpn_types,
                                                          included_gloms=included_gloms)
@@ -304,48 +329,6 @@ fh4.savefig(os.path.join(save_directory, 'pgs_corrmat.svg'), transparent=True)
 corr_mat.to_pickle(os.path.join(save_directory, 'pgs_corrmat.pkl'))
 mean_cat_responses.to_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl'))
 np.save(os.path.join(save_directory, 'pgs_responsepeaks'), response_amplitudes)  # glom x stim x fly
-# %%
-
-
-# %% Individual splits datafiles
-# series = [
-#           ('2021-08-11', 10),  # R65B05
-#           ]
-
-series = [
-          ('2021-08-20', 10),  # LC11
-          ('2021-08-25', 5),  # LC11
-          ]
-
-
-split_responses = []
-fh, ax = plt.subplots(len(series), len(unique_parameter_values), figsize=(14, 2))
-[x.set_axis_off() for x in ax.ravel()]
-[x.set_ylim([-0.2, 1.4]) for x in ax.ravel()]
-for s_ind, ser in enumerate(series):
-    experiment_file_name = ser[0]
-    series_number = ser[1]
-    file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
-    ID = volumetric_data.VolumetricDataObject(file_path,
-                                              series_number,
-                                              quiet=True)
-
-    # Align responses
-    time_vector, voxel_trial_matrix = ID.getTrialAlignedVoxelResponses(ID.getRoiResponses('LC11').get('roi_response')[0], dff=True)
-    mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, _ = ID.getMeanBrainByStimulus(voxel_trial_matrix)
-    n_stimuli = mean_voxel_response.shape[2]
-
-    for u_ind, un in enumerate(unique_parameter_values[:-2]):
-        ax[s_ind, u_ind].plot(time_vector, mean_voxel_response[0, :, u_ind], color='k', alpha=1.0, linewidth=2)
-
-    # concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in range(n_stimuli)], axis=1)  # responses, time (concat stims)
-
-    split_responses.append(response_amp)
-
-split_responses = np.vstack(split_responses)
-
-
-unique_parameter_values
 
 # %% OTHER STUFF
 

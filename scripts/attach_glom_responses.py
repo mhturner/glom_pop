@@ -25,32 +25,32 @@ from glom_pop import dataio, alignment
 
 #                   (Time series, associated anatomical series for this fly)
 brain_file_sets = [
-                   # ('TSeries-20210804-001', 'TSeries-20210804-003'),
-                   # ('TSeries-20210804-002', 'TSeries-20210804-003'),
-                   # ('TSeries-20210804-004', 'TSeries-20210804-006'),
-                   # ('TSeries-20210804-005', 'TSeries-20210804-006'),
-                   # ('TSeries-20210804-007', 'TSeries-20210804-009'),
-                   # ('TSeries-20210804-008', 'TSeries-20210804-009'),
-                   #
-                   # ('TSeries-20210811-001', 'TSeries-20210811-003'),
-                   # ('TSeries-20210811-002', 'TSeries-20210811-003'),
-                   # ('TSeries-20210811-004', 'TSeries-20210811-006'),
-                   # ('TSeries-20210811-005', 'TSeries-20210811-006'),
-                   # ('TSeries-20210811-007', 'TSeries-20210811-009'),
-                   # ('TSeries-20210811-008', 'TSeries-20210811-009'),
-                   #
-                   # ('TSeries-20210820-002', 'TSeries-20210820-005'),
-                   # ('TSeries-20210820-003', 'TSeries-20210820-005'),
-                   # ('TSeries-20210820-004', 'TSeries-20210820-005'),
-                   # ('TSeries-20210820-006', 'TSeries-20210820-009'),
-                   # ('TSeries-20210820-008', 'TSeries-20210820-009'),
-                   #
-                   # ('TSeries-20210825-001', 'TSeries-20210825-004'),
-                   # ('TSeries-20210825-002', 'TSeries-20210825-004'),
-                   # ('TSeries-20210825-003', 'TSeries-20210825-004'),
-                   # ('TSeries-20210825-009', 'TSeries-20210825-012'),
-                   # ('TSeries-20210825-010', 'TSeries-20210825-012'),
-                   # ('TSeries-20210825-011', 'TSeries-20210825-012'),
+                   ('TSeries-20210804-001', 'TSeries-20210804-003'),
+                   ('TSeries-20210804-002', 'TSeries-20210804-003'),
+                   ('TSeries-20210804-004', 'TSeries-20210804-006'),
+                   ('TSeries-20210804-005', 'TSeries-20210804-006'),
+                   ('TSeries-20210804-007', 'TSeries-20210804-009'),
+                   ('TSeries-20210804-008', 'TSeries-20210804-009'),
+
+                   ('TSeries-20210811-001', 'TSeries-20210811-003'),
+                   ('TSeries-20210811-002', 'TSeries-20210811-003'),
+                   ('TSeries-20210811-004', 'TSeries-20210811-006'),
+                   ('TSeries-20210811-005', 'TSeries-20210811-006'),
+                   ('TSeries-20210811-007', 'TSeries-20210811-009'),
+                   ('TSeries-20210811-008', 'TSeries-20210811-009'),
+
+                   ('TSeries-20210820-002', 'TSeries-20210820-005'),
+                   ('TSeries-20210820-003', 'TSeries-20210820-005'),
+                   ('TSeries-20210820-004', 'TSeries-20210820-005'),
+                   ('TSeries-20210820-006', 'TSeries-20210820-009'),
+                   ('TSeries-20210820-008', 'TSeries-20210820-009'),
+
+                   ('TSeries-20210825-001', 'TSeries-20210825-004'),
+                   ('TSeries-20210825-002', 'TSeries-20210825-004'),
+                   ('TSeries-20210825-003', 'TSeries-20210825-004'),
+                   ('TSeries-20210825-009', 'TSeries-20210825-012'),
+                   ('TSeries-20210825-010', 'TSeries-20210825-012'),
+                   ('TSeries-20210825-011', 'TSeries-20210825-012'),
 
                    ('TSeries-20211129-002', 'TSeries-20211129-004'),
                    ('TSeries-20211129-003', 'TSeries-20211129-004'),
@@ -80,9 +80,6 @@ glom_mask_2_meanbrain = ants.image_read(fp_mask).numpy()
 
 # Load mask key for VPN types
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
-# Filter glom map s.t. only big gloms are included
-glom_size_threshold = 100
-glom_mask_2_meanbrain = alignment.filterGlomMask(glom_mask_2_meanbrain, glom_size_threshold)
 vals = np.unique(glom_mask_2_meanbrain)[1:].astype('int')  # exclude first val (=0, not a glom)
 names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
 
@@ -179,7 +176,7 @@ for bf in brain_file_sets:
                            responses=glom_responses,
                            mask_vals=vals,
                            response_set_name='glom',
-                           voxel_responses=None)
+                           voxel_responses=voxel_responses)
 
     print('Done. Attached responses to {} (total: {:.1f} sec)'.format(h5_filepath, time.time()-overall_t0))
 
