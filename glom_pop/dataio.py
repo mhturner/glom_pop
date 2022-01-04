@@ -167,6 +167,7 @@ def loadResponses(ID, response_set_name='glom', get_voxel_responses=False):
         response_data['response'] = roi_set_group.get("response")[:]
         response_data['mask'] = roi_set_group.get("mask")[:]
         response_data['meanbrain'] = roi_set_group.get("meanbrain")[:]
+        response_data['mask_vals'] = roi_set_group.attrs['mask_vals']
 
         if get_voxel_responses:
             mask_vals = np.unique(response_data['mask'])[1:].astype(int)  # exclude first (0)

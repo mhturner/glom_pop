@@ -5,7 +5,6 @@ import numpy as np
 import os
 import colorcet as cc
 import pandas as pd
-import seaborn as sns
 import ants
 
 from sklearn.decomposition import PCA
@@ -33,19 +32,26 @@ path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 glom_mask_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'glom_mask_reg2meanbrain.nii')).numpy()
 all_vals, all_names = dataio.getGlomMaskDecoder(glom_mask_2_meanbrain)
-all_glom_sizes = pd.DataFrame(data=[np.sum(glom_mask_2_meanbrain == mv) for mv in all_vals],
-                              index=all_names.values)
 
-all_names.values
+all_sizes = pd.DataFrame(data=[np.sum(glom_mask_2_meanbrain == mv) for mv in all_vals],
+                         index=all_names.values)
 
-print(all_glom_sizes)
+# print(all_sizes)
 
+# Get included gloms from data yaml
 included_gloms = dataio.getIncludedGloms(path_to_yaml)
+included_vals = np.array([vpn_types.iloc[np.where(vpn_types.vpn_types==ig)[0][0], 0] for ig in included_gloms])
+
+# Set colormap for included gloms
+cmap = cc.cm.glasbey
+colors = cmap(included_vals/included_vals.max())
+
+# Load PGS dataset from yaml
 dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included=True)
 
 all_responses = []
-vox_per_glom = []
 response_amplitudes = []
+all_glom_sizes = []
 for s_ind, key in enumerate(dataset):
     experiment_file_name = key.split('_')[0]
     series_number = int(key.split('_')[1])
@@ -57,76 +63,74 @@ for s_ind, key in enumerate(dataset):
 
     # Load response data
     response_data = dataio.loadResponses(ID, response_set_name='glom', get_voxel_responses=False)
-    vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
-    print(len(vals))
 
-    # voxels per glom
-    vox_per_glom.append([np.sum(response_data.get('mask') == mv) for mv in vals])
+    # epoch_response_stack: shape=(gloms, time, trials)
+    epoch_response_stack = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
+    epoch_response_stack[:] = np.nan
 
-    # Only select gloms in included_gloms
-    erm = []
-    included_vals = []
-    for g_ind, name in enumerate(included_gloms):
-        pull_ind = np.where(name == names)[0][0]
-        erm.append(response_data.get('epoch_response')[pull_ind, :, :])
-        included_vals.append(vals[pull_ind])
-    epoch_response_matrix = np.stack(erm, axis=0)
-    included_vals = np.array(included_vals)
+    glom_sizes = np.zeros(len(included_vals))
+    for val_ind, included_val in enumerate(included_vals):
+        glom_sizes[val_ind] = np.sum(response_data.get('mask') == included_val)
 
-    cmap = cc.cm.glasbey
-    colors = cmap(included_vals/included_vals.max())
+        pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
+        epoch_response_stack[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
 
     # Align responses
-    mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, trial_response_by_stimulus = ID.getMeanBrainByStimulus(epoch_response_matrix)
+    mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, trial_response_by_stimulus = ID.getMeanBrainByStimulus(epoch_response_stack)
     n_stimuli = mean_voxel_response.shape[2]
 
     all_responses.append(mean_voxel_response)
     response_amplitudes.append(response_amp)
+    all_glom_sizes.append(glom_sizes)
 
 # Stack accumulated responses
+# The glom order here is included_gloms
 all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, time, param, fly)
 response_amplitudes = np.stack(response_amplitudes, axis=-1)  # dims = (gloms, param, fly)
+all_glom_sizes = np.stack(all_glom_sizes, axis=-1)  # dims = (gloms, fly)
 
 # Exclude last two stims (full field flashes)
 unique_parameter_values = unique_parameter_values[:-2]
 all_responses = all_responses[:, :, :-2, :]
 response_amplitudes = response_amplitudes[:, :-2, :]
 
-mean_responses = np.mean(all_responses, axis=-1)  # (glom, time, param)
-sem_responses = np.std(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, time, param)
-std_responses = np.std(all_responses, axis=-1)  # (glom, time, param)
-vox_per_glom = np.stack(vox_per_glom, axis=-1)
+mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, time, param)
+sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, time, param)
+std_responses = np.nanstd(all_responses, axis=-1)  # (glom, time, param)
 
-response_data.keys()
-names
-vals
+np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
+np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
+np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
+np.save(os.path.join(save_directory, 'colors.npy'), colors)
 
+# %% Number of voxels in each glomerulus
 
-len(vox_per_glom)
-mean_responses.shape
+empties = (all_glom_sizes == 0).sum(axis=1)
 
-[len(x) for x in vox_per_glom]
+fh, ax = plt.subplots(1, 1, figsize=(9, 3))
+for ind, ig in enumerate(included_gloms):
+    ax.plot(ind*np.ones(all_glom_sizes.shape[1]), all_glom_sizes[ind, :], 'k.')
+    ax.annotate('{}'.format(empties[ind]), (ind, 1e3))
 
-vox_per_glom
+ax.set_xticks(np.arange(0, len(included_gloms)))
+ax.set_xticklabels(included_gloms, rotation=90);
+ax.set_yscale('log')
 
-print(mean_responses.shape)
-# np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
-# np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
-# np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
-# np.save(os.path.join(save_directory, 'colors.npy'), colors)
 
 # %% PLOTTING
 
-# # # Cluster on concat responses # # #
+# # # Cluster on stimulus tuning # # #
+peak_responses = mean_responses.max(axis=1)  # (glom x stim)
+peak_responses = zscore(peak_responses, axis=1)
+
 # Concatenated response traces
-mean_responses = np.mean(all_responses, axis=-1)  # shape=(glom, time, stim, fly)
-mean_cat_responses = np.vstack(np.concatenate([mean_responses[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
-mean_cat_responses = zscore(mean_cat_responses, axis=1)
-mean_cat_responses = pd.DataFrame(mean_cat_responses, index=included_gloms)
+# mean_cat_responses = np.vstack(np.concatenate([mean_responses[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
+# mean_cat_responses = zscore(mean_cat_responses, axis=1)
+# mean_cat_responses = pd.DataFrame(mean_cat_responses, index=included_gloms)
 
 # Don't collapse clusters here. Compute the full linkage matrix to make dendrogram
 clustering = AgglomerativeClustering(n_clusters=None, affinity='euclidean', linkage='average', distance_threshold=0)
-clustering.fit(mean_cat_responses)
+clustering.fit(peak_responses)
 
 # compute linkage matrix, Z:
 # Ref: https://scikit-learn.org/stable/auto_examples/cluster/plot_agglomerative_dendrogram.html
@@ -146,10 +150,10 @@ Z = np.column_stack([clustering.children_, clustering.distances_, counts]).astyp
 
 # DENDROGRAM
 fh0, ax0 = plt.subplots(1, 1, figsize=(1.5, 6))
-D = dendrogram(Z, p=12, truncate_mode='lastp', ax=ax0,
+D = dendrogram(Z, p=len(included_gloms), truncate_mode='lastp', ax=ax0,
                above_threshold_color='black',
                color_threshold=1, orientation='left',
-               labels=mean_cat_responses.index)
+               labels=included_gloms)
 leaves = leaves_list(Z)  # glom indices
 
 # ax0.set_yticks([])
@@ -189,8 +193,6 @@ fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=Tru
 
 np.save(os.path.join(save_directory, 'cluster_leaves_list.npy'), leaves)
 
-# %%
-
 # %% glom highlight maps
 
 # Load mask key for VPN types
@@ -222,7 +224,7 @@ fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent
 # Normalize sigma by the maximum response of this glom across all stims
 scaling = np.max(np.mean(response_amplitudes, axis=-1), axis=-1)
 cv = np.std(response_amplitudes, axis=-1) / scaling[:, None]
-eg_leaf_inds = [3, 6, 11]
+eg_leaf_inds = [7, 9, 12]
 eg_stim_ind = 6
 fh2, ax2 = plt.subplots(len(eg_leaf_inds), all_responses.shape[-1], figsize=(4, 2.5))
 
@@ -301,7 +303,7 @@ for leaf_ind, g_ind in enumerate(leaves):
     mean_inter_corr = np.mean(inter_corr)
     std_inter_corr = np.std(inter_corr)
     sem_inter_corr = np.std(inter_corr) / np.sqrt(len(inter_corr))
-    # ax4.plot(leaf_ind * np.ones_like(inter_corr), inter_corr, color=colors[g_ind, :], marker='.', linestyle='none', alpha=0.5, markersize=4)
+    ax4.plot(leaf_ind * np.ones_like(inter_corr), inter_corr, color=colors[g_ind, :], marker='.', linestyle='none', alpha=0.5, markersize=4)
     ax4.plot(leaf_ind, mean_inter_corr, color=colors[g_ind, :], marker='o', markersize=6)
     ax4.plot([leaf_ind, leaf_ind], [mean_inter_corr-sem_inter_corr, mean_inter_corr+sem_inter_corr], marker='None', color=colors[g_ind, :])
 
@@ -310,25 +312,10 @@ ax4.set_xticklabels([included_gloms[x] for x in leaves])
 ax4.set_ylabel('Inter-individual corr. (r)', fontsize=11)
 ax4.tick_params(axis='y', labelsize=11)
 ax4.tick_params(axis='x', labelsize=11, rotation=90)
-ax4.set_ylim([0, 1])
+# ax4.set_ylim([0, 1])
 
 fh4.savefig(os.path.join(save_directory, 'pgs_Inter_Ind_Corr.svg'), transparent=True)
 
-
-# %% Inter-glom corr
-
-corr_mat = mean_cat_responses.T.corr()
-
-fh4, ax = plt.subplots(1, 1, figsize=(4, 4))
-sns.heatmap(corr_mat, vmin=0, vmax=1.0, cmap='Greys', ax=ax, rasterized=True,
-            xticklabels=True, yticklabels=True, cbar_kws={'label': 'Correlation (r)'})
-
-sns.set(font_scale=1.5)
-fh4.savefig(os.path.join(save_directory, 'pgs_corrmat.svg'), transparent=True)
-
-corr_mat.to_pickle(os.path.join(save_directory, 'pgs_corrmat.pkl'))
-mean_cat_responses.to_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl'))
-np.save(os.path.join(save_directory, 'pgs_responsepeaks'), response_amplitudes)  # glom x stim x fly
 
 # %% OTHER STUFF
 
@@ -361,7 +348,8 @@ ax5[1].plot(pca.components_[1, :], 'g-')
 ax5[2].plot(pca.components_[2, :], 'b-')
 
 x_r = pca.fit_transform(X)
-fh6, ax6 = plt.subplots(1, 1, figsize=(5, 5))
-ax6.scatter(x_r[:, 0], x_r[:, 1], c=scatter_colors)
+fh6 = plt.figure(figsize=(8, 8))
+ax6 = fh6.add_subplot(projection='3d')
+ax6.scatter(x_r[:, 0], x_r[:, 1], x_r[:, 2], c=scatter_colors)
 
 x_r.shape

@@ -85,9 +85,9 @@ fh, ax = plt.subplots(len(z_levels), 4, figsize=(5, 5.5), tight_layout=True)
 [x.set_yticklabels([]) for x in ax.ravel()]
 [x.tick_params(bottom=False, left=False) for x in ax.ravel()]
 [x.set_xlim([30, 230]) for x in ax.ravel()]
-[x.set_ylim([180, 5]) for x in ax.ravel()]
+[x.set_ylim([175, 0]) for x in ax.ravel()]
 
-vmax = np.quantile(grn_tmp[30:230, 5:180, :], 0.97)
+vmax = np.quantile(grn_tmp[30:230, 0:175, :], 0.97)
 
 for z_ind, z in enumerate(z_levels):
     # Note zoomed-in, trimmed view
@@ -115,12 +115,12 @@ for z_ind, z in enumerate(z_levels):
 for x in ax.ravel():
     d_line = 10 / meanbrain_red.spacing[0]  # um -> pix
     x.set_xticks(np.arange(30, 230, d_line))
-    x.set_yticks(np.arange(5, 180, d_line))
+    x.set_yticks(np.arange(0, 175, d_line))
     x.grid(which='major', axis='both', linestyle='--', color='k', linewidth=0.5)
 
 
 handles = [Patch(facecolor=color) for color in colors]
-fh.legend(handles, [label for label in names], fontsize=11, ncol=4, handleheight=0.65, labelspacing=0.005, loc=9)
+fh.legend(handles, [label for label in names], fontsize=11, ncol=5, handleheight=0.65, labelspacing=0.005, loc=9)
 
 fh.savefig(os.path.join(save_directory, 'alignment_meanbrain_overlay.svg'), transparent=True)
 # %%
@@ -134,17 +134,17 @@ fh2, ax2 = plt.subplots(ncols=2, nrows=2, sharey=True, figsize=(8, 4), constrain
 [x.set_axis_off() for x in ax2.ravel()]
 [x.set_aspect('auto') for x in ax2.ravel()]
 
-ax2[0, 0].imshow(meanbrain_red.max(axis=1).T, cmap='Purples', vmax=np.quantile(meanbrain_red.numpy(), 0.95))
+ax2[0, 0].imshow(meanbrain_red.max(axis=1).T, cmap='Purples', vmax=np.quantile(meanbrain_red.numpy(), 0.99))
 ax2[0, 0].plot([0, bar_length*2], [meanbrain_red.shape[2], meanbrain_red.shape[2]], color='r', linewidth=3)
 ax2[0, 0].plot([0, 0], [meanbrain_red.shape[2]-bar_length, meanbrain_red.shape[2]], color='b', linewidth=3)
 ax2[0, 0].set_xlim([-5, meanbrain_red.shape[0]])
 
-ax2[1, 0].imshow(meanbrain_red.max(axis=2).T, cmap='Purples', vmax=np.quantile(meanbrain_red.numpy(), 0.95))
+ax2[1, 0].imshow(meanbrain_red.max(axis=2).T, cmap='Purples', vmax=np.quantile(meanbrain_red.numpy(), 0.99))
 ax2[1, 0].plot([0, bar_length*2], [meanbrain_red.shape[1], meanbrain_red.shape[1]], color='r', linewidth=3)
 ax2[1, 0].plot([0, 0], [meanbrain_red.shape[1]-bar_length*2, meanbrain_red.shape[1]], color='g', linewidth=3)
 ax2[1, 0].set_xlim([-5, meanbrain_red.shape[0]])
 
-ax2[1, 1].imshow(meanbrain_red.max(axis=0), cmap='Purples', vmax=np.quantile(meanbrain_red.numpy(), 0.95))
+ax2[1, 1].imshow(meanbrain_red.max(axis=0), cmap='Purples', vmax=np.quantile(meanbrain_red.numpy(), 0.99))
 ax2[1, 1].plot([0, bar_length], [meanbrain_red.shape[1], meanbrain_red.shape[1]], color='b', linewidth=3)
 ax2[1, 1].plot([-3, -3], [meanbrain_red.shape[1]-bar_length*2, meanbrain_red.shape[1]], color='g', linewidth=3)
 ax2[1, 1].set_xlim([-5, meanbrain_red.shape[2]])
@@ -167,13 +167,13 @@ box3_xy = (120, 5)
 
 fh, ax = plt.subplots(2, 1, figsize=(3, 3))
 [x.set_axis_off() for x in ax]
-ax[0].imshow(meanbrain_red[:, :, 5:15].mean(axis=2).T, cmap=cmap, vmax=np.quantile(meanbrain_red.numpy(), 0.95))
+ax[0].imshow(meanbrain_red[:, :, 5:15].mean(axis=2).T, cmap=cmap, vmax=np.quantile(meanbrain_red.numpy(), 0.99))
 rect1 = Rectangle(box1_xy, dx, dy, linewidth=3, edgecolor='m', facecolor='none')
 ax[0].add_patch(rect1)
 ax[0].set_title('z = {} \u03BCm'.format(10), fontsize=11, fontweight='bold')
 ax[0].plot([5, 5+bar_length], [195, 195], color='k', linestyle='-', marker='None', linewidth=2)
 
-ax[1].imshow(meanbrain_red[:, :, 35:].mean(axis=2).T, cmap=cmap, vmax=np.quantile(meanbrain_red.numpy(), 0.95))
+ax[1].imshow(meanbrain_red[:, :, 35:].mean(axis=2).T, cmap=cmap, vmax=np.quantile(meanbrain_red.numpy(), 0.99))
 rect2 = Rectangle(box2_xy, dx, dy, linewidth=3, edgecolor='c', facecolor='none')
 ax[1].add_patch(rect2)
 rect3 = Rectangle(box3_xy, dx, dy, linewidth=3, edgecolor='b', facecolor='none')
