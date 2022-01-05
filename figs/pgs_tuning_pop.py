@@ -26,6 +26,7 @@ transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 
 # %% PLOT MEAN RESPONSES TO TUNING SUITE
 
+glom_size_threshold = 10
 path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_data.yaml'
 
 # Load overall glom map
@@ -70,10 +71,14 @@ for s_ind, key in enumerate(dataset):
 
     glom_sizes = np.zeros(len(included_vals))
     for val_ind, included_val in enumerate(included_vals):
-        glom_sizes[val_ind] = np.sum(response_data.get('mask') == included_val)
+        new_glom_size = np.sum(response_data.get('mask') == included_val)
+        glom_sizes[val_ind] = new_glom_size
 
-        pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
-        epoch_response_stack[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
+        if new_glom_size > glom_size_threshold:
+            pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
+            epoch_response_stack[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
+        else:  # Exclude because this glom, in this fly, is too tiny
+            pass
 
     # Align responses
     mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, trial_response_by_stimulus = ID.getMeanBrainByStimulus(epoch_response_stack)
@@ -103,18 +108,46 @@ np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
 np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
 np.save(os.path.join(save_directory, 'colors.npy'), colors)
 
-# %% Number of voxels in each glomerulus
+# %% QC: Number of voxels in each glomerulus
 
-empties = (all_glom_sizes == 0).sum(axis=1)
+empties = (all_glom_sizes < glom_size_threshold).sum(axis=1)
+
+all_glom_sizes[np.where(np.array(included_gloms)=='LC17')[0][0], :]
+
 
 fh, ax = plt.subplots(1, 1, figsize=(9, 3))
 for ind, ig in enumerate(included_gloms):
     ax.plot(ind*np.ones(all_glom_sizes.shape[1]), all_glom_sizes[ind, :], 'k.')
     ax.annotate('{}'.format(empties[ind]), (ind, 1e3))
 
+ax.axhline(glom_size_threshold, color='r')
 ax.set_xticks(np.arange(0, len(included_gloms)))
 ax.set_xticklabels(included_gloms, rotation=90);
 ax.set_yscale('log')
+
+# %% QC: glom response traces. For MC or occlusion artifacts
+
+for key in dataset:
+    experiment_file_name = key.split('_')[0]
+    series_number = int(key.split('_')[1])
+
+    file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
+    ID = volumetric_data.VolumetricDataObject(file_path,
+                                              series_number,
+                                              quiet=True)
+
+    # Load response data
+    response_data = dataio.loadResponses(ID, response_set_name='glom', get_voxel_responses=False)
+
+    fh, ax = plt.subplots(14, 1, figsize=(12, 12))
+    ax[0].set_title(key)
+    ct = 0
+    for i in range(19):
+        val = response_data['mask_vals'][i]
+        if val in included_vals:
+            ax[ct].plot(response_data['response'][i, :])
+            ax[ct].set_ylabel(dataio.getGlomNameFromVal(val))
+            ct += 1
 
 
 # %% PLOTTING
@@ -222,8 +255,8 @@ fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent
 # cv = np.std(response_amplitudes, axis=-1) / np.mean(response_amplitudes, axis=(1, 2))[:, None]
 
 # Normalize sigma by the maximum response of this glom across all stims
-scaling = np.max(np.mean(response_amplitudes, axis=-1), axis=-1)
-cv = np.std(response_amplitudes, axis=-1) / scaling[:, None]
+scaling = np.nanmax(np.nanmean(response_amplitudes, axis=-1), axis=-1)
+cv = np.nanstd(response_amplitudes, axis=-1) / scaling[:, None]
 eg_leaf_inds = [7, 9, 12]
 eg_stim_ind = 6
 fh2, ax2 = plt.subplots(len(eg_leaf_inds), all_responses.shape[-1], figsize=(4, 2.5))
@@ -268,7 +301,8 @@ ax4.set_xticklabels([included_gloms[x] for x in leaves])
 ax4.set_ylabel('Coefficient of variation', fontsize=11)
 ax4.tick_params(axis='y', labelsize=11)
 ax4.tick_params(axis='x', labelsize=11, rotation=90)
-ax4.set_ylim([0, cv.ravel().max()])
+# ax4.set_ylim([0, np.nanmax(cv.ravel())])
+# ax4.set_ylim([0, 1])
 
 fh4.savefig(os.path.join(save_directory, 'pgs_fly_cv.svg'), transparent=True)
 
@@ -294,7 +328,6 @@ fh5.savefig(os.path.join(save_directory, 'pgs_trial_responses.svg'), transparent
 
 
 # %% Inter-individual correlation for each glom
-
 
 fh4, ax4 = plt.subplots(1, 1, figsize=(3.0, 2))
 for leaf_ind, g_ind in enumerate(leaves):

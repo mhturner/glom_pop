@@ -207,6 +207,15 @@ def getIncludedGloms(path_to_yaml):
 
     return data_file.get('included_gloms')
 
+
+def getGlomNameFromVal(val, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
+    # Load mask key for VPN types
+    vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+    name = vpn_types.iloc[np.where(vpn_types['Unnamed: 0'] == val)[0], 1].values[0]
+
+    return name
+    
+
 def getDataset(path_to_yaml, dataset_id, only_included=True):
     with open(path_to_yaml, 'r') as ymlfile:
         data_file = yaml.safe_load(ymlfile)
