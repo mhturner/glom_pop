@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import ants
+import seaborn as sns
 
 from glom_pop import util, alignment
 from visanalysis.analysis.shared_analysis import filterDataFiles
@@ -20,7 +21,7 @@ experiment_file_directory = '/Users/mhturner/CurrentData'
 save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
 
 target_gloms = ['LC4', 'LC9', 'LC18']
-yoffset = 0.3
+yoffset = 0.3  # Split vs. Chat. Share a y axis
 
 mean_chat_responses = np.load(os.path.join(save_directory, 'mean_chat_responses.npy'))
 sem_chat_responses = np.load(os.path.join(save_directory, 'sem_chat_responses.npy'))
@@ -46,6 +47,9 @@ fh1, ax1 = plt.subplots(len(target_gloms), 2, figsize=(3, 6))
 
 # fh3, ax3 = plt.subplots(1, len(target_gloms), figsize=(6, 3))
 
+all_split_mean = []
+all_chat_mean = []
+
 for g_ind, target_glom in enumerate(target_gloms):
     chat_glom_ind = np.where(included_gloms == target_glom)[0][0]
     glom_mask_val = vpn_types.loc[vpn_types.get('vpn_types') == target_glom, 'Unnamed: 0'].values[0]
@@ -60,10 +64,10 @@ for g_ind, target_glom in enumerate(target_gloms):
                                     target_series_metadata={'protocol_ID': 'PanGlomSuite'},
                                     target_roi_series=['glom'])
 
-    # fh2, ax2 = plt.subplots(len(target_series)+1, 1, figsize=(18, 16))
-    # # [plot_tools.cleanAxes(x) for x in ax2.ravel()]
-    # [x.set_ylim([-0.1, 0.6]) for x in ax2.ravel()]
-    # fh2.subplots_adjust(wspace=0.00, hspace=0.00)
+    fh2, ax2 = plt.subplots(len(target_series)+1, 1, figsize=(18, 16))
+    # [plot_tools.cleanAxes(x) for x in ax2.ravel()]
+    [x.set_ylim([-0.1, 0.6]) for x in ax2.ravel()]
+    fh2.subplots_adjust(wspace=0.00, hspace=0.00)
 
     split_responses = []
     for s_ind, ser in enumerate(target_series):
@@ -84,14 +88,20 @@ for g_ind, target_glom in enumerate(target_gloms):
 
         split_responses.append(mean_voxel_response)
 
-        # concat_resp = np.vstack(np.concatenate([mean_voxel_response[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
-        # ax2[s_ind+1].plot(concat_resp.T)
-        # ax2[s_ind+1].set_ylabel('{}:{}'.format(ser.get('file_name').split('/')[-1], ser.get('series')))
+        concat_resp = np.vstack(np.concatenate([mean_voxel_response[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
+        ax2[s_ind+1].plot(concat_resp.T)
+        ax2[s_ind+1].set_ylabel('{}:{}'.format(ser.get('file_name').split('/')[-1], ser.get('series')))
 
     split_responses = np.vstack(split_responses)
 
-    # mean_concat = np.vstack(np.concatenate([split_responses.mean(axis=0)[:, x] for x in np.arange(len(unique_parameter_values))], axis=0))
-    # ax2[0].plot(mean_concat, color=colors[chat_glom_ind, :])
+    # Append concatenated mean responses (mean across flies)
+    split_concat = np.vstack(np.concatenate([split_responses.mean(axis=0)[:, x] for x in np.arange(len(unique_parameter_values)-2)], axis=0))
+    all_split_mean.append(split_concat)
+
+    chat_concat = np.vstack(np.concatenate([mean_chat_responses[chat_glom_ind, :, x] for x in np.arange(len(unique_parameter_values)-2)], axis=0))
+    all_chat_mean.append(chat_concat)
+    mean_concat = np.vstack(np.concatenate([split_responses.mean(axis=0)[:, x] for x in np.arange(len(unique_parameter_values))], axis=0))
+    ax2[0].plot(mean_concat, color=colors[chat_glom_ind, :])
 
     # Compare mean response amplitudes
     mean_split_amp = np.max(split_responses.mean(axis=0), axis=0)
@@ -127,14 +137,22 @@ for g_ind, target_glom in enumerate(target_gloms):
 
 plot_tools.addScaleBars(ax0[0, 0], dT=2, dF=0.50, T_value=0, F_value=-0.08)
 # fh.legend()
-
 # %%
-tt = np.max(split_responses, axis=1)
-tt.shape
 
-intra_ind_corr = pd.DataFrame(tt.T).corr()
-intra_ind_corr
+# TODO: individual split concats and chat concats. Then inter-animal correlations for:
+# split-split, split-chat, chat-chat
+np.concatenate([split_responses[:, :, x] for x in np.arange(len(unique_parameter_values)-2)]).shape
+
+individual_split_concat = np.concatenate([split_responses.mean(axis=0)[:, x] for x in np.arange(len(unique_parameter_values)-2)
 
 split_responses.shape
+# %%
+
+
+
+# %%
+
+
+
 
 # %%

@@ -15,6 +15,9 @@ t0 = time.time()
 file_base_path = sys.argv[1]
 print('Registering brain file from {}'.format(file_base_path))
 
+brain_type = sys.argv[2]  # SPARSE or DENSE
+print('Brain type: {}'.format)
+
 # Load metadata from bruker .xml file
 metadata = registration.get_bruker_metadata(file_base_path + '.xml')
 print('Loaded metadata from {}'.format(file_base_path + '.xml'))
@@ -26,13 +29,19 @@ ch2 = registration.get_ants_brain(file_base_path + '_channel_2.nii', metadata, c
 print('Loaded {}, shape={}'.format(file_base_path + '_channel_2.nii', ch2.shape))
 
 # Register both channels to channel 1
-merged = registration.registerToReferenceChannel(reference_channel=ch1,
-                                                 moving_channel=ch2,
-                                                 spatial_dims=len(ch1.shape) - 1,
-                                                 reference_frames=100,
-                                                 type_of_transform='Rigid',
-                                                 flow_sigma=3,
-                                                 total_sigma=0)
+if brain_type == 'DENSE':
+    merged = registration.registerToReferenceChannel(reference_channel=ch1,
+                                                     moving_channel=ch2,
+                                                     spatial_dims=len(ch1.shape) - 1,
+                                                     reference_frames=100,
+                                                     type_of_transform='Rigid',
+                                                     flow_sigma=3,
+                                                     total_sigma=0)
+elif brain_type == 'SPARSE':
+    merged = registration.registerToReferenceChannel_FilterTransforms(reference_channel=ch1,
+                                                                      moving_channel=ch2,
+                                                                      spatial_dims=len(ch1.shape) - 1,
+                                                                      reference_frames=100)
 
 # Save registered, merged .nii
 nib.save(nib.Nifti1Image(merged, np.eye(4)), file_base_path + '_reg.nii')
