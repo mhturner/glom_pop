@@ -103,6 +103,7 @@ mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, time, param)
 sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, time, param)
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, time, param)
 
+np.save(os.path.join(save_directory, 'chat_responses.npy'), all_responses)
 np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
 np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
 np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
