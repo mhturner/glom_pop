@@ -25,16 +25,18 @@ ste = model.SingleTrialEncoding()
 ste.evaluatePerformance(dataset=dataset,
                         included_gloms=included_gloms,
                         iterations=20,
-                        pull_eg=0)
+                        pull_eg=0,
+                        model_type='RandomForest',
+                        # model_type='LogReg',
+                        )
 
 # %% Plot example traces
-
+# TODO: track down very noisy single trials here. Is this because of dF/F calc and bad baseline?
 n_rows = 4
-
 split_length = int(ste.X_test.shape[1] / len(included_gloms))
-
+included_gloms
 fh0, ax0 = plt.subplots(n_rows, 1, figsize=(6, 4))
-[x.set_ylim([-0.5, 0.8]) for x in ax0.ravel()]
+# [x.set_ylim([-0.5, 0.8]) for x in ax0.ravel()]
 [x.set_axis_off() for x in ax0.ravel()]
 for t in range(n_rows):
     for g_ind, g_name in enumerate(included_gloms):
@@ -60,7 +62,7 @@ ax1.plot(col_names, mean_diag, 'ko')
 for d_ind in range(len(col_names)):
     ax1.plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]], 'k-')
 
-ax1.plot([0, len(ste.LogRegModel.classes_)], [1/len(ste.LogRegModel.classes_), 1/len(ste.LogRegModel.classes_)], 'k--')
+ax1.plot([0, len(ste.classifier_model.classes_)], [1/len(ste.classifier_model.classes_), 1/len(ste.classifier_model.classes_)], 'k--')
 ax1.set_xticks([])
 ax1.set_ylim([-0.1, 1.1])
 ax1.set_ylabel('Performance')

@@ -113,8 +113,6 @@ np.save(os.path.join(save_directory, 'colors.npy'), colors)
 
 empties = (all_glom_sizes < glom_size_threshold).sum(axis=1)
 
-all_glom_sizes[np.where(np.array(included_gloms)=='LC17')[0][0], :]
-
 
 fh, ax = plt.subplots(1, 1, figsize=(9, 3))
 for ind, ig in enumerate(included_gloms):

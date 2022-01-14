@@ -5,6 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 import colorcet as cc
@@ -17,7 +18,7 @@ class SingleTrialEncoding():
     def __init__(self):
         self.experiment_file_directory = '/Users/mhturner/CurrentData'
 
-    def evaluatePerformance(self, dataset, included_gloms, iterations=20, pull_eg=0):
+    def evaluatePerformance(self, dataset, included_gloms, iterations=20, pull_eg=0, model_type='LogReg'):
 
         self.cmats = []
         self.overall_performances = []
@@ -68,16 +69,19 @@ class SingleTrialEncoding():
             X = single_trial_responses[keep_inds, :]
             y = df['encoded'].values[keep_inds]
 
-            LogRegModel = LogisticRegression(multi_class='multinomial', solver='lbfgs', fit_intercept=False)
-            # LogRegModel = LogisticRegression(multi_class='ovr', solver='liblinear', penalty='l1', C=2)
+            if model_type == 'LogReg':
+                classifier_model = LogisticRegression(multi_class='multinomial', solver='lbfgs', fit_intercept=False)
+                # classifier_model = LogisticRegression(multi_class='ovr', solver='liblinear', penalty='l1', C=2)
+            elif model_type == 'RandomForest':
+                classifier_model = RandomForestClassifier(max_depth=2, random_state=0)
 
             y_test_all = []
             y_hat_all = []
             for it in range(iterations):
                 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10)
 
-                LogRegModel.fit(X_train, y_train)
-                y_hat = LogRegModel.predict(X_test)
+                classifier_model.fit(X_train, y_train)
+                y_hat = classifier_model.predict(X_test)
 
                 y_test_all.append(y_test)
                 y_hat_all.append(y_hat)
@@ -95,7 +99,7 @@ class SingleTrialEncoding():
                 self.included_parameter_values = included_parameter_values
                 self.X_test = X_test
                 self.y_test = y_test
-                self.LogRegModel = LogRegModel
+                self.classifier_model = classifier_model
 
         self.cmats = np.dstack(self.cmats)
 
