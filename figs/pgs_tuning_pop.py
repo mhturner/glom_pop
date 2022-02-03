@@ -1,16 +1,17 @@
 from visanalysis.analysis import volumetric_data
 from visanalysis.util import plot_tools
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 import numpy as np
 import os
 import colorcet as cc
 import pandas as pd
 import ants
+import seaborn as sns
 
-from sklearn.decomposition import PCA
 from scipy.stats import zscore
-from sklearn.cluster import AgglomerativeClustering
-from scipy.cluster.hierarchy import dendrogram, leaves_list
+
+from scipy.cluster.hierarchy import dendrogram, linkage, leaves_list
 
 from glom_pop import dataio, util, alignment
 
@@ -102,6 +103,12 @@ response_amplitudes = response_amplitudes[:, :-2, :]
 mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, time, param)
 sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, time, param)
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, time, param)
+# Concatenate responses across stimulus types
+#   Shape = (glom, concat time)
+mean_concat = np.vstack(np.concatenate([mean_responses[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
+sem_concat = np.vstack(np.concatenate([sem_responses[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
+std_concat = np.vstack(np.concatenate([std_responses[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
+time_concat = np.arange(0, mean_concat.shape[-1]) * ID.getAcquisitionMetadata().get('sample_period')
 
 np.save(os.path.join(save_directory, 'chat_responses.npy'), all_responses)
 np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
@@ -121,7 +128,7 @@ for ind, ig in enumerate(included_gloms):
 
 ax.axhline(glom_size_threshold, color='r')
 ax.set_xticks(np.arange(0, len(included_gloms)))
-ax.set_xticklabels(included_gloms, rotation=90);
+ax.set_xticklabels(included_gloms, rotation=90)
 ax.set_yscale('log')
 
 # %% QC: glom response traces. For MC or occlusion artifacts
@@ -155,30 +162,11 @@ for key in dataset:
 peak_responses = mean_responses.max(axis=1)  # (glom x stim)
 peak_responses = zscore(peak_responses, axis=1)
 
-# Concatenated response traces
-# mean_cat_responses = np.vstack(np.concatenate([mean_responses[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
-# mean_cat_responses = zscore(mean_cat_responses, axis=1)
-# mean_cat_responses = pd.DataFrame(mean_cat_responses, index=included_gloms)
-
-# Don't collapse clusters here. Compute the full linkage matrix to make dendrogram
-clustering = AgglomerativeClustering(n_clusters=None, affinity='euclidean', linkage='average', distance_threshold=0)
-clustering.fit(peak_responses)
-
-# compute linkage matrix, Z:
-# Ref: https://scikit-learn.org/stable/auto_examples/cluster/plot_agglomerative_dendrogram.html
-#   create the counts of samples under each node
-counts = np.zeros(clustering.children_.shape[0])
-n_samples = len(clustering.labels_)
-for i, merge in enumerate(clustering.children_):
-    current_count = 0
-    for child_idx in merge:
-        if child_idx < n_samples:
-            current_count += 1  # leaf node
-        else:
-            current_count += counts[child_idx - n_samples]
-    counts[i] = current_count
-
-Z = np.column_stack([clustering.children_, clustering.distances_, counts]).astype(float)
+# Compute linkage matrix, Z
+Z = linkage(peak_responses,
+            method='average',
+            metric='euclidean',
+            optimal_ordering=True)
 
 # DENDROGRAM
 fh0, ax0 = plt.subplots(1, 1, figsize=(1.5, 6))
@@ -196,32 +184,31 @@ ax0.spines['bottom'].set_visible(False)
 ax0.spines['left'].set_visible(False)
 ax0.invert_yaxis()
 
-# Plot mean responses
-
-fh1, ax1 = plt.subplots(len(included_gloms), len(unique_parameter_values), figsize=(10, 6))
+# Plot mean concatenated responses
+fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(12, 6))
 [util.cleanAxes(x) for x in ax1.ravel()]
 
-fh1.subplots_adjust(wspace=0.00, hspace=0.00)
 
+fh1.subplots_adjust(wspace=0.00, hspace=0.00)
 for u_ind, un in enumerate(unique_parameter_values):
     for leaf_ind, g_ind in enumerate(leaves):
         name = included_gloms[g_ind]
-        if (leaf_ind == 0) & (u_ind == (len(unique_parameter_values)-1)):
-            plot_tools.addScaleBars(ax1[leaf_ind, u_ind], dT=-2, dF=0.25, T_value=response_data.get('time_vector')[-1], F_value=-0.08)
-        # if (u_ind == 0):
-        #     ax1[leaf_ind, u_ind].set_ylabel(name, fontsize=11, rotation=0)
-        ax1[leaf_ind, u_ind].plot(response_data.get('time_vector'), mean_responses[g_ind, :, u_ind],
-                                  color=colors[g_ind, :], alpha=1.0, linewidth=1.5)
-        ax1[leaf_ind, u_ind].fill_between(response_data.get('time_vector'),
-                                          mean_responses[g_ind, :, u_ind] - sem_responses[g_ind, :, u_ind],
-                                          mean_responses[g_ind, :, u_ind] + sem_responses[g_ind, :, u_ind],
-                                          color=colors[g_ind, :], alpha=0.5, linewidth=0)
+        # ax1[leaf_ind].set_ylabel(name, fontsize=11, rotation=0)
+        # ax1[leaf_ind].fill_between(time_concat,
+        #                            mean_concat[g_ind, :]-sem_concat[g_ind, :],
+        #                            mean_concat[g_ind, :]+sem_concat[g_ind, :],
+        #                            facecolor=sns.desaturate(colors[g_ind, :], 0.25), alpha=1.0, linewidth=0,
+        #                            rasterized=True)
+        ax1[leaf_ind].plot(time_concat, mean_concat[g_ind, :],
+                           color=colors[g_ind, :], alpha=1.0, linewidth=1.0,
+                           rasterized=True)
+        if (leaf_ind == 0):
+            plot_tools.addScaleBars(ax1[leaf_ind], dT=2, dF=0.25, T_value=0, F_value=-0.1)
 
-
-[x.set_ylim([mean_responses.min(), 0.8]) for x in ax1.ravel()]
+[x.set_ylim([mean_responses.min(), 1.1*mean_responses.max()]) for x in ax1.ravel()]
 
 fh0.savefig(os.path.join(save_directory, 'pgs_tuning_dendrogram.svg'), transparent=True)
-fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True)
+fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True, dpi=300)
 
 np.save(os.path.join(save_directory, 'cluster_leaves_list.npy'), leaves)
 
@@ -256,24 +243,26 @@ fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent
 # Normalize sigma by the maximum response of this glom across all stims
 scaling = np.nanmax(np.nanmean(response_amplitudes, axis=-1), axis=-1)
 cv = np.nanstd(response_amplitudes, axis=-1) / scaling[:, None]
-eg_leaf_inds = [7, 9, 12]
-eg_stim_ind = 6
+eg_leaf_inds = [7, 9, 12]  # [7, 9, 12]
+eg_stim_ind = 6  # 6
 fh2, ax2 = plt.subplots(len(eg_leaf_inds), all_responses.shape[-1], figsize=(4, 2.5))
 
-[x.set_ylim([-0.1, 1.2]) for x in ax2.ravel()]
+[x.set_ylim([-0.1, 0.5]) for x in ax2.ravel()]
 [x.set_axis_off() for x in ax2.ravel()]
 for li, leaf_ind in enumerate(eg_leaf_inds):
     g_ind = leaves[leaf_ind]
     for fly_ind in range(all_responses.shape[-1]):
-        ax2[li, fly_ind].plot(all_responses[g_ind, :, eg_stim_ind, fly_ind], color='k', alpha=0.5)
-        ax2[li, fly_ind].plot(np.mean(all_responses[g_ind, :, eg_stim_ind, :], axis=-1), color=colors[g_ind, :], linewidth=2)
+
+        ax2[li, fly_ind].plot(response_data.get('time_vector'), all_responses[g_ind, :, eg_stim_ind, fly_ind],
+                              color='k', alpha=0.5)
+        ax2[li, fly_ind].plot(response_data.get('time_vector'), np.mean(all_responses[g_ind, :, eg_stim_ind, :], axis=-1),
+                              color=colors[g_ind, :], linewidth=1, alpha=1.0)
         if fly_ind == 0 & li == 0:
             plot_tools.addScaleBars(ax2[0, 0], dT=2, dF=0.25, T_value=0, F_value=-0.05)
 
         if fly_ind == 0:
-            ax2[li, fly_ind].annotate('cv = {:.2f}'.format(cv[g_ind, eg_stim_ind]), (0, 1.0))
+            ax2[li, fly_ind].annotate('cv = {:.2f}'.format(cv[g_ind, eg_stim_ind]), (0, 0.5))
 
-print(unique_parameter_values[eg_stim_ind])
 print(np.array(included_gloms)[np.array([leaves[x] for x in eg_leaf_inds])])
 fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=True)
 
@@ -351,37 +340,90 @@ fh4.savefig(os.path.join(save_directory, 'pgs_Inter_Ind_Corr.svg'), transparent=
 
 # %% OTHER STUFF
 
-# %% PCA on response amplitudes of individual gloms
+# %% Visualize clustering of individual gloms, with aligned glom identiy overlaid
 
 # X: individual gloms x features
 # Row order = LCa_fly1, LCa_fly2, ..., LCb_fly1, LCb_fly2, ... LCn_flyn
-scatter_colors = np.repeat(colors, response_amplitudes.shape[-1], axis=0)
-glom_ids = np.repeat(np.arange(0, 12), response_amplitudes.shape[-1], axis=0)
-
+glom_ids = np.repeat(included_vals, response_amplitudes.shape[-1], axis=0)
+glom_names = np.array([np.array(included_gloms)[x == included_vals][0] for x in glom_ids])
 # X: response traces
 all_concat = np.hstack([all_responses[:, :, x, :] for x in range(30)])
 X = np.reshape(np.swapaxes(all_concat, 1, -1), (-1, all_concat.shape[1]))
 
-# X: response amplitudes
-# X = np.reshape(np.swapaxes(response_amplitudes, 1, -1), (-1, response_amplitudes.shape[1]))
+# Remove individual gloms that were not included in that fly (vals replaced by nan)
+nan_glom_ind = np.any(np.isnan(X), axis=1)
+glom_ids = np.delete(glom_ids, nan_glom_ind, axis=0)
+glom_names = np.delete(glom_names, nan_glom_ind, axis=0)
+X = np.delete(X, nan_glom_ind, axis=0)
 
+
+row_colors = cmap(glom_ids/glom_ids.max())
 X = zscore(X, axis=1)
-print('X = {} (samples, features)'.format(X.shape))
-pca = PCA(n_components=30)
-pca.fit(X)
-fh4, ax4 = plt.subplots(1, 1, figsize=(3, 3))
-ax4.plot(np.arange(1, 31), pca.explained_variance_ratio_, 'ko')
-ax4.set_xlabel('Mode')
-ax4.set_ylabel('Frac. var. explained')
 
-fh5, ax5 = plt.subplots(3, 1, figsize=(4, 3))
-ax5[0].plot(pca.components_[0, :], 'r-')
-ax5[1].plot(pca.components_[1, :], 'g-')
-ax5[2].plot(pca.components_[2, :], 'b-')
+# Compute linkage matrix, Z
+Z = linkage(X,
+            method='average',
+            metric='euclidean',
+            optimal_ordering=True)
 
-x_r = pca.fit_transform(X)
-fh6 = plt.figure(figsize=(8, 8))
-ax6 = fh6.add_subplot(projection='3d')
-ax6.scatter(x_r[:, 0], x_r[:, 1], x_r[:, 2], c=scatter_colors)
+# DENDROGRAM
+fh5, ax5 = plt.subplots(1, 2, figsize=(4, 9), gridspec_kw={'width_ratios': [1, 3], 'wspace': 0.01})
+[util.cleanAxes(x) for x in ax5.ravel()]
 
-x_r.shape
+with plt.rc_context({'lines.linewidth': 0.25}):
+    D = dendrogram(Z, p=len(glom_ids), truncate_mode='lastp', ax=ax5[0],
+                   above_threshold_color='black',
+                   color_threshold=1,
+                   orientation='left',
+                   leaf_rotation=0,
+                   leaf_font_size=10,
+                   count_sort=True,
+                   labels=glom_ids)
+
+ind_glom_leaves = glom_ids[D.get('leaves')]
+ind_glom_leaf_colors = row_colors[D.get('leaves')]
+ind_glom_leaves
+included_gloms
+
+ylbls = ax5[0].get_ymajorticklabels()
+for l_ind, lbl in enumerate(ylbls):
+    lbl.set_color(cmap(int(lbl.get_text())/glom_ids.max()))
+# ax5[0].set_yticklabels([r'$\blacksquare$' for x in range(len(glom_names))], fontweight='bold', fontsize=3)
+# ax5[0].set_yticklabels([r'$\blacksquare$ ' + glom_names[D.get('leaves')][x] for x in range(len(glom_names))], fontweight='bold', fontsize=10)
+
+dx = 1
+dy = 1
+
+# Plot all color rects
+for leaf_ind, leaf in enumerate(ind_glom_leaves):
+    x0 = 0
+    y0 = leaf_ind
+    color = ind_glom_leaf_colors[leaf_ind, :]
+    rect = Rectangle((x0, y0), dx, dy, color=color)
+    ax5[1].add_patch(rect)
+
+for glom_ind, glom_val in enumerate(included_vals):
+    for leaf_ind, leaf in enumerate(ind_glom_leaves):
+        x0 = 1+glom_ind
+        y0 = leaf_ind
+
+        if leaf == glom_val:
+            color = ind_glom_leaf_colors[leaf_ind, :]
+        else:
+            color = [0.6, 0.6, 0.6, 1.0]
+        rect = Rectangle((x0, y0), dx, dy, color=color)
+        ax5[1].add_patch(rect)
+
+disp_gloms = included_gloms.copy()
+disp_gloms.insert(0, 'All')
+
+ax5[1].set_xlim([0, glom_ind+dx+1])
+ax5[1].set_ylim([0, leaf_ind+dy])
+ax5[1].set_xticks(np.arange(0, len(disp_gloms))+0.5)
+ax5[1].set_xticklabels(disp_gloms, rotation=90)
+ax5[1].set_yticks([])
+ax5[1].xaxis.tick_top()
+
+ax5[0].get_yaxis().set_visible(False)
+
+fh5.savefig(os.path.join(save_directory, 'pgs_ind_dendrogram.svg'), transparent=True)

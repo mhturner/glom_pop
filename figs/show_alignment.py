@@ -87,6 +87,12 @@ fh, ax = plt.subplots(len(z_levels), 4, figsize=(5, 5.5), tight_layout=True)
 [x.set_xlim([30, 230]) for x in ax.ravel()]
 [x.set_ylim([175, 0]) for x in ax.ravel()]
 
+for x in ax.ravel():
+    d_line = 10 / meanbrain_red.spacing[0]  # um -> pix
+    x.set_xticks(np.arange(30, 230, d_line))
+    x.set_yticks(np.arange(0, 175, d_line))
+    x.grid(which='major', axis='both', linestyle='--', color='k', linewidth=0.5, alpha=0.5)
+
 vmax = np.quantile(grn_tmp[30:230, 0:175, :], 0.97)
 
 for z_ind, z in enumerate(z_levels):
@@ -111,13 +117,6 @@ for z_ind, z in enumerate(z_levels):
         ax[z_ind, 0].annotate('25 \u03BCm', (150, 155), fontweight='bold', fontsize=10)
 
     ax[z_ind, 0].set_ylabel('{} \u03BCm'.format(z*1), fontsize=11, labelpad=1)
-
-for x in ax.ravel():
-    d_line = 10 / meanbrain_red.spacing[0]  # um -> pix
-    x.set_xticks(np.arange(30, 230, d_line))
-    x.set_yticks(np.arange(0, 175, d_line))
-    x.grid(which='major', axis='both', linestyle='--', color='k', linewidth=0.5)
-
 
 handles = [Patch(facecolor=color) for color in colors]
 fh.legend(handles, [label for label in names], fontsize=11, ncol=5, handleheight=0.65, labelspacing=0.005, loc=9)
@@ -165,18 +164,18 @@ box1_xy = (55, 10)
 box2_xy = (30, 110)
 box3_xy = (120, 5)
 
-fh, ax = plt.subplots(2, 1, figsize=(3, 3))
+fh, ax = plt.subplots(2, 1, figsize=(3, 2.75))
 [x.set_axis_off() for x in ax]
 ax[0].imshow(meanbrain_red[:, :, 5:15].mean(axis=2).T, cmap=cmap, vmax=np.quantile(meanbrain_red.numpy(), 0.99))
-rect1 = Rectangle(box1_xy, dx, dy, linewidth=3, edgecolor='m', facecolor='none')
+rect1 = Rectangle(box1_xy, dx, dy, linewidth=2, edgecolor='m', facecolor='none')
 ax[0].add_patch(rect1)
 ax[0].set_title('z = {} \u03BCm'.format(10), fontsize=11, fontweight='bold')
 ax[0].plot([5, 5+bar_length], [195, 195], color='k', linestyle='-', marker='None', linewidth=2)
 
 ax[1].imshow(meanbrain_red[:, :, 35:].mean(axis=2).T, cmap=cmap, vmax=np.quantile(meanbrain_red.numpy(), 0.99))
-rect2 = Rectangle(box2_xy, dx, dy, linewidth=3, edgecolor='c', facecolor='none')
+rect2 = Rectangle(box2_xy, dx, dy, linewidth=2, edgecolor='c', facecolor='none')
 ax[1].add_patch(rect2)
-rect3 = Rectangle(box3_xy, dx, dy, linewidth=3, edgecolor='b', facecolor='none')
+rect3 = Rectangle(box3_xy, dx, dy, linewidth=2, edgecolor='b', facecolor='none')
 ax[1].add_patch(rect3)
 ax[1].set_title('z = {} \u03BCm'.format(39), fontsize=11, fontweight='bold')
 
@@ -186,7 +185,7 @@ fh.savefig(os.path.join(save_directory, 'alignment_areas.svg'), transparent=True
 brain_directory = os.path.join(base_dir, 'anatomical_brains')
 file_paths = glob.glob(os.path.join(brain_directory, '*_anatomical.nii'))
 
-fh, ax = plt.subplots(3, len(dataset)+1, figsize=(10, 3))
+fh, ax = plt.subplots(3, len(dataset)+1, figsize=(11, 2.75))
 # [x.set_axis_off() for x in ax.ravel()]
 bar_length = 10 / meanbrain_green.spacing[0]  # um -> pix
 ax[0, 0].imshow(meanbrain_green[box1_xy[0]:box1_xy[0]+dx, box1_xy[1]:box1_xy[1]+dy, 10].T, cmap=cmap)
