@@ -26,8 +26,8 @@ ste.evaluatePerformance(dataset=dataset,
                         included_gloms=included_gloms,
                         iterations=20,
                         pull_eg=0,
-                        model_type='RandomForest',
-                        # model_type='LogReg',
+                        # model_type='RandomForest',
+                        model_type='LogReg',
                         )
 
 # %% Plot example traces

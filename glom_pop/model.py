@@ -9,6 +9,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 import colorcet as cc
+from scipy.signal import detrend
+from scipy.stats import zscore
 
 from visanalysis.analysis import volumetric_data
 from glom_pop import dataio
@@ -36,13 +38,28 @@ class SingleTrialEncoding():
             vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
 
             # Only select gloms in included_gloms
-            erm = []
+            response_matrix = []
             included_vals = []
             for g_ind, name in enumerate(included_gloms):
                 pull_ind = np.where(name == names)[0][0]
-                erm.append(response_data.get('epoch_response')[pull_ind, :, :])
+                response_matrix.append(response_data.get('response')[pull_ind, :])
                 included_vals.append(vals[pull_ind])
-            epoch_response_matrix = np.stack(erm, axis=0)
+            response_matrix = np.stack(response_matrix, axis=0)
+
+            # Detrend (remove linear bleach) & z-score
+            response_matrix = detrend(response_matrix, axis=-1)
+            response_matrix = zscore(response_matrix, axis=-1)
+
+            # NaN comes from empty gloms (this fly doesn't have that glom)
+            if np.any(np.isnan(response_matrix)):
+                nan_row = np.where(np.any(np.isnan(response_matrix), axis=1))[0]
+                response_matrix[nan_row, :] = 0
+                print('{} {}:Setting NaN to 0 in row(s) {}'.format(s_ind, key, nan_row))
+
+            # split it up into epoch_response_matrix
+            # shape = (gloms, trials, timepoints)
+            time_vector, epoch_response_matrix = ID.getEpochResponseMatrix(response_matrix, dff=False)
+
             included_vals = np.array(included_vals)
             cmap = cc.cm.glasbey
             self.colors = cmap(included_vals/included_vals.max())
@@ -55,13 +72,14 @@ class SingleTrialEncoding():
             df['encoded'] = df['params'].apply(lambda x: list(unique_parameter_values).index(x))
 
             # Multinomial logistic regression model
-            # shape = trials x time (concatenated glom responses)
-            single_trial_responses = np.reshape(epoch_response_matrix, (-1, epoch_response_matrix.shape[2])).T
+            # output shape = trials x time (concatenated glom responses)
+            tmp_trials = [epoch_response_matrix[x, :, :] for x in range(epoch_response_matrix.shape[0])]
+            single_trial_responses = np.concatenate(tmp_trials, axis=-1)
 
             # Filter trials to only include stims of interest
-            # exclude last 2 (uniform flash)
-            # Exclude one direction of bidirectional stims
-            # Exclude spot on grating for now
+            #   Exclude last 2 (uniform flash)
+            #   Exclude one direction of bidirectional stims
+            #   Exclude spot on grating for now
             keep_stims = np.array([0, 2, 4, 6, 8, 10, 12, 14, 15, 16, 17, 18, 19, 20, 21])
             keep_inds = np.where([x in keep_stims for x in df['encoded'].values])[0]
 
