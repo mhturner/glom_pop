@@ -19,7 +19,6 @@ experiment_file_directory = '/Users/mhturner/CurrentData'
 save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
 
 target_gloms = ['LC4', 'LC9', 'LC18']
-yoffset = 0.0  # Split vs. Chat. Share a y axis
 
 all_chat_responses = np.load(os.path.join(save_directory, 'chat_responses.npy'))
 mean_chat_responses = np.load(os.path.join(save_directory, 'mean_chat_responses.npy'))
@@ -142,17 +141,12 @@ for g_ind, target_glom in enumerate(target_gloms):
     ax1.set_xlabel('dF/F, ChAT')
     # TODO: annotation placement here
 
-    # intra-individual corr for this split
-    intra_ind_corr = pd.DataFrame(np.max(split_responses, axis=1).T).corr().to_numpy()[np.triu_indices(split_responses.shape[0], k=1)]
-
     mean_split_responses = split_responses.mean(axis=0)
     sem_split_responses = split_responses.std(axis=0) / split_responses.shape[0]
 
     fh0.savefig(os.path.join(save_directory, 'split_responses_{}.svg'.format(target_glom)), transparent=True)
     fh1.savefig(os.path.join(save_directory, 'split_amp_scatter_{}.svg'.format(target_glom)), transparent=True)
 
-
-# %%
 
 # %%
 

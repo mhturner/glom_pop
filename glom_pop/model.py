@@ -17,14 +17,16 @@ from glom_pop import dataio
 
 
 class SingleTrialEncoding():
-    def __init__(self):
-        self.experiment_file_directory = '/Users/mhturner/CurrentData'
+    def __init__(self, dataset, included_vals, experiment_file_directory='/Users/mhturner/CurrentData'):
+        self.experiment_file_directory = experiment_file_directory
+        self.dataset = dataset
+        self.included_vals = included_vals
 
-    def evaluatePerformance(self, dataset, included_gloms, iterations=20, pull_eg=0, model_type='LogReg'):
+    def evaluatePerformance(self, model_type='LogReg', iterations=20, pull_eg=0, classify_on_amplitude=False):
 
         self.cmats = []
         self.overall_performances = []
-        for s_ind, key in enumerate(dataset):
+        for s_ind, key in enumerate(self.dataset):
             experiment_file_name = key.split('_')[0]
             series_number = int(key.split('_')[1])
 
@@ -35,34 +37,37 @@ class SingleTrialEncoding():
 
             # Load response data
             response_data = dataio.loadResponses(ID, response_set_name='glom', get_voxel_responses=False)
-            vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
 
-            # Only select gloms in included_gloms
-            response_matrix = []
-            included_vals = []
-            for g_ind, name in enumerate(included_gloms):
-                pull_ind = np.where(name == names)[0][0]
-                response_matrix.append(response_data.get('response')[pull_ind, :])
-                included_vals.append(vals[pull_ind])
+            # Only select gloms in included_vals
+            glom_size_threshold = 10
+            # response_matrix: shape=(gloms, time)
+            response_matrix = np.zeros((len(self.included_vals), response_data.get('response').shape[1]))
+            # response_matrix[:] = np.nan
+            for val_ind, included_val in enumerate(self.included_vals):
+                new_glom_size = np.sum(response_data.get('mask') == included_val)
+
+                if new_glom_size > glom_size_threshold:
+                    pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
+                    response_matrix[val_ind, :] = response_data.get('response')[pull_ind, :]
+                else:  # Exclude because this glom, in this fly, is too tiny
+                    pass
             response_matrix = np.stack(response_matrix, axis=0)
 
-            # Detrend (remove linear bleach) & z-score
+            # Detrend (remove ~linear bleach) & z-score
             response_matrix = detrend(response_matrix, axis=-1)
-            response_matrix = zscore(response_matrix, axis=-1)
-
-            # NaN comes from empty gloms (this fly doesn't have that glom)
-            if np.any(np.isnan(response_matrix)):
-                nan_row = np.where(np.any(np.isnan(response_matrix), axis=1))[0]
-                response_matrix[nan_row, :] = 0
-                print('{} {}:Setting NaN to 0 in row(s) {}'.format(s_ind, key, nan_row))
+            response_matrix = zscore(response_matrix, axis=-1, nan_policy='omit')
 
             # split it up into epoch_response_matrix
             # shape = (gloms, trials, timepoints)
             time_vector, epoch_response_matrix = ID.getEpochResponseMatrix(response_matrix, dff=False)
+            # Classifier model doesn't like nans
+            epoch_response_matrix[np.where(np.isnan(epoch_response_matrix))] = 0
 
-            included_vals = np.array(included_vals)
+            if classify_on_amplitude:
+                epoch_response_matrix = np.mean(epoch_response_matrix, axis=-1)[:, :, np.newaxis]
+
             cmap = cc.cm.glasbey
-            self.colors = cmap(included_vals/included_vals.max())
+            self.colors = cmap(self.included_vals/self.included_vals.max())
 
             parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
             unique_parameter_values = np.unique(np.array(parameter_values, dtype='object'))
@@ -91,7 +96,11 @@ class SingleTrialEncoding():
                 classifier_model = LogisticRegression(multi_class='multinomial', solver='lbfgs', fit_intercept=False)
                 # classifier_model = LogisticRegression(multi_class='ovr', solver='liblinear', penalty='l1', C=2)
             elif model_type == 'RandomForest':
-                classifier_model = RandomForestClassifier(max_depth=2, random_state=0)
+                classifier_model = RandomForestClassifier(n_estimators=100,
+                                                          criterion='gini',
+                                                          max_depth=None,
+                                                          min_samples_leaf=2,
+                                                          random_state=0)
 
             y_test_all = []
             y_hat_all = []
