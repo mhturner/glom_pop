@@ -38,11 +38,11 @@ for g_ind, target_glom in enumerate(target_gloms):
     glom_mask_val = vpn_types.loc[vpn_types.get('vpn_types') == target_glom, 'Unnamed: 0'].values[0]
 
     # Images & tuning response of split + chat
-    fh0, ax0 = plt.subplots(2, 2, figsize=(6, 2),
+    fh0, ax0 = plt.subplots(2, 2, figsize=(4.5, 2.0),
                             gridspec_kw={'width_ratios': [1, 4], 'wspace': 0.01, 'hspace': 0.01})
 
     [plot_tools.cleanAxes(x) for x in ax0.ravel()]
-    [x.set_ylim([-0.05, 0.35]) for x in ax0[:, 1]]
+    [x.set_ylim([-0.05, 0.40]) for x in ax0[:, 1]]
 
     ax0[0, 0].set_xlim([30, 230])
     ax0[0, 0].set_ylim([180, 0])
@@ -50,7 +50,7 @@ for g_ind, target_glom in enumerate(target_gloms):
     ax0[1, 0].set_ylim([90, 0])
 
     # Response amps: split vs. chat scatter
-    fh1, ax1 = plt.subplots(1, 1, figsize=(2, 1.75))
+    fh1, ax1 = plt.subplots(1, 1, figsize=(1.5, 1.25))
 
     util.makeGlomMap(ax=ax0[0, 0],
                      glom_map=glom_mask_2_meanbrain,
@@ -112,7 +112,7 @@ for g_ind, target_glom in enumerate(target_gloms):
                            mean_split + err_split,
                            color='k', alpha=0.5, linewidth=0)
 
-    plot_tools.addScaleBars(ax0[0, 1], dT=5, dF=0.25, T_value=0, F_value=-0.045)
+    plot_tools.addScaleBars(ax0[0, 1], dT=5, dF=0.10, T_value=0, F_value=-0.045)
 
     # Compare mean response amplitudes
     split_amp = split_responses.max(axis=1)[:, :30]  # shape = (flies, stims)
@@ -136,9 +136,11 @@ for g_ind, target_glom in enumerate(target_gloms):
     ax1.plot(xx, yy, 'k--')
 
     corr = np.corrcoef(mean_chat_amp, mean_split_amp)[1, 0]
-    ax1.annotate('r = {:.2f}'.format(corr), (0, 1.1*mean_split_amp.max()))
+    ax1.annotate('r = {:.2f}'.format(corr), (0.8*np.max(xx), 0))
     ax1.set_ylabel('dF/F, Split')
     ax1.set_xlabel('dF/F, ChAT')
+    ax1.set_xlim(left=0)
+    ax1.set_ylim(bottom=0)
     # TODO: annotation placement here
 
     mean_split_responses = split_responses.mean(axis=0)

@@ -24,6 +24,13 @@ experiment_file_directory = '/Users/mhturner/CurrentData'
 save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
 transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 
+# %%
+
+
+cmap = cc.cm.glasbey_bw_minc_20_minl_30
+# cmap = cc.cm.glasbey
+colors = cmap(included_vals/included_vals.max())
+
 
 # %% PLOT MEAN RESPONSES TO TUNING SUITE
 
@@ -158,6 +165,7 @@ for key in dataset:
 
 # %% PLOTTING
 
+
 # # # Cluster on stimulus tuning # # #
 peak_responses = mean_responses.max(axis=1)  # (glom x stim)
 peak_responses = zscore(peak_responses, axis=1)
@@ -245,7 +253,7 @@ scaling = np.nanmax(np.nanmean(response_amplitudes, axis=-1), axis=-1)
 cv = np.nanstd(response_amplitudes, axis=-1) / scaling[:, None]
 eg_leaf_inds = [7, 9, 12]  # [7, 9, 12]
 eg_stim_ind = 6  # 6
-fh2, ax2 = plt.subplots(len(eg_leaf_inds), all_responses.shape[-1], figsize=(4, 2.5))
+fh2, ax2 = plt.subplots(len(eg_leaf_inds), all_responses.shape[-1], figsize=(3.5, 2.5))
 
 [x.set_ylim([-0.1, 0.5]) for x in ax2.ravel()]
 [x.set_axis_off() for x in ax2.ravel()]
@@ -266,14 +274,14 @@ for li, leaf_ind in enumerate(eg_leaf_inds):
 print(np.array(included_gloms)[np.array([leaves[x] for x in eg_leaf_inds])])
 fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=True)
 
-fh3, ax3 = plt.subplots(1, 1, figsize=(3, 2.5))
+fh3, ax3 = plt.subplots(1, 1, figsize=(3.5, 2.5))
 ax3.hist(cv.ravel(), bins=40)
 ax3.set_xlabel('Coefficient of Variation')
 ax3.set_ylabel('Count');
 
 fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=True)
 
-fh4, ax4 = plt.subplots(1, 1, figsize=(3, 2))
+fh4, ax4 = plt.subplots(1, 1, figsize=(3.5, 2.5))
 for leaf_ind, g_ind in enumerate(leaves):
     name = included_gloms[g_ind]
     mean_cv = np.mean(cv[g_ind, :])

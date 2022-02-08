@@ -36,25 +36,23 @@ ste.evaluatePerformance(
                         classify_on_amplitude=True,
                         )
 
-# feature_importance = pd.Series(data=ste.classifier_model.feature_importances_, index=included_gloms)
 
 # %%
-plt.plot(feature_importance, 'ko')
 
-# %% Plot example traces
+# %% Plot some example traces
 n_rows = 4
-start_trial = 1
+start_trial = 0
 
-split_length = int(ste.X_test.shape[1] / len(included_gloms))
+split_length = int(ste.eg_traces.shape[1] / len(included_gloms))
 included_gloms
 fh0, ax0 = plt.subplots(n_rows, 1, figsize=(6, 4))
-[x.set_ylim([-3.5, 3.5]) for x in ax0.ravel()]
+[x.set_ylim([-3.5, 10]) for x in ax0.ravel()]
 [x.set_axis_off() for x in ax0.ravel()]
 for t in range(n_rows):
     for g_ind, g_name in enumerate(included_gloms):
         start_pt = g_ind * split_length
         end_pt = (g_ind+1) * split_length
-        ax0[t].plot(np.arange(start_pt, end_pt), ste.X_test[start_trial+t, start_pt:end_pt], color=ste.colors[g_ind, :])
+        ax0[t].plot(np.arange(start_pt, end_pt), ste.eg_traces[start_trial+t, start_pt:end_pt], color=ste.colors[g_ind, :])
     ax0[t].set_title(str(ste.unique_parameter_values[ste.y_test[start_trial+t]]))
 
 fh0.savefig(os.path.join(save_directory, 'single_trial_traces.svg'))
@@ -116,24 +114,20 @@ fh3.savefig(os.path.join(save_directory, 'single_trial_log_cartoon.png'), bbox_i
 
 # %% For LogReg: weight matrix
 # Weights: classes x features
-tt = ste.classifier_model.coef_
-tt.shape
-mean_diag.shape
-
-
-performance_weighted_beta = (ste.classifier_model.coef_.T * mean_diag).T
+performance_weighted_beta = (ste.classifier_model.coef_.T * mean_diag)
 
 # weights = pd.DataFrame(data=ste.classifier_model.coef_,
 #                        index=ste.included_parameter_values,
 #                        columns=included_gloms)
 weights = pd.DataFrame(data=performance_weighted_beta,
-                       index=ste.included_parameter_values,
-                       columns=included_gloms)
+                       index=included_gloms)
 
 lim = np.max(np.abs(weights.to_numpy()))
 fh4, ax4 = plt.subplots(1, 1, figsize=(4, 3))
 sns.heatmap(weights, ax=ax4, cmap='RdBu', vmax=lim, vmin=-lim)
+ax4.set_xticklabels(ste.included_parameter_values, rotation=90)
 
+fh4.savefig(os.path.join(save_directory, 'single_trial_weights.svg'))
 
 # %% Measure performance with subsets of gloms
 

@@ -64,7 +64,12 @@ class SingleTrialEncoding():
             epoch_response_matrix[np.where(np.isnan(epoch_response_matrix))] = 0
 
             if classify_on_amplitude:
-                epoch_response_matrix = np.mean(epoch_response_matrix, axis=-1)[:, :, np.newaxis]
+                classify_data = np.mean(epoch_response_matrix, axis=-1)[:, :, np.newaxis]
+            else:
+                classify_data = epoch_response_matrix.copy()
+            # output shape = trials x time (concatenated glom responses)
+            tmp_trials = [classify_data[x, :, :] for x in range(classify_data.shape[0])]
+            single_trial_responses = np.concatenate(tmp_trials, axis=-1)
 
             cmap = cc.cm.glasbey
             self.colors = cmap(self.included_vals/self.included_vals.max())
@@ -76,10 +81,7 @@ class SingleTrialEncoding():
             df = pd.DataFrame(data=np.array(parameter_values, dtype='object'), columns=['params'])
             df['encoded'] = df['params'].apply(lambda x: list(unique_parameter_values).index(x))
 
-            # Multinomial logistic regression model
-            # output shape = trials x time (concatenated glom responses)
-            tmp_trials = [epoch_response_matrix[x, :, :] for x in range(epoch_response_matrix.shape[0])]
-            single_trial_responses = np.concatenate(tmp_trials, axis=-1)
+
 
             # Filter trials to only include stims of interest
             #   Exclude last 2 (uniform flash)
@@ -127,6 +129,8 @@ class SingleTrialEncoding():
                 self.X_test = X_test
                 self.y_test = y_test
                 self.classifier_model = classifier_model
+                tmp_trials = [epoch_response_matrix[x, :, :] for x in range(epoch_response_matrix.shape[0])]
+                self.eg_traces = np.concatenate(tmp_trials, axis=-1)
 
         self.cmats = np.dstack(self.cmats)
 
