@@ -21,9 +21,11 @@ path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 
 # %% Include all gloms and all flies
+leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.getIncludedGloms(path_to_yaml)
-# TODO: fxnalize this vals from gloms thing...
-included_vals = np.array([vpn_types.iloc[np.where(vpn_types.vpn_types == ig)[0][0], 0] for ig in included_gloms])
+# sort by dendrogram leaves ordering
+included_gloms = np.array(included_gloms)[leaves]
+included_vals = dataio.getGlomValsFromNames(included_gloms)
 
 dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included=True)
 
@@ -40,12 +42,12 @@ ste.evaluatePerformance(
 # %%
 
 # %% Plot some example traces
-n_rows = 4
+n_rows = 3
 start_trial = 0
 
 split_length = int(ste.eg_traces.shape[1] / len(included_gloms))
 included_gloms
-fh0, ax0 = plt.subplots(n_rows, 1, figsize=(6, 4))
+fh0, ax0 = plt.subplots(n_rows, 1, figsize=(6, 3))
 [x.set_ylim([-3.5, 10]) for x in ax0.ravel()]
 [x.set_axis_off() for x in ax0.ravel()]
 for t in range(n_rows):
@@ -53,7 +55,7 @@ for t in range(n_rows):
         start_pt = g_ind * split_length
         end_pt = (g_ind+1) * split_length
         ax0[t].plot(np.arange(start_pt, end_pt), ste.eg_traces[start_trial+t, start_pt:end_pt], color=ste.colors[g_ind, :])
-    ax0[t].set_title(str(ste.unique_parameter_values[ste.y_test[start_trial+t]]))
+    ax0[t].set_title(str(ste.eg_stim_identity[start_trial+t]))
 
 fh0.savefig(os.path.join(save_directory, 'single_trial_traces.svg'))
 
@@ -67,7 +69,7 @@ mean_diag = np.mean(ste.performance, axis=0)
 err_diag = np.std(ste.performance, axis=0) / np.sqrt(ste.performance.shape[0])
 
 # Performance per stim type
-fh1, ax1 = plt.subplots(1, 1, figsize=(6, 3))
+fh1, ax1 = plt.subplots(1, 1, figsize=(4, 2.5))
 ax1.plot(col_names, mean_diag, 'ko')
 for d_ind in range(len(col_names)):
     ax1.plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]], 'k-')
@@ -84,7 +86,7 @@ ax1.spines['top'].set_visible(False)
 ax1.spines['right'].set_visible(False)
 
 # Confusion matrix
-fh2, ax2 = plt.subplots(1, 1, figsize=(3.5, 2.75))
+fh2, ax2 = plt.subplots(1, 1, figsize=(3.0, 2.5))
 sns.heatmap(mean_cmat, ax=ax2, vmin=0, vmax=1.0, cmap='Reds', cbar_kws={'label': 'Probability'})
 ax2.set_xlabel('Predicted')
 ax2.set_ylabel('True')
@@ -124,67 +126,13 @@ weights = pd.DataFrame(data=performance_weighted_beta,
 
 lim = np.max(np.abs(weights.to_numpy()))
 fh4, ax4 = plt.subplots(1, 1, figsize=(4, 3))
-sns.heatmap(weights, ax=ax4, cmap='RdBu', vmax=lim, vmin=-lim)
-ax4.set_xticklabels(ste.included_parameter_values, rotation=90)
+sns.heatmap(weights, ax=ax4,
+            cmap='RdBu', vmax=lim, vmin=-lim,
+            cbar_kws={'label': 'Performance weighted coef'})
+# ax4.set_xticklabels(ste.included_parameter_values, rotation=90)
+ax4.set_xticklabels([])
+ax4.set_xticks([])
 
 fh4.savefig(os.path.join(save_directory, 'single_trial_weights.svg'))
 
 # %% Measure performance with subsets of gloms
-
-fh5, ax5 = plt.subplots(1, 1, figsize=(6, 3))
-ax5.spines['top'].set_visible(False)
-ax5.spines['right'].set_visible(False)
-ax5.set_xticks([])
-ax5.set_ylim([-0.1, 1.1])
-
-xoffset = 0.1
-
-dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included=True)
-
-# First cluster:
-included_gloms = ['LPLC1', 'LC9', 'LC21', 'LC18', 'LC17', 'LC12', 'LC11', 'LC15']
-included_vals = np.array([vpn_types.iloc[np.where(vpn_types.vpn_types == ig)[0][0], 0] for ig in included_gloms])
-ste = model.SingleTrialEncoding(dataset=dataset, included_vals=included_vals)
-ste.evaluatePerformance(
-                        # model_type='LogReg',
-                        model_type='RandomForest',
-                        iterations=20,
-                        pull_eg=1,
-                        classify_on_amplitude=True,
-                        )
-
-
-col_names = [str(x) for x in ste.included_parameter_values]
-mean_diag = np.mean(ste.performance, axis=0)
-err_diag = np.std(ste.performance, axis=0) / np.sqrt(ste.performance.shape[0])
-
-ax5.plot([0, len(ste.classifier_model.classes_)], [1/len(ste.classifier_model.classes_), 1/len(ste.classifier_model.classes_)], 'k--')
-ax5.plot(np.arange(0, len(col_names))-xoffset, mean_diag, marker='o', color=desaturate('r', 0.6), linestyle='None', alpha=0.5)
-for d_ind in range(len(col_names)):
-    ax5.plot([d_ind-xoffset, d_ind-xoffset], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]],
-             color=desaturate('r', 0.6), linestyle='-', marker='None', alpha=0.5)
-
-
-# Second cluster:
-included_gloms = ['LC6', 'LC26', 'LC16', 'LPLC2', 'LC4']
-included_vals = np.array([vpn_types.iloc[np.where(vpn_types.vpn_types == ig)[0][0], 0] for ig in included_gloms])
-ste = model.SingleTrialEncoding(dataset=dataset, included_vals=included_vals)
-ste.evaluatePerformance(
-                        # model_type='LogReg',
-                        model_type='RandomForest',
-                        iterations=20,
-                        pull_eg=1,
-                        classify_on_amplitude=True,
-                        )
-
-mean_diag = np.mean(ste.performance, axis=0)
-err_diag = np.std(ste.performance, axis=0) / np.sqrt(ste.performance.shape[0])
-
-ax5.plot(np.arange(0, len(col_names)), mean_diag, marker='o', color=desaturate('g', 0.6), linestyle='None', alpha=0.5)
-for d_ind in range(len(col_names)):
-    ax5.plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]],
-             color=desaturate('g', 0.6), linestyle='-', marker='None', alpha=0.5)
-
-fh5.savefig(os.path.join(save_directory, 'single_trial_clust_performance.svg'))
-
-# %%

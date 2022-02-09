@@ -12,13 +12,21 @@ from sklearn.linear_model import LinearRegression
 
 from glom_pop import dataio, util
 
-
+base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
 experiment_file_directory = '/Users/mhturner/CurrentData'
 save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
 
 path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_data.yaml'
+vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 included_gloms = dataio.getIncludedGloms(path_to_yaml)
+included_vals = dataio.getGlomValsFromNames(included_gloms)
+
 dataset = dataio.getDataset(path_to_yaml, dataset_id='vr_walk', only_included=True)
+
+cmap = cc.cm.glasbey
+colors = cmap(included_vals/included_vals.max())
+
+glom_size_threshold = 10
 
 all_resp = []
 all_concat = []
@@ -37,25 +45,27 @@ for s_ind, key in enumerate(dataset):
 
     # Load response data
     response_data = dataio.loadResponses(ID, response_set_name='glom')
-
     vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
 
     meanbrain_red = response_data.get('meanbrain')[..., 0]
     meanbrain_green = response_data.get('meanbrain')[..., 1]
 
+    # epoch_response_stack: shape=(gloms, time, trials)
+    epoch_response_stack = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
+    epoch_response_stack[:] = np.nan
 
     # Only select gloms in included_gloms
-    erm = []
-    included_vals = []
-    for g_ind, name in enumerate(included_gloms):
-        pull_ind = np.where(name==names)[0][0]
-        erm.append(response_data.get('epoch_response')[pull_ind, :, :])
-        included_vals.append(vals[pull_ind])
-    epoch_response_matrix = np.stack(erm, axis=0)
-    included_vals = np.array(included_vals)
+    for val_ind, included_val in enumerate(included_vals):
+        new_glom_size = np.sum(response_data.get('mask') == included_val)
+
+        if new_glom_size > glom_size_threshold:
+            pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
+            epoch_response_stack[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
+        else:  # Exclude because this glom, in this fly, is too tiny
+            pass
 
     # Align responses
-    mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, trial_response_by_stimulus = ID.getMeanBrainByStimulus(epoch_response_matrix, parameter_key='current_trajectory_index')
+    mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, trial_response_by_stimulus = ID.getMeanBrainByStimulus(epoch_response_stack, parameter_key='current_trajectory_index')
     n_stimuli = mean_voxel_response.shape[2]
     concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in range(n_stimuli)], axis=1)  # responses, time (concat stims)
 
@@ -66,26 +76,17 @@ all_concat = np.dstack(all_concat)
 all_resp = np.stack(all_resp, axis=-1)
 
 # %%
-all_resp.shape
-trial_response_by_stimulus[0].shape
-mean_voxel_response.shape
 
-fh, ax = plt.subplots(8, 1, figsize=(4, 4))
-
-for f in range(8):
-    ax[f].plot(all_resp[1, :, 0, f], 'k')
 
 
 
 # %%
-# glom = 4
-stim = 0
 
-fh, ax = plt.subplots(12, 8, figsize=(12,8))
+fh, ax = plt.subplots(14, 10, figsize=(12, 8))
 [x.set_axis_off() for x in ax.ravel()]
 [x.set_ylim([-0.12, 0.75]) for x in ax.ravel()]
-for i in range(8):
-    for g in range(12):
+for i in range(10):
+    for g in range(14):
         ax[g, i].plot(all_resp[g, :, stim, i], color=colors[g, :])
 
 # %%
@@ -159,9 +160,11 @@ reg = LinearRegression().fit(X, y)
 # %%
 leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 
+included_flies = np.array([2, 3, 5, 6])
+
+
 cmap = cc.cm.glasbey
 colors = cmap(included_vals/included_vals.max())
-
 fh, ax = plt.subplots(len(included_gloms)+1, len(unique_parameter_values), figsize=(10, 8))
 [util.cleanAxes(x) for x in ax.ravel()]
 fh.subplots_adjust(wspace=0.00, hspace=0.00)
@@ -171,7 +174,7 @@ for u_ind, un in enumerate(unique_parameter_values):
 
         ax[leaf_ind+1, u_ind].set_ylim([-0.15, 0.50])
         ax[leaf_ind+1, u_ind].axhline(0, alpha=0.25, color='k', linewidth=0.5)
-        ax[leaf_ind+1, u_ind].plot(all_resp[g_ind, :, u_ind, :].mean(axis=-1), color=colors[g_ind], linewidth=2)
+        ax[leaf_ind+1, u_ind].plot(all_resp[g_ind, :, u_ind, included_flies].mean(axis=0), color=colors[g_ind], linewidth=2)
 
         # ax[g_ind, u_ind].plot(all_resp[g_ind, :, u_ind, :], color=colors[g_ind], alpha=0.5)
         if (u_ind == 0):

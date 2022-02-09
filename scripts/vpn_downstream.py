@@ -7,8 +7,9 @@ import seaborn as sns
 from sklearn.decomposition import PCA
 import os
 from scipy.stats import zscore
-
 from scipy import spatial
+
+from glom_pop import dataio
 
 """
 https://connectome-neuprint.github.io/neuprint-python/docs/index.html
@@ -16,6 +17,7 @@ https://github.com/connectome-neuprint/neuprint-python
 
 """
 save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
+path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_data.yaml'
 
 # start client
 neuprint_client = Client('neuprint.janelia.org', dataset='hemibrain:v1.2.1', token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Im1heHdlbGxob2x0ZXR1cm5lckBnbWFpbC5jb20iLCJsZXZlbCI6Im5vYXV0aCIsImltYWdlLXVybCI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hLS9BT2gxNEdpMHJRX0M4akliX0ZrS2h2OU5DSElsWlpnRDY5YUMtVGdNLWVWM3lRP3N6PTUwP3N6PTUwIiwiZXhwIjoxNzY2MTk1MzcwfQ.Q-57D4tX2sXMjWym2LFhHaUGHgHiUsIM_JI9xekxw_0')
@@ -23,14 +25,18 @@ neuprint_client = Client('neuprint.janelia.org', dataset='hemibrain:v1.2.1', tok
 # %%
 # # # # # # BUILD CONNECTIVITY MATRIX # # # # # # # # # # # # # # # # # # # # #
 #  Columns = LC types, Rows = postsynaptic types
-LC_keys = ['LC4', 'LC6', 'LC9', 'LC11', 'LC12', 'LC15', 'LC16', 'LC18', 'LC21', 'LC26', 'LPLC1', 'LPLC2']
+included_gloms = dataio.getIncludedGloms(path_to_yaml)
+# sort by dendrogram leaves ordering
+leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
+included_gloms = np.array(included_gloms)[leaves]
+included_vals = dataio.getGlomValsFromNames(included_gloms)
 
 LC_to_gloms = pd.DataFrame()
-LCLC_lobula = pd.DataFrame(data=np.zeros((len(LC_keys), len(LC_keys))), columns=LC_keys, index=LC_keys)
+LCLC_lobula = pd.DataFrame(data=np.zeros((len(included_gloms), len(included_gloms))), columns=included_gloms, index=included_gloms)
 
 type_type_het = []
 type_cell_het = []
-for LC_source in LC_keys:
+for LC_source in included_gloms:
     # # # # # # # # # (1) Outputs in PVLP + PLP # # # # # # # # # # # # # # # # # #
     # search for outputs from this LC to something that is in PVLP, PLP
     # Note min_total_weight here applies to single LC to single postsynaptic cell, across all ROIs
@@ -74,13 +80,14 @@ for LC_source in LC_keys:
     conn_df = merge_neuron_properties(to_lobula_neurons, to_lobula_connection, properties=['type', 'instance'])
     grouped = conn_df.groupby('type_post').sum()['weight']
     lo_outputs = grouped.sum()
-    for LC_target in LC_keys:
+    for LC_target in included_gloms:
         if lo_outputs > 0:
             LCLC_lobula.loc[LC_source, LC_target] = grouped.get(LC_target, 0) / lo_outputs
         else:
             LCLC_lobula.loc[LC_source, LC_target] = 0
 
 print('Found {} postsynaptic cells'.format(LC_to_gloms.shape[0]))
+
 # %%
 fh0, ax0 = plt.subplots(1, 1, figsize=(5, 4))
 sns.heatmap(LC_to_gloms, ax=ax0, cbar_kws={'label': 'Total synapses'})
@@ -89,23 +96,40 @@ ax0.set_ylabel('Postsynaptic')
 fh0.savefig(os.path.join(save_directory, 'downstream_heatmap.png'), bbox_inches='tight', dpi=350)
 # %%
 
-# %%
+# %% Where to postsynaptic cells project to?
 
-#
-# tt = LC_to_gloms.index.values[0]
-# tt
-# neur, conn = fetch_neurons(NeuronCriteria(type=tt))
-# output_rois = pd.DataFrame(columns=all_rois)
-# for cell in range(neur.shape[0]):
-#     for key in neur.roiInfo[0]:
-#         ds = neur.roiInfo[0].get(key).get('downstream', 0)
-#
+all_rois = fetch_primary_rois()
+# For all downstream cells. Shape = (n downstream x n rois)
+output_rois = pd.DataFrame(data=0, columns=all_rois, index=LC_to_gloms.index.values)
+
+for downstream in output_rois.index.values:
+    neur, conn = fetch_neurons(NeuronCriteria(type=downstream))
+    for cell in range(neur.shape[0]):
+        for key in neur.roiInfo[cell]:
+            ds = neur.roiInfo[cell].get(key).get('downstream', 0)
+            if key in all_rois:
+                output_rois.loc[downstream, key] += ds
+
+# %%
+from matplotlib.colors import LogNorm, Normalize
+
+# (n_rois, ndownstream) * (n_downstream, n_LCs) -> (n_rois, n_LCs)
+glom_projectome = (output_rois.T @ LC_to_gloms.fillna(0))
+
+# Drop rows with all zeros and transpose to (n_LCs, n_rois)
+glom_projectome = glom_projectome.loc[(glom_projectome!=0).any(axis=1)]
+glom_projectome = glom_projectome.T
+
+fh, ax = plt.subplots(1, 1, figsize=(9, 4))
+sns.heatmap(glom_projectome, ax=ax, xticklabels=True, norm=LogNorm())
+# sns.heatmap(glom_projectome.drop(['PVLP(R)', 'LO(R)', 'PLP(R)', 'AVLP(R)'], axis=1), ax=ax, xticklabels=True)
+
 
 # %%
 # # # # # # HETEROGENEITY ACROSS CELLS WITHIN AN LC POPULATION # # # # # # # # # # # # # # # # # # # # #
 
-fh, ax = plt.subplots(2, 12, figsize=(16, 4))
-for lc_ind, lc_type in enumerate(LC_keys):
+fh, ax = plt.subplots(2, len(included_gloms), figsize=(16, 4))
+for lc_ind, lc_type in enumerate(included_gloms):
     # Within an LC type - connections to downstream types
     show_map = type_type_het[lc_ind].sample(frac=1, axis=1).reset_index(drop=True)
     show_map[np.isnan(show_map)] = 0
@@ -126,10 +150,11 @@ for lc_ind, lc_type in enumerate(LC_keys):
         ax[1, lc_ind].set_ylabel('Across cells')
 
 # %%
-for h in type_type_het:
+for h_ind, h in enumerate(type_type_het):
     x = h.copy()
     x[np.isnan(x)] = 0
-    sns.clustermap(x, row_cluster=False, col_cluster=True)
+    g = sns.clustermap(x, row_cluster=False, col_cluster=True)
+    g.fig.suptitle(included_gloms[h_ind])
 
 # %%
 # # # # # # CONVERGENCE: COMPARE TO NULL CONNECTIVITY MODEL # # # # # # # # # # # # # # # # # # # # #
@@ -181,15 +206,15 @@ print('Null total connections = {} +/- {}'.format(np.mean(null_total_connections
 # %%
 
 vmax = np.max([null_convergence_mean.to_numpy().ravel().max(), observed_convergence.to_numpy().ravel().max()])
-fh1, ax1 = plt.subplots(1, 3, figsize=(11, 3))
-sns.heatmap(null_convergence_mean, ax=ax1[0], vmin=0, vmax=vmax)
+fh1, ax1 = plt.subplots(1, 3, figsize=(9, 2.5))
+sns.heatmap(null_convergence_mean, ax=ax1[0], vmin=0, vmax=vmax, xticklabels=True, yticklabels=True)
 ax1[0].set_title('Null model')
-sns.heatmap(observed_convergence, ax=ax1[1], vmin=0, vmax=vmax)
+sns.heatmap(observed_convergence, ax=ax1[1], vmin=0, vmax=vmax, xticklabels=True, yticklabels=True)
 ax1[1].set_title('Observed')
 
 diff = observed_convergence - null_convergence_mean
 v_lim = np.ceil(np.abs(diff.to_numpy().ravel()).max())
-sns.heatmap(diff, ax=ax1[2], cmap='RdBu_r', vmin=-v_lim, vmax=+v_lim)
+sns.heatmap(diff, ax=ax1[2], cmap='RdBu_r', vmin=-v_lim, vmax=+v_lim, xticklabels=True, yticklabels=True)
 ax1[2].set_title('Observed - Null')
 print('Expected {} convergent connections'.format(np.int(null_convergence_mean.to_numpy()[np.triu_indices(null_convergence_mean.shape[0])].sum())))
 print('Observed {} convergent connections'.format(observed_convergence.to_numpy()[np.triu_indices(null_convergence_mean.shape[0])].sum()))
@@ -202,65 +227,28 @@ fh2.savefig(os.path.join(save_directory, 'downstream_conv_observed.png'), bbox_i
 
 # %%
 
-all_rois = fetch_primary_rois()
-output_rois = pd.DataFrame(data=0, columns=all_rois, index=observed_downstream.index.values)
+# DF same order as leaves_list
+concat_fxn_df = pd.read_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl'))
+X_fxn = concat_fxn_df.to_numpy().copy()
+X_fxn = zscore(X_fxn, axis=1)
+D_fxn = spatial.distance_matrix(X_fxn, X_fxn)
+np.fill_diagonal(D_fxn, np.nan)
+D_fxn = pd.DataFrame(data=D_fxn, index=LC_to_gloms.columns, columns=LC_to_gloms.columns)
 
-for downstream in output_rois.index.values:
-    neur, conn = fetch_neurons(NeuronCriteria(type=downstream))
-    for cell in range(neur.shape[0]):
-        for key in neur.roiInfo[cell]:
-            ds = neur.roiInfo[cell].get(key).get('downstream', 0)
-            if key in all_rois:
-                output_rois.loc[downstream, key] += ds
-
-
-# %%
-fh, ax = plt.subplots(1, 1, figsize=(15, 4))
-
-sns.heatmap(output_rois, ax=ax)
-ax.set_xlabel('Output roi')
+fh, ax = plt.subplots(1, 3, figsize=(14, 3))
+sns.heatmap(diff, ax=ax[0], cbar_kws={'label': 'Observed - null convergence'})
+sns.heatmap(D_fxn, ax=ax[1], cbar_kws={'label': 'Functional distance'})
+ax[2].plot(diff.to_numpy()[np.triu_indices(diff.shape[0], k=1)], D_fxn.to_numpy()[np.triu_indices(D_fxn.shape[0], k=1)], 'ko')
+ax[2].set_xlabel('Convergence')
+ax[2].set_ylabel('Functional distance')
 
 # %%
-clusters = {'A': ['LC26', 'LC6', 'LC12', 'LC15'],
-            'B': ['LC9', 'LC11', 'LC18', 'LC21'],
-            'C': ['LPLC1', 'LC16', 'LPLC2']}
 
-clust_convergence_observed = pd.DataFrame(data=0, columns=clusters.keys(), index=clusters.keys())
-clust_convergence_null = pd.DataFrame(data=0, columns=clusters.keys(), index=clusters.keys())
-for clust_1 in list(clusters.keys()):
-    for clust_2 in list(clusters.keys()):
-
-        AB_observed = 0
-        AB_null = 0
-        for glom_1 in clusters.get(clust_1):
-            for glom_2 in clusters.get(clust_2):
-                AB_observed += observed_convergence.loc[glom_1, glom_2]
-                AB_null += null_convergence_mean.loc[glom_1, glom_2]
-
-        clust_convergence_observed.loc[clust_1, clust_2] = AB_observed
-        clust_convergence_null.loc[clust_1, clust_2] = np.int(AB_null)
-
-print('Observed:')
-print(clust_convergence_observed)
-print('Null model:')
-print(clust_convergence_null)
-
-vmax = np.max([clust_convergence_null.to_numpy().ravel().max(), clust_convergence_observed.to_numpy().ravel().max()])
-fh, ax = plt.subplots(1, 3, figsize=(10, 3))
-sns.heatmap(clust_convergence_null, ax=ax[0], vmin=0, vmax=vmax, cmap='Greys')
-ax[0].set_title('Null model')
-sns.heatmap(clust_convergence_observed, ax=ax[1], vmin=0, vmax=vmax, cmap='Greys')
-ax[1].set_title('Observed')
-
-diff = clust_convergence_observed - clust_convergence_null
-v_lim = np.ceil(np.abs(diff.to_numpy().ravel()).max())
-sns.heatmap(diff, ax=ax[2], vmin=-v_lim, vmax=v_lim, cmap='RdBu_r')
-ax[2].set_title('Observed-Null')
 
 
 # %%
 # # # # # # DISTANCE IN PROJECTION SPACE # # # # # # # # # # # # # # # # # # # # #
-#   Axes are connections to each postsynaptic cell type. Points are LC classes
+  Axes are connections to each postsynaptic cell type. Points are LC classes
 X_conn = LC_to_gloms.copy().to_numpy().T
 X_conn[np.isnan(X_conn)] = 0
 X_conn = zscore(X_conn, axis=1)
@@ -268,7 +256,9 @@ D_conn = spatial.distance_matrix(X_conn, X_conn)
 np.fill_diagonal(D_conn, np.nan)
 D_conn = pd.DataFrame(data=D_conn, index=LC_to_gloms.columns, columns=LC_to_gloms.columns)
 
-X_fxn = pd.read_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl')).to_numpy()
+# DF same order as leaves_list
+concat_fxn_df = pd.read_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl'))
+X_fxn = concat_fxn_df.to_numpy().copy()
 X_fxn = zscore(X_fxn, axis=1)
 D_fxn = spatial.distance_matrix(X_fxn, X_fxn)
 np.fill_diagonal(D_fxn, np.nan)
@@ -281,13 +271,45 @@ ax[2].plot(D_conn.to_numpy()[np.triu_indices(D_conn.shape[0], k=1)], D_fxn.to_nu
 ax[2].set_xlabel('Projection distance')
 ax[2].set_ylabel('Functional distance')
 
+from scipy.stats import spearmanr
 r = np.corrcoef(D_conn.to_numpy()[np.triu_indices(D_conn.shape[0], k=1)], D_fxn.to_numpy()[np.triu_indices(D_fxn.shape[0], k=1)])[0, 1]
 print('r = {}'.format(r))
+
 # %% Projection space. What LCs are close together in projection space?
 # Dimensionality of projection space is n postsynaptic cells
 # X is (samples x features) = (LC x postsynaptic cell)
 
 X = LC_to_gloms.copy().T  # LC x postsynaptic cell
+# Shift each feature (column) to have 0 mean and unit variance
+X[np.isnan(X)] = 0
+X = zscore(X, axis=0)
+print('X = {} (samples, features)'.format(X.shape))
+
+pca = PCA(n_components=LC_to_gloms.shape[1])
+pca.fit(X)
+
+fh4, ax4 = plt.subplots(1, 1, figsize=(3, 3))
+ax4.plot(pca.explained_variance_ratio_, 'ko')
+ax4.set_xlabel('Mode')
+ax4.set_ylabel('Frac. var. explained')
+
+fh5, ax5 = plt.subplots(3, 1, figsize=(4, 3))
+ax5[0].plot(pca.components_[0, :], 'r-')
+ax5[1].plot(pca.components_[1, :], 'g-')
+ax5[2].plot(pca.components_[2, :], 'b-')
+
+x_r = pca.fit_transform(X)  # cols = modes
+fh6, ax6 = plt.subplots(1, 1, figsize=(6, 6))
+ax6.scatter(x_r[:, 0], x_r[:, 1])
+for lc_ind, lc_name in enumerate(included_gloms):
+    ax6.annotate(lc_name, (x_r[lc_ind, 0], x_r[lc_ind, 1]))
+
+
+# %% Tuning space. What LCs are close together in functional space?
+# Dimensionality of projection space is n postsynaptic cells
+# X is (samples x features) = (LC x postsynaptic cell)
+
+X = concat_fxn_df.copy()  # LC x concat time
 # Shift each feature (column) to have 0 mean and unit variance
 X[np.isnan(X)] = 0
 X = zscore(X, axis=0)
@@ -310,25 +332,22 @@ ax5[2].plot(pca.components_[2, :], 'b-')
 x_r = pca.fit_transform(X)  # cols = modes
 fh6, ax6 = plt.subplots(1, 1, figsize=(6, 6))
 ax6.scatter(x_r[:, 0], x_r[:, 1])
-for lc_ind, lc_name in enumerate(LC_keys):
+for lc_ind, lc_name in enumerate(included_gloms):
     ax6.annotate(lc_name, (x_r[lc_ind, 0], x_r[lc_ind, 1]))
-
-
-
 
 # %% Pairwise correlation in function and convergence space
 
 tmp = LC_to_gloms.iloc[np.where(np.isnan(LC_to_gloms).sum(axis=1) < 11)]
 conv_corr = tmp.corr().to_numpy()
-conv_corr[np.isnan(conv_corr)] = 0
+# conv_corr[np.isnan(conv_corr)] = 0
 conv_corr = pd.DataFrame(data=conv_corr, index=tmp.columns, columns=tmp.columns)
 
-fxnal_corr = pd.read_pickle(os.path.join(save_directory, 'pgs_corrmat.pkl'))
+fxnal_corr = concat_fxn_df.T.corr()
 
-fh, ax = plt.subplots(1, 3, figsize=(14, 3))
+fh, ax = plt.subplots(1, 3, figsize=(12, 3))
 sns.heatmap(conv_corr, cmap='RdBu_r', vmin=-1, vmax=1, ax=ax[0])
 ax[0].set_title('Convergent connection correlation')
-sns.heatmap(fxnal_corr, cmap='RdBu_r', vmin=-1, vmax=1, ax=ax[1])
+sns.heatmap(fxnal_corr, cmap='RdBu_r', ax=ax[1])
 ax[1].set_title('Functional tuning correlation')
 ax[2].plot(conv_corr.to_numpy()[np.triu_indices(conv_corr.shape[0], k=1)], fxnal_corr.to_numpy()[np.triu_indices(fxnal_corr.shape[0], k=1)], 'ko')
 
@@ -348,7 +367,6 @@ ax[2].plot(tmp[np.triu_indices(tmp.shape[0], k=1)], fxnal_corr.to_numpy()[np.tri
 tmp = LC_to_gloms.copy().T.to_numpy()
 tmp[np.isnan(tmp)] = 0
 tmp = zscore(tmp, axis=1)
-
 
 df = pd.DataFrame(data=tmp, index=LC_to_gloms.columns, columns=LC_to_gloms.index)
 sns.clustermap(df, col_cluster=False, row_cluster=True,
@@ -405,7 +423,6 @@ if len(type_inds)>0:
 
 # %%
 # # # # # # LOBULA INTRINSIC CONNECTIONS # # # # # # # # # # # # # # # # # # # # #
-LC_keys = ['LC4', 'LC6', 'LC9', 'LC11', 'LC12', 'LC15', 'LC16', 'LC18', 'LC21', 'LC26', 'LPLC1', 'LPLC2']
 
 
 from_li_neurons, from_li_connection = fetch_adjacencies(sources=NeuronCriteria(type='Li[0-9].*', regex=True, status='Traced'),
@@ -421,8 +438,8 @@ to_li = merge_neuron_properties(to_li_neurons, to_li_connection, properties=['ty
 neur, _ = fetch_neurons(NeuronCriteria(type='Li[0-9].*', regex=True, status='Traced'))
 Li_types = np.sort(neur.type.unique())
 
-Li_inputs = pd.DataFrame(data=0, index=LC_keys, columns=Li_types)
-Li_outputs = pd.DataFrame(data=0, index=Li_types, columns=LC_keys)
+Li_inputs = pd.DataFrame(data=0, index=included_gloms, columns=Li_types)
+Li_outputs = pd.DataFrame(data=0, index=Li_types, columns=included_gloms)
 for Li in Li_types:
     tmp_to = to_li.iloc[np.where(to_li.type_post.values==Li)[0], :]
     inputs = tmp_to.groupby('type_pre').sum()['weight']

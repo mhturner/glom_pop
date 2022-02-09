@@ -214,7 +214,14 @@ def getGlomNameFromVal(val, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analy
     name = vpn_types.iloc[np.where(vpn_types['Unnamed: 0'] == val)[0], 1].values[0]
 
     return name
-    
+
+
+def getGlomValsFromNames(glom_names, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
+    vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+    vals = np.array([vpn_types.iloc[np.where(vpn_types.vpn_types == ig)[0][0], 0] for ig in glom_names])
+
+    return vals
+
 
 def getDataset(path_to_yaml, dataset_id, only_included=True):
     with open(path_to_yaml, 'r') as ymlfile:

@@ -26,12 +26,6 @@ transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 
 # %%
 
-
-cmap = cc.cm.glasbey_bw_minc_20_minl_30
-# cmap = cc.cm.glasbey
-colors = cmap(included_vals/included_vals.max())
-
-
 # %% PLOT MEAN RESPONSES TO TUNING SUITE
 
 glom_size_threshold = 10
@@ -49,7 +43,7 @@ all_sizes = pd.DataFrame(data=[np.sum(glom_mask_2_meanbrain == mv) for mv in all
 
 # Get included gloms from data yaml
 included_gloms = dataio.getIncludedGloms(path_to_yaml)
-included_vals = np.array([vpn_types.iloc[np.where(vpn_types.vpn_types==ig)[0][0], 0] for ig in included_gloms])
+included_vals = dataio.getGlomValsFromNames(included_gloms)
 
 # Set colormap for included gloms
 cmap = cc.cm.glasbey
@@ -122,6 +116,7 @@ np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
 np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
 np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
 np.save(os.path.join(save_directory, 'colors.npy'), colors)
+
 
 # %% QC: Number of voxels in each glomerulus
 
@@ -218,7 +213,12 @@ for u_ind, un in enumerate(unique_parameter_values):
 fh0.savefig(os.path.join(save_directory, 'pgs_tuning_dendrogram.svg'), transparent=True)
 fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True, dpi=300)
 
+# Save leaves list and ordered response dataframe
 np.save(os.path.join(save_directory, 'cluster_leaves_list.npy'), leaves)
+concat_df = pd.DataFrame(data=mean_concat[leaves, :], index=np.array(included_gloms)[leaves])
+concat_df.to_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl'))
+
+
 
 # %% glom highlight maps
 

@@ -81,8 +81,6 @@ class SingleTrialEncoding():
             df = pd.DataFrame(data=np.array(parameter_values, dtype='object'), columns=['params'])
             df['encoded'] = df['params'].apply(lambda x: list(unique_parameter_values).index(x))
 
-
-
             # Filter trials to only include stims of interest
             #   Exclude last 2 (uniform flash)
             #   Exclude one direction of bidirectional stims
@@ -131,6 +129,7 @@ class SingleTrialEncoding():
                 self.classifier_model = classifier_model
                 tmp_trials = [epoch_response_matrix[x, :, :] for x in range(epoch_response_matrix.shape[0])]
                 self.eg_traces = np.concatenate(tmp_trials, axis=-1)
+                self.eg_stim_identity = parameter_values
 
         self.cmats = np.dstack(self.cmats)
 
