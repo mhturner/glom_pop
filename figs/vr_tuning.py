@@ -1,4 +1,4 @@
-from visanalysis.analysis import volumetric_data, shared_analysis
+from visanalysis.analysis import imaging_data, shared_analysis
 from visanalysis.util import plot_tools
 import matplotlib.pyplot as plt
 import numpy as np
@@ -37,9 +37,9 @@ for s_ind, key in enumerate(dataset):
     file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
 
     # ImagingDataObject wants a path to an hdf5 file and a series number from that file
-    ID = volumetric_data.VolumetricDataObject(file_path,
-                                              series_number,
-                                              quiet=True)
+    ID = imaging_data.ImagingDataObject(file_path,
+                                        series_number,
+                                        quiet=True)
 
     epoch_parameters = ID.getEpochParameters()
 
@@ -50,9 +50,9 @@ for s_ind, key in enumerate(dataset):
     meanbrain_red = response_data.get('meanbrain')[..., 0]
     meanbrain_green = response_data.get('meanbrain')[..., 1]
 
-    # epoch_response_stack: shape=(gloms, time, trials)
-    epoch_response_stack = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
-    epoch_response_stack[:] = np.nan
+    # epoch_response_matrix: shape=(gloms, trials, time)
+    epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
+    epoch_response_matrix[:] = np.nan
 
     # Only select gloms in included_gloms
     for val_ind, included_val in enumerate(included_vals):
@@ -60,41 +60,40 @@ for s_ind, key in enumerate(dataset):
 
         if new_glom_size > glom_size_threshold:
             pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
-            epoch_response_stack[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
+            epoch_response_matrix[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
         else:  # Exclude because this glom, in this fly, is too tiny
             pass
 
     # Align responses
-    mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, trial_response_by_stimulus = ID.getMeanBrainByStimulus(epoch_response_stack, parameter_key='current_trajectory_index')
-    n_stimuli = mean_voxel_response.shape[2]
-    concatenated_tuning = np.concatenate([mean_voxel_response[:, :, x] for x in range(n_stimuli)], axis=1)  # responses, time (concat stims)
+    unique_parameter_values, mean_response, _, _ = ID.getTrialAverages(epoch_response_matrix, parameter_key='current_trajectory_index')
+    concatenated_tuning = np.concatenate([mean_response[:, x, :] for x in range(len(unique_parameter_values))], axis=1)  # responses, time (concat stims)
 
     all_concat.append(concatenated_tuning)
-    all_resp.append(mean_voxel_response)
+    all_resp.append(mean_response)
 
 all_concat = np.dstack(all_concat)
 all_resp = np.stack(all_resp, axis=-1)
 
 # %%
 
-
-
+all_concat.shape
+all_resp.shape
 
 # %%
-
+stim = 4
 fh, ax = plt.subplots(14, 10, figsize=(12, 8))
 [x.set_axis_off() for x in ax.ravel()]
 [x.set_ylim([-0.12, 0.75]) for x in ax.ravel()]
 for i in range(10):
     for g in range(14):
-        ax[g, i].plot(all_resp[g, :, stim, i], color=colors[g, :])
+        ax[g, i].plot(all_resp[g, stim, :, i], color=colors[g, :])
 
 # %%
 
 fly_ind = 2
+
 cmap = cc.cm.glasbey
 colors = cmap(included_vals/included_vals.max())
-
 fh, ax = plt.subplots(len(included_gloms)+1, len(unique_parameter_values), figsize=(8, 10))
 [util.cleanAxes(x) for x in ax.ravel()]
 fh.subplots_adjust(wspace=0.00, hspace=0.00)
@@ -102,7 +101,7 @@ for u_ind, un in enumerate(unique_parameter_values):
     for g_ind, name in enumerate(included_gloms):
         ax[g_ind+1, u_ind].set_ylim([-0.15, 0.50])
         ax[g_ind+1, u_ind].axhline(0, alpha=0.25, color='k', linewidth=0.5)
-        ax[g_ind+1, u_ind].plot(all_resp[g_ind, :, u_ind, fly_ind], color=colors[g_ind], linewidth=2)
+        ax[g_ind+1, u_ind].plot(all_resp[g_ind, u_ind, :, fly_ind], color=colors[g_ind], linewidth=2)
 
         # ax[g_ind, u_ind].plot(all_resp[g_ind, :, u_ind, :], color=colors[g_ind], alpha=0.5)
         if (u_ind == 0):
@@ -174,7 +173,7 @@ for u_ind, un in enumerate(unique_parameter_values):
 
         ax[leaf_ind+1, u_ind].set_ylim([-0.15, 0.50])
         ax[leaf_ind+1, u_ind].axhline(0, alpha=0.25, color='k', linewidth=0.5)
-        ax[leaf_ind+1, u_ind].plot(all_resp[g_ind, :, u_ind, included_flies].mean(axis=0), color=colors[g_ind], linewidth=2)
+        ax[leaf_ind+1, u_ind].plot(all_resp[g_ind, u_ind, :, included_flies].mean(axis=0), color=colors[g_ind], linewidth=2)
 
         # ax[g_ind, u_ind].plot(all_resp[g_ind, :, u_ind, :], color=colors[g_ind], alpha=0.5)
         if (u_ind == 0):

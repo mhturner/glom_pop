@@ -1,4 +1,4 @@
-from visanalysis.analysis import volumetric_data
+from visanalysis.analysis import imaging_data
 from visanalysis.util import plot_tools
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -7,7 +7,6 @@ import os
 import colorcet as cc
 import pandas as pd
 import ants
-import seaborn as sns
 
 from scipy.stats import zscore
 
@@ -25,6 +24,7 @@ save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_pan
 transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 
 # %%
+
 
 # %% PLOT MEAN RESPONSES TO TUNING SUITE
 
@@ -60,16 +60,16 @@ for s_ind, key in enumerate(dataset):
     series_number = int(key.split('_')[1])
 
     file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
-    ID = volumetric_data.VolumetricDataObject(file_path,
-                                              series_number,
-                                              quiet=True)
+    ID = imaging_data.ImagingDataObject(file_path,
+                                        series_number,
+                                        quiet=True)
 
     # Load response data
     response_data = dataio.loadResponses(ID, response_set_name='glom', get_voxel_responses=False)
 
-    # epoch_response_stack: shape=(gloms, time, trials)
-    epoch_response_stack = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
-    epoch_response_stack[:] = np.nan
+    # epoch_response_matrix: shape=(gloms, trials, time)
+    epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
+    epoch_response_matrix[:] = np.nan
 
     glom_sizes = np.zeros(len(included_vals))
     for val_ind, included_val in enumerate(included_vals):
@@ -78,37 +78,41 @@ for s_ind, key in enumerate(dataset):
 
         if new_glom_size > glom_size_threshold:
             pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
-            epoch_response_stack[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
+            epoch_response_matrix[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
         else:  # Exclude because this glom, in this fly, is too tiny
             pass
 
     # Align responses
-    mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, trial_response_by_stimulus = ID.getMeanBrainByStimulus(epoch_response_stack)
-    n_stimuli = mean_voxel_response.shape[2]
+    unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
 
-    all_responses.append(mean_voxel_response)
+    response_amp = ID.getResponseAmplitude(mean_response, metric='max')
+
+    all_responses.append(mean_response)
     response_amplitudes.append(response_amp)
     all_glom_sizes.append(glom_sizes)
 
+
 # Stack accumulated responses
 # The glom order here is included_gloms
-all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, time, param, fly)
+all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, param, time, fly)
 response_amplitudes = np.stack(response_amplitudes, axis=-1)  # dims = (gloms, param, fly)
 all_glom_sizes = np.stack(all_glom_sizes, axis=-1)  # dims = (gloms, fly)
 
 # Exclude last two stims (full field flashes)
 unique_parameter_values = unique_parameter_values[:-2]
-all_responses = all_responses[:, :, :-2, :]
+all_responses = all_responses[:, :-2, :, :]
 response_amplitudes = response_amplitudes[:, :-2, :]
 
-mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, time, param)
-sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, time, param)
-std_responses = np.nanstd(all_responses, axis=-1)  # (glom, time, param)
+# stats across animals
+mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, param, time)
+sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, param, time)
+std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
+
 # Concatenate responses across stimulus types
 #   Shape = (glom, concat time)
-mean_concat = np.vstack(np.concatenate([mean_responses[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
-sem_concat = np.vstack(np.concatenate([sem_responses[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
-std_concat = np.vstack(np.concatenate([std_responses[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
+mean_concat = np.vstack(np.concatenate([mean_responses[:, x, :] for x in np.arange(len(unique_parameter_values))], axis=1))
+sem_concat = np.vstack(np.concatenate([sem_responses[:, x, :] for x in np.arange(len(unique_parameter_values))], axis=1))
+std_concat = np.vstack(np.concatenate([std_responses[:, x, :] for x in np.arange(len(unique_parameter_values))], axis=1))
 time_concat = np.arange(0, mean_concat.shape[-1]) * ID.getAcquisitionMetadata().get('sample_period')
 
 np.save(os.path.join(save_directory, 'chat_responses.npy'), all_responses)
@@ -140,9 +144,9 @@ for key in dataset:
     series_number = int(key.split('_')[1])
 
     file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
-    ID = volumetric_data.VolumetricDataObject(file_path,
-                                              series_number,
-                                              quiet=True)
+    ID = imaging_data.ImagingDataObject(file_path,
+                                        series_number,
+                                        quiet=True)
 
     # Load response data
     response_data = dataio.loadResponses(ID, response_set_name='glom', get_voxel_responses=False)
@@ -160,10 +164,10 @@ for key in dataset:
 
 # %% PLOTTING
 
-
 # # # Cluster on stimulus tuning # # #
-peak_responses = mean_responses.max(axis=1)  # (glom x stim)
-peak_responses = zscore(peak_responses, axis=1)
+# Average response amplitudes across flies...
+peak_responses = response_amplitudes.mean(axis=-1)  # (glom x stim)
+peak_responses = zscore(response_amp, axis=1)
 
 # Compute linkage matrix, Z
 Z = linkage(peak_responses,
@@ -219,7 +223,6 @@ concat_df = pd.DataFrame(data=mean_concat[leaves, :], index=np.array(included_gl
 concat_df.to_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl'))
 
 
-
 # %% glom highlight maps
 
 # Load mask key for VPN types
@@ -246,7 +249,6 @@ for leaf_ind, g_ind in enumerate(leaves):
 fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent=True)
 # %% For example stims, show individual fly responses
 # cv := std across animals normalized by mean across animals and across all stims for that glom
-# cv = np.std(response_amplitudes, axis=-1) / np.mean(response_amplitudes, axis=(1, 2))[:, None]
 
 # Normalize sigma by the maximum response of this glom across all stims
 scaling = np.nanmax(np.nanmean(response_amplitudes, axis=-1), axis=-1)
@@ -260,10 +262,9 @@ fh2, ax2 = plt.subplots(len(eg_leaf_inds), all_responses.shape[-1], figsize=(3.5
 for li, leaf_ind in enumerate(eg_leaf_inds):
     g_ind = leaves[leaf_ind]
     for fly_ind in range(all_responses.shape[-1]):
-
-        ax2[li, fly_ind].plot(response_data.get('time_vector'), all_responses[g_ind, :, eg_stim_ind, fly_ind],
+        ax2[li, fly_ind].plot(response_data.get('time_vector'), all_responses[g_ind, eg_stim_ind, :, fly_ind],
                               color='k', alpha=0.5)
-        ax2[li, fly_ind].plot(response_data.get('time_vector'), np.mean(all_responses[g_ind, :, eg_stim_ind, :], axis=-1),
+        ax2[li, fly_ind].plot(response_data.get('time_vector'), np.mean(all_responses[g_ind, eg_stim_ind, :, :], axis=-1),
                               color=colors[g_ind, :], linewidth=1, alpha=1.0)
         if fly_ind == 0 & li == 0:
             plot_tools.addScaleBars(ax2[0, 0], dT=2, dF=0.25, T_value=0, F_value=-0.05)
@@ -277,7 +278,7 @@ fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=T
 fh3, ax3 = plt.subplots(1, 1, figsize=(3.5, 2.5))
 ax3.hist(cv.ravel(), bins=40)
 ax3.set_xlabel('Coefficient of Variation')
-ax3.set_ylabel('Count');
+ax3.set_ylabel('Count')
 
 fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=True)
 
@@ -324,7 +325,7 @@ fh5.savefig(os.path.join(save_directory, 'pgs_trial_responses.svg'), transparent
 
 
 # %% Inter-individual correlation for each glom
-
+# TODO: check this out...
 fh4, ax4 = plt.subplots(1, 1, figsize=(3.0, 2))
 for leaf_ind, g_ind in enumerate(leaves):
     name = included_gloms[g_ind]
@@ -342,7 +343,7 @@ ax4.set_ylabel('Inter-individual corr. (r)', fontsize=11)
 ax4.tick_params(axis='y', labelsize=11)
 ax4.tick_params(axis='x', labelsize=11, rotation=90)
 # ax4.set_ylim([0, 1])
-
+inter_corr
 fh4.savefig(os.path.join(save_directory, 'pgs_Inter_Ind_Corr.svg'), transparent=True)
 
 

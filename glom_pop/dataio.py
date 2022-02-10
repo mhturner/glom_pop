@@ -175,7 +175,7 @@ def loadResponses(ID, response_set_name='glom', get_voxel_responses=False):
             voxel_epoch_responses = {}
             for mv in mask_vals:
                 voxel_responses[mv] = roi_set_group.get('voxel_resp_{}'.format(mv))[:].astype('float32')
-                _, response_matrix = ID.getTrialAlignedVoxelResponses(voxel_responses[mv], dff=False)
+                _, response_matrix = ID.getEpochResponseMatrix(voxel_responses[mv], dff=False)
                 voxel_epoch_responses[mv] = response_matrix
 
     if get_voxel_responses:
@@ -183,9 +183,9 @@ def loadResponses(ID, response_set_name='glom', get_voxel_responses=False):
         response_data['voxel_epoch_responses'] = voxel_epoch_responses
 
     # epoch_response matrix for glom responses
-    time_vector, response_matrix = ID.getTrialAlignedVoxelResponses(response_data.get('response'), dff=True)
+    time_vector, response_matrix = ID.getEpochResponseMatrix(response_data.get('response'), dff=True)
 
-    response_data['epoch_response'] = response_matrix
+    response_data['epoch_response'] = response_matrix  # shape = (gloms, trials, time)
     response_data['time_vector'] = time_vector
 
     return response_data

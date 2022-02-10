@@ -6,7 +6,7 @@ import ants
 
 from glom_pop import util, alignment
 from visanalysis.analysis.shared_analysis import filterDataFiles
-from visanalysis.analysis import volumetric_data
+from visanalysis.analysis import imaging_data
 from visanalysis.util import plot_tools
 
 plt.rcParams['svg.fonttype'] = 'none'
@@ -69,28 +69,24 @@ for g_ind, target_glom in enumerate(target_gloms):
     for s_ind, ser in enumerate(target_series):
         file_path = ser.get('file_name') + '.hdf5'
         series_number = ser.get('series')
-        ID = volumetric_data.VolumetricDataObject(file_path,
-                                                  series_number,
-                                                  quiet=True)
+        ID = imaging_data.ImagingDataObject(file_path,
+                                            series_number,
+                                            quiet=True)
 
         if s_ind == 0:
             glom_image = ID.getRoiResponses('glom').get('roi_image')
             ax0[1, 0].imshow(glom_image.mean(axis=-1).T, cmap='Greens')
 
         # Align responses
-        time_vector, voxel_trial_matrix = ID.getTrialAlignedVoxelResponses(ID.getRoiResponses('glom').get('roi_response')[0], dff=True)
-        mean_voxel_response, unique_parameter_values, _, response_amp, trial_response_amp, _ = ID.getMeanBrainByStimulus(voxel_trial_matrix)
-        n_stimuli = mean_voxel_response.shape[2]
-
-        split_responses.append(mean_voxel_response)
-
-        concat_resp = np.vstack(np.concatenate([mean_voxel_response[:, :, x] for x in np.arange(len(unique_parameter_values))], axis=1))
+        roi_data = ID.getRoiResponses('glom')
+        unique_parameter_values, mean_response, _, _ = ID.getTrialAverages(roi_data['epoch_response'])
+        split_responses.append(mean_response)
 
     split_responses = np.vstack(split_responses)
 
     # shape = (n flies, concatenated time)
-    individual_split_concat = np.concatenate([split_responses[:, :, x] for x in np.arange(len(unique_parameter_values)-2)], axis=1)
-    individual_chat_concat = np.concatenate([all_chat_responses[chat_glom_ind, :, x, :] for x in np.arange(len(unique_parameter_values)-2)], axis=0).T
+    individual_split_concat = np.concatenate([split_responses[:, x, :] for x in np.arange(len(unique_parameter_values)-2)], axis=1)
+    individual_chat_concat = np.concatenate([all_chat_responses[chat_glom_ind, x, :, :] for x in np.arange(len(unique_parameter_values)-2)], axis=0).T
     concat_time = np.arange(0, individual_chat_concat.shape[-1]) * ID.getAcquisitionMetadata().get('sample_period')
 
     # (1) Plot chat vs split concat response for this glom type
@@ -115,12 +111,12 @@ for g_ind, target_glom in enumerate(target_gloms):
     plot_tools.addScaleBars(ax0[0, 1], dT=5, dF=0.10, T_value=0, F_value=-0.045)
 
     # Compare mean response amplitudes
-    split_amp = split_responses.max(axis=1)[:, :30]  # shape = (flies, stims)
+    split_amp = split_responses.max(axis=2)[:, :30]  # shape = (flies, stims)
 
     mean_split_amp = np.mean(split_amp, axis=0)
     sem_split_amp = (np.std(split_amp, axis=0) / np.sqrt(split_amp.shape[0]))
 
-    chat_amp = all_chat_responses[chat_glom_ind, :, :, :].max(axis=0).T  # shape = (flies, stims)
+    chat_amp = all_chat_responses[chat_glom_ind, :, :, :].max(axis=1).T  # shape = (flies, stims)
 
     mean_chat_amp = np.mean(chat_amp, axis=0)
     sem_chat_amp = np.std(chat_amp, axis=0) / np.sqrt(chat_amp.shape[0])
@@ -149,8 +145,6 @@ for g_ind, target_glom in enumerate(target_gloms):
     fh0.savefig(os.path.join(save_directory, 'split_responses_{}.svg'.format(target_glom)), transparent=True)
     fh1.savefig(os.path.join(save_directory, 'split_amp_scatter_{}.svg'.format(target_glom)), transparent=True)
 
-
-# %%
 
 
 

@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-from seaborn import desaturate
 
 from glom_pop import dataio, model
 

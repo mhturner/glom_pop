@@ -12,7 +12,7 @@ import colorcet as cc
 from scipy.signal import detrend
 from scipy.stats import zscore
 
-from visanalysis.analysis import volumetric_data
+from visanalysis.analysis import imaging_data
 from glom_pop import dataio
 
 
@@ -31,9 +31,9 @@ class SingleTrialEncoding():
             series_number = int(key.split('_')[1])
 
             file_path = os.path.join(self.experiment_file_directory, experiment_file_name + '.hdf5')
-            ID = volumetric_data.VolumetricDataObject(file_path,
-                                                      series_number,
-                                                      quiet=True)
+            ID = imaging_data.ImagingDataObject(file_path,
+                                                series_number,
+                                                quiet=True)
 
             # Load response data
             response_data = dataio.loadResponses(ID, response_set_name='glom', get_voxel_responses=False)
