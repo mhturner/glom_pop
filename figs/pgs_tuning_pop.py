@@ -7,6 +7,7 @@ import os
 import colorcet as cc
 import pandas as pd
 import ants
+import seaborn as sns
 
 from scipy.stats import zscore
 
@@ -247,17 +248,37 @@ for leaf_ind, g_ind in enumerate(leaves):
                      highlight_vals=[glom_mask_val])
 
 fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent=True)
+
+# %% fly-fly variability for each stim
+
+# re-order by leaves
+cv = pd.DataFrame(data=np.nanstd(response_amplitudes, -1) / np.nanmean(response_amplitudes, -1),
+                  index=included_gloms).iloc[leaves, :]
+
+fh7, ax7 = plt.subplots(1, 1, figsize=(4, 2.5))
+sns.heatmap(cv, vmin=0, cmap='Greys',
+            xticklabels=False, yticklabels=True,
+            cbar_kws={'label': 'Coefficient of variation'},
+            ax=ax7)
+
+ax7.set_title('Fly to fly variability')
+
+fh7.savefig(os.path.join(save_directory, 'pgs_fly_cv.svg'), transparent=True)
+
+
+
 # %% For example stims, show individual fly responses
 # cv := std across animals normalized by mean across animals and across all stims for that glom
 
 # Normalize sigma by the maximum response of this glom across all stims
 scaling = np.nanmax(np.nanmean(response_amplitudes, axis=-1), axis=-1)
-cv = np.nanstd(response_amplitudes, axis=-1) / scaling[:, None]
-eg_leaf_inds = [7, 9, 12]  # [7, 9, 12]
-eg_stim_ind = 6  # 6
-fh2, ax2 = plt.subplots(len(eg_leaf_inds), all_responses.shape[-1], figsize=(3.5, 2.5))
-
-[x.set_ylim([-0.1, 0.5]) for x in ax2.ravel()]
+# cv = np.nanstd(response_amplitudes, axis=-1) / scaling[:, None]
+cv = np.nanstd(response_amplitudes, -1) / np.nanmean(response_amplitudes, -1)
+eg_leaf_inds = [2, 3, 12]  # [1, 3, 12]
+eg_stim_ind = 8  # 8
+fh2, ax2 = plt.subplots(len(eg_leaf_inds), all_responses.shape[-1], figsize=(4.0, 2.5))
+print(unique_parameter_values[eg_stim_ind])
+[x.set_ylim([-0.1, 0.50]) for x in ax2.ravel()]
 [x.set_axis_off() for x in ax2.ravel()]
 for li, leaf_ind in enumerate(eg_leaf_inds):
     g_ind = leaves[leaf_ind]
@@ -270,41 +291,12 @@ for li, leaf_ind in enumerate(eg_leaf_inds):
             plot_tools.addScaleBars(ax2[0, 0], dT=2, dF=0.25, T_value=0, F_value=-0.05)
 
         if fly_ind == 0:
-            ax2[li, fly_ind].annotate('cv = {:.2f}'.format(cv[g_ind, eg_stim_ind]), (0, 0.5))
-
-print(np.array(included_gloms)[np.array([leaves[x] for x in eg_leaf_inds])])
-fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=True)
-
-fh3, ax3 = plt.subplots(1, 1, figsize=(3.5, 2.5))
-ax3.hist(cv.ravel(), bins=40)
-ax3.set_xlabel('Coefficient of Variation')
-ax3.set_ylabel('Count')
+            ax2[li, fly_ind].annotate('{}'.format(np.array(included_gloms)[g_ind]), (0, 0.35))
 
 fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=True)
 
-fh4, ax4 = plt.subplots(1, 1, figsize=(3.5, 2.5))
-for leaf_ind, g_ind in enumerate(leaves):
-    name = included_gloms[g_ind]
-    mean_cv = np.mean(cv[g_ind, :])
-    std_cv = np.std(cv[g_ind, :])
-    sem_cv = np.std(cv[g_ind, :]) / np.sqrt(len(cv[g_ind, :]))
-
-    ax4.plot(leaf_ind * np.ones_like(cv[g_ind, :]), cv[g_ind, :], color='k', marker='.', linestyle='none', alpha=0.25, markersize=4)
-    ax4.plot(leaf_ind, mean_cv, marker='o', color=colors[g_ind, :])
-    ax4.plot([leaf_ind, leaf_ind], [mean_cv-sem_cv, mean_cv+sem_cv], marker='None', color=colors[g_ind, :])
-
-ax4.set_xticks(np.arange(len(included_gloms)))
-ax4.set_xticklabels([included_gloms[x] for x in leaves])
-ax4.set_ylabel('Coefficient of variation', fontsize=11)
-ax4.tick_params(axis='y', labelsize=11)
-ax4.tick_params(axis='x', labelsize=11, rotation=90)
-# ax4.set_ylim([0, np.nanmax(cv.ravel())])
-# ax4.set_ylim([0, 1])
-
-fh4.savefig(os.path.join(save_directory, 'pgs_fly_cv.svg'), transparent=True)
 
 # %% Trial-to-trial variability
-
 
 fh5, ax5 = plt.subplots(len(eg_leaf_inds), 5, figsize=(3.0, 2))
 
@@ -314,8 +306,8 @@ for li, leaf_ind in enumerate(eg_leaf_inds):
     g_ind = leaves[leaf_ind]
 
     for trial in range(5):
-        ax5[li, trial].plot(trial_response_by_stimulus[eg_stim_ind][g_ind, :, trial], color='k', alpha=0.5)
-        ax5[li, trial].plot(np.mean(trial_response_by_stimulus[eg_stim_ind][g_ind, :, :], axis=-1), color=colors[g_ind, :])
+        ax5[li, trial].plot(trial_response_by_stimulus[eg_stim_ind][g_ind, trial, :], color='k', alpha=0.5)
+        ax5[li, trial].plot(np.mean(trial_response_by_stimulus[eg_stim_ind][g_ind, :, :], axis=0), color=colors[g_ind, :])
 
         if trial == 0 & li == 0:
             plot_tools.addScaleBars(ax5[0, 0], dT=2, dF=0.25, T_value=0, F_value=-0.08)

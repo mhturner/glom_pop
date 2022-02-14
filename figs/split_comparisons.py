@@ -18,7 +18,7 @@ transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 experiment_file_directory = '/Users/mhturner/CurrentData'
 save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
 
-target_gloms = ['LC4', 'LC9', 'LC18']
+target_gloms = ['LC18', 'LC9', 'LC4']
 
 all_chat_responses = np.load(os.path.join(save_directory, 'chat_responses.npy'))
 mean_chat_responses = np.load(os.path.join(save_directory, 'mean_chat_responses.npy'))
@@ -38,7 +38,7 @@ for g_ind, target_glom in enumerate(target_gloms):
     glom_mask_val = vpn_types.loc[vpn_types.get('vpn_types') == target_glom, 'Unnamed: 0'].values[0]
 
     # Images & tuning response of split + chat
-    fh0, ax0 = plt.subplots(2, 2, figsize=(4.5, 2.0),
+    fh0, ax0 = plt.subplots(2, 2, figsize=(3.0, 2),
                             gridspec_kw={'width_ratios': [1, 4], 'wspace': 0.01, 'hspace': 0.01})
 
     [plot_tools.cleanAxes(x) for x in ax0.ravel()]
@@ -50,7 +50,7 @@ for g_ind, target_glom in enumerate(target_gloms):
     ax0[1, 0].set_ylim([90, 0])
 
     # Response amps: split vs. chat scatter
-    fh1, ax1 = plt.subplots(1, 1, figsize=(1.5, 1.25))
+    fh1, ax1 = plt.subplots(1, 1, figsize=(1.5, 1.5))
 
     util.makeGlomMap(ax=ax0[0, 0],
                      glom_map=glom_mask_2_meanbrain,
@@ -132,12 +132,16 @@ for g_ind, target_glom in enumerate(target_gloms):
     ax1.plot(xx, yy, 'k--')
 
     corr = np.corrcoef(mean_chat_amp, mean_split_amp)[1, 0]
-    ax1.annotate('r = {:.2f}'.format(corr), (0.8*np.max(xx), 0))
-    ax1.set_ylabel('dF/F, Split')
-    ax1.set_xlabel('dF/F, ChAT')
+    ax1.annotate('r = {:.2f}'.format(corr), (0.65*np.max(xx), 0.02))
     ax1.set_xlim(left=0)
     ax1.set_ylim(bottom=0)
-    # TODO: annotation placement here
+    ax1.spines['top'].set_visible(False)
+    ax1.spines['right'].set_visible(False)
+
+    if g_ind == 2:
+        ax1.set_xlabel('ChAT response \n (dF/F)')
+    elif g_ind == 1:
+        ax1.set_ylabel('Split response (dF/F)')
 
     mean_split_responses = split_responses.mean(axis=0)
     sem_split_responses = split_responses.std(axis=0) / split_responses.shape[0]

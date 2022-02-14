@@ -1,5 +1,5 @@
 """
-Display alignment between template brain / glom map and meanbrain
+Figures: Display alignment between template brain / glom map and meanbrain
 
 maxwellholteturner@gmail.com
 https://github.com/mhturner/glom_pop
@@ -60,7 +60,7 @@ fh, ax = plt.subplots(1, 2, figsize=(6, 4))
 util.makeGlomMap(ax=ax[0],
                  glom_map=glom_mask_2_meanbrain,
                  z_val=None,
-                 highlight_vals=[42])
+                 highlight_vals=[2])
 
 util.makeGlomMap(ax=ax[1],
                  glom_map=glom_mask_2_meanbrain,
@@ -78,7 +78,6 @@ names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
 cmap = cc.cm.glasbey
 colors = cmap(vals/vals.max())
 grn_tmp = np.ma.masked_where(lobe_mask == 0, meanbrain_green.numpy())  # mask at 0
-
 
 fh, ax = plt.subplots(len(z_levels), 4, figsize=(5, 5.5), tight_layout=True)
 [x.set_xticklabels([]) for x in ax.ravel()]
