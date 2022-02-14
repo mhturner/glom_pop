@@ -31,8 +31,7 @@ dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included
 ste = model.SingleTrialEncoding(dataset=dataset, included_vals=included_vals)
 ste.evaluatePerformance(
                         model_type='LogReg',
-                        # model_type='RandomForest',
-                        iterations=20,
+                        iterations=40,
                         pull_eg=1,
                         classify_on_amplitude=True,
                         )
@@ -42,7 +41,7 @@ ste.evaluatePerformance(
 
 # %% Plot some example traces
 n_rows = 3
-start_trial = 0
+start_trial = 40
 
 split_length = int(ste.eg_traces.shape[1] / len(included_gloms))
 included_gloms
@@ -85,7 +84,7 @@ ax1.spines['top'].set_visible(False)
 ax1.spines['right'].set_visible(False)
 
 # Confusion matrix
-fh2, ax2 = plt.subplots(1, 1, figsize=(3.0, 2.5))
+fh2, ax2 = plt.subplots(1, 1, figsize=(3.5, 2.75))
 sns.heatmap(mean_cmat, ax=ax2, vmin=0, vmax=1.0, cmap='Reds', cbar_kws={'label': 'Probability'})
 ax2.set_xlabel('Predicted')
 ax2.set_ylabel('True')
@@ -117,9 +116,8 @@ fh3.savefig(os.path.join(save_directory, 'single_trial_log_cartoon.png'), bbox_i
 # Weights: classes x features
 performance_weighted_beta = (ste.classifier_model.coef_.T * mean_diag)
 
-# weights = pd.DataFrame(data=ste.classifier_model.coef_,
-#                        index=ste.included_parameter_values,
-#                        columns=included_gloms)
+# weights = pd.DataFrame(data=ste.classifier_model.coef_.T,
+#                        index=included_gloms)
 weights = pd.DataFrame(data=performance_weighted_beta,
                        index=included_gloms)
 
@@ -135,3 +133,74 @@ ax4.set_xticks([])
 fh4.savefig(os.path.join(save_directory, 'single_trial_weights.svg'))
 
 # %% Measure performance with subsets of gloms
+clusters = [['LC11', 'LC21'],
+            ['LC18', 'LC9', 'LC15', 'LC12', 'LC17'],
+            ['LPLC2', 'LPLC1', 'LC6', 'LC26', 'LC16', 'LC4']]
+
+cluster_performance = []
+for clust_ind, included_gloms in enumerate(clusters):
+    included_vals = dataio.getGlomValsFromNames(included_gloms)
+
+    dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included=True)
+
+    ste_clust = model.SingleTrialEncoding(dataset=dataset, included_vals=included_vals)
+    ste_clust.evaluatePerformance(
+                            model_type='LogReg',
+                            iterations=40,
+                            pull_eg=1,
+                            classify_on_amplitude=True,
+                            )
+
+    cluster_performance.append(ste_clust.performance)
+
+
+# %% Plot
+fh5, ax5 = plt.subplots(1, 1, figsize=(6, 3.5))
+ax5.set_ylabel('Performance')
+ax5.set_xlabel('Stimulus identity')
+ax5.set_xticks([])
+ax5.set_ylim([-0.1, 1.1])
+ax5.spines['top'].set_visible(False)
+ax5.spines['right'].set_visible(False)
+
+col_names = [str(x) for x in ste.included_parameter_values]
+mean_cmat = pd.DataFrame(data=ste.cmats.mean(axis=-1), index=col_names, columns=col_names)
+
+
+# Plot performance for each cluster:
+
+cluster_colors = ['r', 'g', 'b']
+offset = [-0.2, 0, 0.2]
+for clust_ind in range(3):
+
+    mean_diag = np.mean(cluster_performance[clust_ind], axis=0)
+    err_diag = np.std(cluster_performance[clust_ind], axis=0) / np.sqrt(cluster_performance[clust_ind].shape[0])
+
+    ax5.plot(np.arange(0, len(mean_diag)), mean_diag,
+             marker='o', linestyle='none',
+             color=sns.desaturate(cluster_colors[clust_ind], 0.6),
+             label='Cluster {}'.format(clust_ind+1))
+    for d_ind in range(len(col_names)):
+        ax5.plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]],
+                 linestyle='-',
+                 color=sns.desaturate(cluster_colors[clust_ind], 0.6))
+
+
+# Plot overall performance
+mean_diag = np.mean(ste.performance, axis=0)
+err_diag = np.std(ste.performance, axis=0) / np.sqrt(ste.performance.shape[0])
+
+ax5.plot(col_names, mean_diag, 'ks', label='All glomeruli')
+for d_ind in range(len(col_names)):
+    ax5.plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]], 'k-')
+
+ax5.plot([0, len(ste_clust.classifier_model.classes_)], [1/len(ste_clust.classifier_model.classes_), 1/len(ste_clust.classifier_model.classes_)], 'k--')
+fh5.savefig(os.path.join(save_directory, 'single_trial_cluster_performance.svg'))
+
+fh5.legend()
+
+
+
+
+
+# %%
