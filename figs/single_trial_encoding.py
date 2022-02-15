@@ -26,13 +26,11 @@ dataset = dataio.get_dataset(dataset_id='pgs_tuning', only_included=True)
 ste = model.SingleTrialEncoding(dataset=dataset, included_vals=included_vals)
 ste.evaluate_performance(
                          model_type='LogReg',
-                         iterations=40,
+                         iterations=100,
                          pull_eg=1,
                          classify_on_amplitude=True,
+                         random_state=np.random.RandomState(seed=0)
                          )
-
-
-# %%
 
 # %% Plot some example traces
 n_rows = 3
@@ -141,9 +139,10 @@ for clust_ind, included_gloms in enumerate(clusters):
     ste_clust = model.SingleTrialEncoding(dataset=dataset, included_vals=included_vals)
     ste_clust.evaluate_performance(
                                     model_type='LogReg',
-                                    iterations=40,
+                                    iterations=100,
                                     pull_eg=1,
                                     classify_on_amplitude=True,
+                                    random_state=np.random.RandomState(seed=0)
                                     )
 
     cluster_performance.append(ste_clust.performance)

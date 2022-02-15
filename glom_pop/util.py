@@ -16,7 +16,6 @@ def config_matplotlib():
 
 
 def clean_axes(ax):
-    # ax.set_axis_off()
     ax.yaxis.set_major_locator(plt.NullLocator())
     ax.xaxis.set_major_formatter(plt.NullFormatter())
     ax.spines['bottom'].set_visible(False)

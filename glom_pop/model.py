@@ -22,7 +22,7 @@ class SingleTrialEncoding():
         self.dataset = dataset
         self.included_vals = included_vals
 
-    def evaluate_performance(self, model_type='LogReg', iterations=20, pull_eg=0, classify_on_amplitude=False):
+    def evaluate_performance(self, model_type='LogReg', iterations=20, pull_eg=0, classify_on_amplitude=False, random_state=None):
 
         self.cmats = []
         self.overall_performances = []
@@ -42,7 +42,6 @@ class SingleTrialEncoding():
             glom_size_threshold = 10
             # response_matrix: shape=(gloms, time)
             response_matrix = np.zeros((len(self.included_vals), response_data.get('response').shape[1]))
-            # response_matrix[:] = np.nan
             for val_ind, included_val in enumerate(self.included_vals):
                 new_glom_size = np.sum(response_data.get('mask') == included_val)
 
@@ -105,7 +104,7 @@ class SingleTrialEncoding():
             y_test_all = []
             y_hat_all = []
             for it in range(iterations):
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10)
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10, random_state=random_state)
 
                 classifier_model.fit(X_train, y_train)
                 y_hat = classifier_model.predict(X_test)
