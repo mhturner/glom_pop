@@ -4,37 +4,32 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 
-from glom_pop import dataio, model
+from glom_pop import dataio, model, util
 
+util.config_matplotlib()
 
-plt.rcParams['svg.fonttype'] = 'none'
-plt.rcParams.update({'font.family': 'sans-serif'})
-plt.rcParams.update({'font.sans-serif': 'Helvetica'})
-
-experiment_file_directory = '/Users/mhturner/CurrentData'
-base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
-save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
-path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_data.yaml'
-
+base_dir = dataio.get_config_file()['base_dir']
+experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
+save_directory = dataio.get_config_file()['save_directory']
 
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 
 # %% Include all gloms and all flies
 leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
-included_gloms = dataio.getIncludedGloms(path_to_yaml)
+included_gloms = dataio.get_included_gloms()
 # sort by dendrogram leaves ordering
 included_gloms = np.array(included_gloms)[leaves]
-included_vals = dataio.getGlomValsFromNames(included_gloms)
+included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included=True)
+dataset = dataio.get_dataset(dataset_id='pgs_tuning', only_included=True)
 
 ste = model.SingleTrialEncoding(dataset=dataset, included_vals=included_vals)
-ste.evaluatePerformance(
-                        model_type='LogReg',
-                        iterations=40,
-                        pull_eg=1,
-                        classify_on_amplitude=True,
-                        )
+ste.evaluate_performance(
+                         model_type='LogReg',
+                         iterations=40,
+                         pull_eg=1,
+                         classify_on_amplitude=True,
+                         )
 
 
 # %%
@@ -139,17 +134,17 @@ clusters = [['LC11', 'LC21'],
 
 cluster_performance = []
 for clust_ind, included_gloms in enumerate(clusters):
-    included_vals = dataio.getGlomValsFromNames(included_gloms)
+    included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-    dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included=True)
+    dataset = dataio.get_dataset(dataset_id='pgs_tuning', only_included=True)
 
     ste_clust = model.SingleTrialEncoding(dataset=dataset, included_vals=included_vals)
-    ste_clust.evaluatePerformance(
-                            model_type='LogReg',
-                            iterations=40,
-                            pull_eg=1,
-                            classify_on_amplitude=True,
-                            )
+    ste_clust.evaluate_performance(
+                                    model_type='LogReg',
+                                    iterations=40,
+                                    pull_eg=1,
+                                    classify_on_amplitude=True,
+                                    )
 
     cluster_performance.append(ste_clust.performance)
 

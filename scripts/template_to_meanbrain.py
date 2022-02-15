@@ -15,7 +15,7 @@ import pandas as pd
 import colorcet as cc
 from glom_pop import dataio
 
-base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
+base_dir = dataio.get_config_file()['base_dir']
 meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
 
 mask_fn = 'lobe_mask_chat_meanbrain_{}.nii'.format('20210824')

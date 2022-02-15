@@ -22,7 +22,7 @@ class SingleTrialEncoding():
         self.dataset = dataset
         self.included_vals = included_vals
 
-    def evaluatePerformance(self, model_type='LogReg', iterations=20, pull_eg=0, classify_on_amplitude=False):
+    def evaluate_performance(self, model_type='LogReg', iterations=20, pull_eg=0, classify_on_amplitude=False):
 
         self.cmats = []
         self.overall_performances = []
@@ -36,7 +36,7 @@ class SingleTrialEncoding():
                                                 quiet=True)
 
             # Load response data
-            response_data = dataio.loadResponses(ID, response_set_name='glom', get_voxel_responses=False)
+            response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
 
             # Only select gloms in included_vals
             glom_size_threshold = 10

@@ -4,19 +4,18 @@ import os
 import pandas as pd
 import ants
 
-from glom_pop import util, alignment
+from glom_pop import util, alignment, dataio
 from visanalysis.analysis.shared_analysis import filterDataFiles
 from visanalysis.analysis import imaging_data
 from visanalysis.util import plot_tools
 
-plt.rcParams['svg.fonttype'] = 'none'
-plt.rcParams.update({'font.family': 'sans-serif'})
-plt.rcParams.update({'font.sans-serif': 'Helvetica'})
+util.config_matplotlib()
 
-base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
+base_dir = dataio.get_config_file()['base_dir']
+experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
+save_directory = dataio.get_config_file()['save_directory']
+
 transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
-experiment_file_directory = '/Users/mhturner/CurrentData'
-save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
 
 target_gloms = ['LC18', 'LC9', 'LC4']
 
@@ -29,9 +28,9 @@ colors = np.load(os.path.join(save_directory, 'colors.npy'))
 # Load mask key for VPN types
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 glom_mask_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'glom_mask_reg2meanbrain.nii')).numpy()
-glom_mask_2_meanbrain = alignment.filterGlomMask_by_name(mask=glom_mask_2_meanbrain,
-                                                         vpn_types=vpn_types,
-                                                         included_gloms=included_gloms)
+glom_mask_2_meanbrain = alignment.filter_glom_mask_by_name(mask=glom_mask_2_meanbrain,
+                                                           vpn_types=vpn_types,
+                                                           included_gloms=included_gloms)
 
 for g_ind, target_glom in enumerate(target_gloms):
     chat_glom_ind = np.where(included_gloms == target_glom)[0][0]
@@ -52,10 +51,10 @@ for g_ind, target_glom in enumerate(target_gloms):
     # Response amps: split vs. chat scatter
     fh1, ax1 = plt.subplots(1, 1, figsize=(1.5, 1.5))
 
-    util.makeGlomMap(ax=ax0[0, 0],
-                     glom_map=glom_mask_2_meanbrain,
-                     z_val=None,
-                     highlight_vals=[glom_mask_val])
+    util.make_glom_map(ax=ax0[0, 0],
+                       glom_map=glom_mask_2_meanbrain,
+                       z_val=None,
+                       highlight_vals=[glom_mask_val])
 
     # 0.5 micron pixels. 25 um scale bar
     plot_tools.addScaleBars(ax0[0, 0], dT=50, dF=0.0, T_value=35, F_value=175)

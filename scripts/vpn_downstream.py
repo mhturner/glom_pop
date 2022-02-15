@@ -16,8 +16,7 @@ https://connectome-neuprint.github.io/neuprint-python/docs/index.html
 https://github.com/connectome-neuprint/neuprint-python
 
 """
-save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
-path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_data.yaml'
+save_directory = dataio.get_config_file()['save_directory']
 
 # start client
 neuprint_client = Client('neuprint.janelia.org', dataset='hemibrain:v1.2.1', token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Im1heHdlbGxob2x0ZXR1cm5lckBnbWFpbC5jb20iLCJsZXZlbCI6Im5vYXV0aCIsImltYWdlLXVybCI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hLS9BT2gxNEdpMHJRX0M4akliX0ZrS2h2OU5DSElsWlpnRDY5YUMtVGdNLWVWM3lRP3N6PTUwP3N6PTUwIiwiZXhwIjoxNzY2MTk1MzcwfQ.Q-57D4tX2sXMjWym2LFhHaUGHgHiUsIM_JI9xekxw_0')
@@ -25,11 +24,11 @@ neuprint_client = Client('neuprint.janelia.org', dataset='hemibrain:v1.2.1', tok
 # %%
 # # # # # # BUILD CONNECTIVITY MATRIX # # # # # # # # # # # # # # # # # # # # #
 #  Columns = LC types, Rows = postsynaptic types
-included_gloms = dataio.getIncludedGloms(path_to_yaml)
+included_gloms = dataio.get_included_gloms()
 # sort by dendrogram leaves ordering
 leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = np.array(included_gloms)[leaves]
-included_vals = dataio.getGlomValsFromNames(included_gloms)
+included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
 LC_to_gloms = pd.DataFrame()
 LCLC_lobula = pd.DataFrame(data=np.zeros((len(included_gloms), len(included_gloms))), columns=included_gloms, index=included_gloms)

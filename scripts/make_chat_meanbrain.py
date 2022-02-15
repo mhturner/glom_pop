@@ -17,7 +17,7 @@ from glom_pop import dataio
 
 # %% ANATOMICAL SCAN FILES
 
-base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
+base_dir = dataio.get_config_file()['base_dir']
 today = datetime.datetime.today().strftime('%Y%m%d')
 
 # %% REFERENCE BRAIN

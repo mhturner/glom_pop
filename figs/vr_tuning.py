@@ -12,16 +12,17 @@ from sklearn.linear_model import LinearRegression
 
 from glom_pop import dataio, util
 
-base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
-experiment_file_directory = '/Users/mhturner/CurrentData'
-save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
+util.config_matplotlib()
 
-path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_data.yaml'
+base_dir = dataio.get_config_file()['base_dir']
+experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
+save_directory = dataio.get_config_file()['save_directory']
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
-included_gloms = dataio.getIncludedGloms(path_to_yaml)
-included_vals = dataio.getGlomValsFromNames(included_gloms)
 
-dataset = dataio.getDataset(path_to_yaml, dataset_id='vr_walk', only_included=True)
+included_gloms = dataio.get_included_gloms()
+included_vals = dataio.get_glom_vals_from_names(included_gloms)
+
+dataset = dataio.get_dataset(dataset_id='vr_walk', only_included=True)
 
 cmap = cc.cm.glasbey
 colors = cmap(included_vals/included_vals.max())
@@ -44,8 +45,8 @@ for s_ind, key in enumerate(dataset):
     epoch_parameters = ID.getEpochParameters()
 
     # Load response data
-    response_data = dataio.loadResponses(ID, response_set_name='glom')
-    vals, names = dataio.getGlomMaskDecoder(response_data.get('mask'))
+    response_data = dataio.load_responses(ID, response_set_name='glom')
+    vals, names = dataio.get_glom_mask_decoder(response_data.get('mask'))
 
     meanbrain_red = response_data.get('meanbrain')[..., 0]
     meanbrain_green = response_data.get('meanbrain')[..., 1]
@@ -95,7 +96,7 @@ fly_ind = 2
 cmap = cc.cm.glasbey
 colors = cmap(included_vals/included_vals.max())
 fh, ax = plt.subplots(len(included_gloms)+1, len(unique_parameter_values), figsize=(8, 10))
-[util.cleanAxes(x) for x in ax.ravel()]
+[util.clean_axes(x) for x in ax.ravel()]
 fh.subplots_adjust(wspace=0.00, hspace=0.00)
 for u_ind, un in enumerate(unique_parameter_values):
     for g_ind, name in enumerate(included_gloms):
@@ -125,7 +126,7 @@ for u_ind, un in enumerate(unique_parameter_values):
     ax[0, u_ind].plot(trajectory_time, x_position, 'r', label='X')
     ax[0, u_ind].plot(trajectory_time, y_position, 'g', label='Y')
     th_ax = ax[0, u_ind].twinx()
-    util.cleanAxes(th_ax)
+    util.clean_axes(th_ax)
     th_ax.plot(trajectory_time, theta, 'b', label='theta')
 
 # %%
@@ -165,7 +166,7 @@ included_flies = np.array([2, 3, 5, 6])
 cmap = cc.cm.glasbey
 colors = cmap(included_vals/included_vals.max())
 fh, ax = plt.subplots(len(included_gloms)+1, len(unique_parameter_values), figsize=(10, 8))
-[util.cleanAxes(x) for x in ax.ravel()]
+[util.clean_axes(x) for x in ax.ravel()]
 fh.subplots_adjust(wspace=0.00, hspace=0.00)
 for u_ind, un in enumerate(unique_parameter_values):
     for leaf_ind, g_ind in enumerate(leaves):
@@ -197,7 +198,7 @@ for u_ind, un in enumerate(unique_parameter_values):
     ax[0, u_ind].plot(trajectory_time, x_position, 'r', label='X')
     ax[0, u_ind].plot(trajectory_time, y_position, 'g', label='Y')
     th_ax = ax[0, u_ind].twinx()
-    util.cleanAxes(th_ax)
+    util.clean_axes(th_ax)
     th_ax.plot(trajectory_time, theta, 'b', label='theta')
 
 
@@ -230,7 +231,7 @@ fh2.savefig(os.path.join(save_directory, 'vr_corrmat.pdf'))
 
 # %% Glom responses
 fh, ax = plt.subplots(1 + concatenated_tuning.shape[0], len(unique_parameter_values), figsize=(18, 18))
-[util.cleanAxes(x) for x in ax.ravel()]
+[util.clean_axes(x) for x in ax.ravel()]
 [x.set_ylim([-0.25, 0.75]) for x in ax.ravel()]
 
 fh.subplots_adjust(wspace=0.05, hspace=0.05)
@@ -253,7 +254,7 @@ for u_ind, un in enumerate(unique_parameter_values):
 
 glom_ind = 1
 fh, ax = plt.subplots(n_stimuli, 1, figsize=(8, 6))
-[util.cleanAxes(x) for x in ax.ravel()]
+[util.clean_axes(x) for x in ax.ravel()]
 [x.set_ylim([-0.25, 0.75]) for x in ax.ravel()]
 
 for s_ind in range(n_stimuli):

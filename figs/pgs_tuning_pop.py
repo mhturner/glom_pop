@@ -15,27 +15,22 @@ from scipy.cluster.hierarchy import dendrogram, linkage, leaves_list
 
 from glom_pop import dataio, util, alignment
 
-plt.rcParams['svg.fonttype'] = 'none'
-plt.rcParams.update({'font.family': 'sans-serif'})
-plt.rcParams.update({'font.sans-serif': 'Helvetica'})
+util.config_matplotlib()
 
-base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
-experiment_file_directory = '/Users/mhturner/CurrentData'
-save_directory = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
+base_dir = dataio.get_config_file()['base_dir']
+experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
+save_directory = dataio.get_config_file()['save_directory']
 transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
-
-# %%
 
 
 # %% PLOT MEAN RESPONSES TO TUNING SUITE
 
 glom_size_threshold = 10
-path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_data.yaml'
 
 # Load overall glom map
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 glom_mask_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'glom_mask_reg2meanbrain.nii')).numpy()
-all_vals, all_names = dataio.getGlomMaskDecoder(glom_mask_2_meanbrain)
+all_vals, all_names = dataio.get_glom_mask_decoder(glom_mask_2_meanbrain)
 
 all_sizes = pd.DataFrame(data=[np.sum(glom_mask_2_meanbrain == mv) for mv in all_vals],
                          index=all_names.values)
@@ -43,15 +38,15 @@ all_sizes = pd.DataFrame(data=[np.sum(glom_mask_2_meanbrain == mv) for mv in all
 # print(all_sizes)
 
 # Get included gloms from data yaml
-included_gloms = dataio.getIncludedGloms(path_to_yaml)
-included_vals = dataio.getGlomValsFromNames(included_gloms)
+included_gloms = dataio.get_included_gloms()
+included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
 # Set colormap for included gloms
 cmap = cc.cm.glasbey
 colors = cmap(included_vals/included_vals.max())
 
 # Load PGS dataset from yaml
-dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included=True)
+dataset = dataio.get_dataset(dataset_id='pgs_tuning', only_included=True)
 
 all_responses = []
 response_amplitudes = []
@@ -66,7 +61,7 @@ for s_ind, key in enumerate(dataset):
                                         quiet=True)
 
     # Load response data
-    response_data = dataio.loadResponses(ID, response_set_name='glom', get_voxel_responses=False)
+    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
 
     # epoch_response_matrix: shape=(gloms, trials, time)
     epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
@@ -150,7 +145,7 @@ for key in dataset:
                                         quiet=True)
 
     # Load response data
-    response_data = dataio.loadResponses(ID, response_set_name='glom', get_voxel_responses=False)
+    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
 
     fh, ax = plt.subplots(14, 1, figsize=(12, 12))
     ax[0].set_title(key)
@@ -159,7 +154,7 @@ for key in dataset:
         val = response_data['mask_vals'][i]
         if val in included_vals:
             ax[ct].plot(response_data['response'][i, :])
-            ax[ct].set_ylabel(dataio.getGlomNameFromVal(val))
+            ax[ct].set_ylabel(dataio.get_glom_name_from_val(val))
             ct += 1
 
 
@@ -194,7 +189,7 @@ ax0.invert_yaxis()
 
 # Plot mean concatenated responses
 fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(12, 6))
-[util.cleanAxes(x) for x in ax1.ravel()]
+[util.clean_axes(x) for x in ax1.ravel()]
 
 
 fh1.subplots_adjust(wspace=0.00, hspace=0.00)
@@ -228,9 +223,9 @@ concat_df.to_pickle(os.path.join(save_directory, 'pgs_responsemat.pkl'))
 
 # Load mask key for VPN types
 
-glom_mask_2_meanbrain = alignment.filterGlomMask_by_name(mask=glom_mask_2_meanbrain,
-                                                         vpn_types=vpn_types,
-                                                         included_gloms=included_gloms)
+glom_mask_2_meanbrain = alignment.filter_glom_mask_by_name(mask=glom_mask_2_meanbrain,
+                                                           vpn_types=vpn_types,
+                                                           included_gloms=included_gloms)
 
 fh6, ax6 = plt.subplots(len(leaves), 1, figsize=(2, 6))
 [x.set_xlim([30, 230]) for x in ax6.ravel()]
@@ -242,10 +237,10 @@ for leaf_ind, g_ind in enumerate(leaves):
     name = included_gloms[g_ind]
     glom_mask_val = vpn_types.loc[vpn_types.get('vpn_types') == name, 'Unnamed: 0'].values[0]
 
-    util.makeGlomMap(ax=ax6[leaf_ind],
-                     glom_map=glom_mask_2_meanbrain,
-                     z_val=None,
-                     highlight_vals=[glom_mask_val])
+    util.make_glom_map(ax=ax6[leaf_ind],
+                       glom_map=glom_mask_2_meanbrain,
+                       z_val=None,
+                       highlight_vals=[glom_mask_val])
 
 fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent=True)
 
@@ -369,7 +364,7 @@ Z = linkage(X,
 
 # DENDROGRAM
 fh5, ax5 = plt.subplots(1, 2, figsize=(4, 9), gridspec_kw={'width_ratios': [1, 3], 'wspace': 0.01})
-[util.cleanAxes(x) for x in ax5.ravel()]
+[util.clean_axes(x) for x in ax5.ravel()]
 
 with plt.rc_context({'lines.linewidth': 0.25}):
     D = dendrogram(Z, p=len(glom_ids), truncate_mode='lastp', ax=ax5[0],

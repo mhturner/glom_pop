@@ -18,22 +18,18 @@ import glob
 
 from glom_pop import alignment, dataio, util
 
-plt.rcParams['svg.fonttype'] = 'none'
-plt.rcParams.update({'font.family': 'sans-serif'})
-plt.rcParams.update({'font.sans-serif': 'Helvetica'})
+util.config_matplotlib()
 
-experiment_file_directory = '/Users/mhturner/CurrentData'
-base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
+base_dir = dataio.get_config_file()['base_dir']
+experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
+save_directory = dataio.get_config_file()['save_directory']
+transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
+
 meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
 mask_fn = 'lobe_mask_chat_meanbrain_{}.nii'.format('20210824')
 
-save_directory = os.path.join(base_dir, 'fig_panels')
-transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
-
-
-path_to_yaml = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/glom_pop_data.yaml'
-included_gloms = dataio.getIncludedGloms(path_to_yaml)
-dataset = dataio.getDataset(path_to_yaml, dataset_id='pgs_tuning', only_included=True)
+included_gloms = dataio.get_included_gloms()
+dataset = dataio.get_dataset(dataset_id='pgs_tuning', only_included=True)
 
 # %% Load
 
@@ -50,22 +46,22 @@ template_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'JRC201
 # Load mask key for VPN types
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 
-glom_mask_2_meanbrain = alignment.filterGlomMask_by_name(mask=glom_mask_2_meanbrain,
-                                                         vpn_types=vpn_types,
-                                                         included_gloms=included_gloms)
+glom_mask_2_meanbrain = alignment.filter_glom_mask_by_name(mask=glom_mask_2_meanbrain,
+                                                           vpn_types=vpn_types,
+                                                           included_gloms=included_gloms)
 
 # %%
 
 fh, ax = plt.subplots(1, 2, figsize=(6, 4))
-util.makeGlomMap(ax=ax[0],
-                 glom_map=glom_mask_2_meanbrain,
-                 z_val=None,
-                 highlight_vals=[2])
+util.make_glom_map(ax=ax[0],
+                   glom_map=glom_mask_2_meanbrain,
+                   z_val=None,
+                   highlight_vals=[2])
 
-util.makeGlomMap(ax=ax[1],
-                 glom_map=glom_mask_2_meanbrain,
-                 z_val=None,
-                 highlight_vals='all')
+util.make_glom_map(ax=ax[1],
+                   glom_map=glom_mask_2_meanbrain,
+                   z_val=None,
+                   highlight_vals='all')
 
 # %%
 # Show z slices of meanbrain, template, & glom map for alignment
@@ -92,7 +88,7 @@ for x in ax.ravel():
     x.set_yticks(np.arange(0, 175, d_line))
     x.grid(which='major', axis='both', linestyle='--', color='k', linewidth=0.5, alpha=0.5)
 
-vmax = np.quantile(grn_tmp[30:230, 0:175, :], 0.97)
+vmax = np.quantile(grn_tmp.data[30:230, 0:175, :], 0.97)
 
 for z_ind, z in enumerate(z_levels):
     # Note zoomed-in, trimmed view
@@ -100,10 +96,10 @@ for z_ind, z in enumerate(z_levels):
     ax[z_ind, 1].imshow(grn_tmp[:, :, z].T, cmap='Greens', vmax=vmax)
     ax[z_ind, 2].imshow(template_2_meanbrain[:, :, z].T, cmap='Blues')
 
-    util.makeGlomMap(ax=ax[z_ind, 3],
-                     glom_map=glom_mask_2_meanbrain,
-                     z_val=z,
-                     highlight_vals='all')
+    util.make_glom_map(ax=ax[z_ind, 3],
+                       glom_map=glom_mask_2_meanbrain,
+                       z_val=z,
+                       highlight_vals='all')
 
     if z_ind == 0:
         ax[z_ind, 0].set_title('myr::tdTomato', fontsize=11)

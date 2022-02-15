@@ -6,21 +6,21 @@ https://github.com/mhturner/glom_pop
 import numpy as np
 
 
-def getGlomResponses(brain, glom_mask, mask_values=None):
+def get_glom_responses(brain, glom_mask, mask_values=None):
     if mask_values is None:
         mask_values = np.unique(glom_mask)
     glom_responses = [np.mean(brain[glom_mask == label, :], axis=0) for label in mask_values]
     return np.vstack(glom_responses)  # glom ID x Time
 
 
-def getGlomVoxelResponses(brain, glom_mask, mask_values=None):
+def get_glom_voxel_responses(brain, glom_mask, mask_values=None):
     if mask_values is None:
         mask_values = np.unique(glom_mask)
     glom_responses = [brain[glom_mask == label, :] for label in mask_values]
     return glom_responses  # list of len=gloms, each with array nvoxels x time
 
 
-def filterGlomMask(mask, threshold):
+def filter_glom_mask(mask, threshold):
     """
     Remove gloms in mask with fewer than <threshold> number of voxels.
 
@@ -39,7 +39,7 @@ def filterGlomMask(mask, threshold):
     return mask
 
 
-def filterGlomMask_by_name(mask, vpn_types, included_gloms):
+def filter_glom_mask_by_name(mask, vpn_types, included_gloms):
     """
     Remove gloms in mask not in included_gloms list of names.
 

@@ -16,7 +16,7 @@ import ants
 
 from glom_pop import dataio
 
-base_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
+base_dir = dataio.get_config_file()['base_dir']
 
 # %% LOAD TEMPLATE ARRAYS
 # (1) Load

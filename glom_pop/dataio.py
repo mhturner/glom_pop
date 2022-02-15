@@ -3,17 +3,54 @@
 maxwellholteturner@gmail.com
 https://github.com/mhturner/glom_pop
 """
-
-import xml.etree.ElementTree as ET
-import numpy as np
 import functools
-import h5py
+import inspect
 import os
-import pandas as pd
 import shutil
-import yaml
 
+import h5py
+import numpy as np
+import pandas as pd
+import yaml
+import xml.etree.ElementTree as ET
+
+from glom_pop import util
 from visanalysis.analysis import imaging_data
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # #  Config settings  # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+
+def get_config_file():
+    path_to_config_file = os.path.join(inspect.getfile(util).split('glom_pop')[0], 'glom_pop', 'config.yaml')
+    with open(path_to_config_file, 'r') as ymlfile:
+        cfg = yaml.safe_load(ymlfile)
+    return cfg
+
+
+def get_dataset(dataset_id, only_included=True):
+    path_to_dataset_yaml = get_config_file()['dataset_yaml']
+    with open(path_to_dataset_yaml, 'r') as ymlfile:
+        data_file = yaml.safe_load(ymlfile)
+        dataset = data_file.get(dataset_id)
+
+    if only_included:
+        dataset = {entry: dataset.get(entry) for entry in dataset if dataset.get(entry).get('included')}
+    else:
+        pass
+
+    return dataset
+
+
+def get_included_gloms():
+    path_to_dataset_yaml = get_config_file()['dataset_yaml']
+    with open(path_to_dataset_yaml, 'r') as ymlfile:
+        data_file = yaml.safe_load(ymlfile)
+
+    return data_file.get('included_gloms')
+
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # #  Image processing # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -126,26 +163,26 @@ def get_bruker_metadata(file_path):
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 
-def attachResponses(file_path, series_number, mask, meanbrain, responses, mask_vals,
-                    response_set_name='glom', voxel_responses=None):
+def attach_responses(file_path, series_number, mask, meanbrain, responses, mask_vals,
+                     response_set_name='glom', voxel_responses=None):
     with h5py.File(file_path, 'r+') as experiment_file:
         find_partial = functools.partial(find_series, sn=series_number)
         epoch_run_group = experiment_file.visititems(find_partial)
         parent_roi_group = epoch_run_group.require_group('aligned_response')
         current_roi_group = parent_roi_group.require_group(response_set_name)
 
-        overwriteDataSet(current_roi_group, 'mask', mask)
-        overwriteDataSet(current_roi_group, 'response', responses)
-        overwriteDataSet(current_roi_group, 'meanbrain', meanbrain)
+        overwrite_dataset(current_roi_group, 'mask', mask)
+        overwrite_dataset(current_roi_group, 'response', responses)
+        overwrite_dataset(current_roi_group, 'meanbrain', meanbrain)
 
         if voxel_responses is not None:
             for ind, vr in enumerate(voxel_responses):
-                overwriteDataSet(current_roi_group, 'voxel_resp_{}'.format(mask_vals[ind]), vr)
+                overwrite_dataset(current_roi_group, 'voxel_resp_{}'.format(mask_vals[ind]), vr)
 
         current_roi_group.attrs['mask_vals'] = mask_vals
 
 
-def overwriteDataSet(group, name, data):
+def overwrite_dataset(group, name, data):
     if group.get(name):
         del group[name]
     group.create_dataset(name, data=data)
@@ -157,7 +194,7 @@ def find_series(name, obj, sn):
         return obj
 
 
-def loadResponses(ID, response_set_name='glom', get_voxel_responses=False):
+def load_responses(ID, response_set_name='glom', get_voxel_responses=False):
 
     response_data = {}
     with h5py.File(ID.file_path, 'r') as experiment_file:
@@ -191,7 +228,7 @@ def loadResponses(ID, response_set_name='glom', get_voxel_responses=False):
     return response_data
 
 
-def getGlomMaskDecoder(mask, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
+def get_glom_mask_decoder(mask, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
     # Load mask key for VPN types
     vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 
@@ -201,14 +238,7 @@ def getGlomMaskDecoder(mask, base_dir='/Users/mhturner/Dropbox/ClandininLab/Anal
     return vals, names
 
 
-def getIncludedGloms(path_to_yaml):
-    with open(path_to_yaml, 'r') as ymlfile:
-        data_file = yaml.safe_load(ymlfile)
-
-    return data_file.get('included_gloms')
-
-
-def getGlomNameFromVal(val, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
+def get_glom_name_from_val(val, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
     # Load mask key for VPN types
     vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
     name = vpn_types.iloc[np.where(vpn_types['Unnamed: 0'] == val)[0], 1].values[0]
@@ -216,21 +246,8 @@ def getGlomNameFromVal(val, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analy
     return name
 
 
-def getGlomValsFromNames(glom_names, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
+def get_glom_vals_from_names(glom_names, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
     vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
     vals = np.array([vpn_types.iloc[np.where(vpn_types.vpn_types == ig)[0][0], 0] for ig in glom_names])
 
     return vals
-
-
-def getDataset(path_to_yaml, dataset_id, only_included=True):
-    with open(path_to_yaml, 'r') as ymlfile:
-        data_file = yaml.safe_load(ymlfile)
-        dataset = data_file.get(dataset_id)
-
-    if only_included:
-        dataset = {entry: dataset.get(entry) for entry in dataset if dataset.get(entry).get('included')}
-    else:
-        pass
-
-    return dataset

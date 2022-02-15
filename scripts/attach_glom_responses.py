@@ -157,26 +157,26 @@ for bf in brain_file_sets:
     # yank out glom responses
     # glom_responses: mean response across all voxels in each glom
     # shape = glom ID x Time
-    glom_responses = alignment.getGlomResponses(green_brain,
-                                                glom_mask_2_fxn.numpy(),
-                                                mask_values=vals)
+    glom_responses = alignment.get_glom_responses(green_brain,
+                                                  glom_mask_2_fxn.numpy(),
+                                                  mask_values=vals)
 
     # voxel_responses: list of arrays, each is all individual voxel responses for that glom
     # list of len=gloms, each with array nvoxels x time
-    voxel_responses = alignment.getGlomVoxelResponses(green_brain,
-                                                      glom_mask_2_fxn.numpy(),
-                                                      mask_values=vals)
+    voxel_responses = alignment.get_glom_voxel_responses(green_brain,
+                                                         glom_mask_2_fxn.numpy(),
+                                                         mask_values=vals)
 
     # attach all this to the hdf5 file
     meanbrain = dataio.merge_channels(fxn_red.numpy(), fxn_green.numpy())
-    dataio.attachResponses(file_path=h5_filepath,
-                           series_number=series_number,
-                           mask=glom_mask_2_fxn.numpy(),
-                           meanbrain=meanbrain,
-                           responses=glom_responses,
-                           mask_vals=vals,
-                           response_set_name='glom',
-                           voxel_responses=voxel_responses)
+    dataio.attach_responses(file_path=h5_filepath,
+                            series_number=series_number,
+                            mask=glom_mask_2_fxn.numpy(),
+                            meanbrain=meanbrain,
+                            responses=glom_responses,
+                            mask_vals=vals,
+                            response_set_name='glom',
+                            voxel_responses=voxel_responses)
 
     print('Done. Attached responses to {} (total: {:.1f} sec)'.format(h5_filepath, time.time()-overall_t0))
 
