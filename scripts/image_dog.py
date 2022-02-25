@@ -2,6 +2,8 @@ from flystim import image
 import matplotlib.pyplot as plt
 import numpy as np
 from glom_pop import util
+from skimage.io import imsave
+import os
 
 # TODO: make glom_pop env work with flystim. Maybe update flystim pyqt to pyqt6 finally
 
@@ -14,6 +16,8 @@ image_names = ['imk00152.tif', 'imk00377.tif', 'imk00405.tif', 'imk00459.tif',
                'imk01769.tif', 'imk01829.tif', 'imk02265.tif', 'imk02281.tif',
                'imk02733.tif', 'imk02999.tif', 'imk03093.tif', 'imk03347.tif',
                'imk03447.tif', 'imk03584.tif', 'imk03758.tif', 'imk03760.tif']
+
+save_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/images/vh_whitened'
 
 filter_name = 'difference_of_gaussians'
 filter_kwargs = {'low_sigma': low_sigma * pixels_per_degree,  # degrees -> pixels
@@ -39,6 +43,7 @@ for im_ind, image_name in enumerate(image_names):
     filtered_spectra.append(pspect_filt)
 
     img_white = new_im.whiten_image()
+    imsave(os.path.join(save_dir, 'whitened_' + image_name), img_white)
     freq, pspect_white = util.get_power_spectral_density(img_white[:, 512:2*512], pixels_per_degree)
     white_spectra.append(pspect_white)
 

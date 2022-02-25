@@ -63,12 +63,14 @@ class SingleTrialEncoding():
             epoch_response_matrix[np.where(np.isnan(epoch_response_matrix))] = 0
 
             if classify_on_amplitude:
-                classify_data = np.mean(epoch_response_matrix, axis=-1)[:, :, np.newaxis]
+                classify_data = ID.getResponseAmplitude(epoch_response_matrix, metric='max')[:, :, np.newaxis]
             else:
                 classify_data = epoch_response_matrix.copy()
-            # output shape = trials x time (concatenated glom responses)
+            # output shape = trials x (concatenated glom responses)
             tmp_trials = [classify_data[x, :, :] for x in range(classify_data.shape[0])]
             single_trial_responses = np.concatenate(tmp_trials, axis=-1)
+
+            print('single_trial_responses shape = {}'.format(single_trial_responses.shape))
 
             cmap = cc.cm.glasbey
             self.colors = cmap(self.included_vals/self.included_vals.max())
