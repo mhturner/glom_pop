@@ -12,4 +12,14 @@
 module use /home/groups/trc/modules
 module load antspy/0.2.2
 
-python3 /home/users/mhturner/glom_pop/moco/moco.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20211207/TSeries-20211207-003 --meanbrain-only
+python3 /home/users/mhturner/glom_pop/moco/moco.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20220301/TSeries-20220301-008 --meanbrain-only
+python3 /home/users/mhturner/glom_pop/moco/moco.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20220301/TSeries-20220301-009 --meanbrain-only
+
+python3 /home/users/mhturner/glom_pop/moco/moco.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20220301/TSeries-20220301-012 --meanbrain-only
+python3 /home/users/mhturner/glom_pop/moco/moco.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20220301/TSeries-20220301-013 --meanbrain-only
+
+python3 /home/users/mhturner/glom_pop/moco/moco.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20220301/TSeries-20220301-016 --meanbrain-only
+python3 /home/users/mhturner/glom_pop/moco/moco.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20220301/TSeries-20220301-017 --meanbrain-only
+
+python3 /home/users/mhturner/glom_pop/moco/moco.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20220301/TSeries-20220301-020 --meanbrain-only
+python3 /home/users/mhturner/glom_pop/moco/moco.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20220301/TSeries-20220301-021 --meanbrain-only
