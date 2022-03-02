@@ -5,7 +5,7 @@
 #SBATCH --partition=trc
 #SBATCH --time=96:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=6
 #SBATCH --output=/home/users/mhturner/glom_pop/moco/%x.%j.out
 #SBATCH --open-mode=append
 
