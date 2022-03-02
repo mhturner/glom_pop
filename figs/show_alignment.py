@@ -56,12 +56,12 @@ fh, ax = plt.subplots(1, 2, figsize=(6, 4))
 util.make_glom_map(ax=ax[0],
                    glom_map=glom_mask_2_meanbrain,
                    z_val=None,
-                   highlight_vals=[2])
+                   highlight_names=['LC15'])
 
 util.make_glom_map(ax=ax[1],
                    glom_map=glom_mask_2_meanbrain,
                    z_val=None,
-                   highlight_vals='all')
+                   highlight_names='all')
 
 # %%
 # Show z slices of meanbrain, template, & glom map for alignment
@@ -99,7 +99,8 @@ for z_ind, z in enumerate(z_levels):
     util.make_glom_map(ax=ax[z_ind, 3],
                        glom_map=glom_mask_2_meanbrain,
                        z_val=z,
-                       highlight_vals='all')
+                       highlight_names='all',
+                       colors='glasbey')
 
     if z_ind == 0:
         ax[z_ind, 0].set_title('myr::tdTomato', fontsize=11)

@@ -4,14 +4,14 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import numpy as np
 import os
-import colorcet as cc
+# import colorcet as cc
 import pandas as pd
 import ants
 import seaborn as sns
 
 from scipy.stats import zscore
 
-from scipy.cluster.hierarchy import dendrogram, linkage, leaves_list
+from scipy.cluster.hierarchy import dendrogram, linkage, leaves_list, set_link_color_palette
 
 from glom_pop import dataio, util, alignment
 
@@ -22,6 +22,10 @@ experiment_file_directory = dataio.get_config_file()['experiment_file_directory'
 save_directory = dataio.get_config_file()['save_directory']
 transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 
+# TODO: Tuning to some params:
+#       -light/dark
+#       -L/R movement
+#       -Spot size
 
 # %% PLOT MEAN RESPONSES TO TUNING SUITE
 
@@ -41,9 +45,9 @@ all_sizes = pd.DataFrame(data=[np.sum(glom_mask_2_meanbrain == mv) for mv in all
 included_gloms = dataio.get_included_gloms()
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-# Set colormap for included gloms
-cmap = cc.cm.glasbey
-colors = cmap(included_vals/included_vals.max())
+# # Set colormap for included gloms
+# cmap = cc.cm.glasbey
+# colors = cmap(included_vals/included_vals.max())
 
 # Load PGS dataset from yaml
 dataset = dataio.get_dataset(dataset_id='pgs_tuning', only_included=True)
@@ -115,7 +119,7 @@ np.save(os.path.join(save_directory, 'chat_responses.npy'), all_responses)
 np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
 np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
 np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
-np.save(os.path.join(save_directory, 'colors.npy'), colors)
+# np.save(os.path.join(save_directory, 'colors.npy'), colors)
 
 
 # %% QC: Number of voxels in each glomerulus
@@ -171,11 +175,15 @@ Z = linkage(peak_responses,
             metric='euclidean',
             optimal_ordering=True)
 
+# Colors := desaturated primaries, one for each cluster
+color_dict = util.get_color_dict()
+
+set_link_color_palette(['r', 'g', 'b', 'k'])
 # DENDROGRAM
 fh0, ax0 = plt.subplots(1, 1, figsize=(1.5, 6))
 D = dendrogram(Z, p=len(included_gloms), truncate_mode='lastp', ax=ax0,
                above_threshold_color='black',
-               color_threshold=1, orientation='left',
+               color_threshold=5, orientation='left',
                labels=included_gloms)
 leaves = leaves_list(Z)  # glom indices
 
@@ -203,7 +211,7 @@ for u_ind, un in enumerate(unique_parameter_values):
         #                            facecolor=sns.desaturate(colors[g_ind, :], 0.25), alpha=1.0, linewidth=0,
         #                            rasterized=True)
         ax1[leaf_ind].plot(time_concat, mean_concat[g_ind, :],
-                           color=colors[g_ind, :], alpha=1.0, linewidth=1.0,
+                           color=color_dict.get(name), alpha=1.0, linewidth=1.0,
                            rasterized=True)
         if (leaf_ind == 0):
             plot_tools.addScaleBars(ax1[leaf_ind], dT=2, dF=0.25, T_value=0, F_value=-0.1)
@@ -227,7 +235,7 @@ glom_mask_2_meanbrain = alignment.filter_glom_mask_by_name(mask=glom_mask_2_mean
                                                            vpn_types=vpn_types,
                                                            included_gloms=included_gloms)
 
-fh6, ax6 = plt.subplots(len(leaves), 1, figsize=(2, 6))
+fh6, ax6 = plt.subplots(len(leaves), 1, figsize=(3, 9))
 [x.set_xlim([30, 230]) for x in ax6.ravel()]
 [x.set_ylim([180, 5]) for x in ax6.ravel()]
 [x.set_axis_off() for x in ax6.ravel()]
@@ -235,12 +243,12 @@ fh6, ax6 = plt.subplots(len(leaves), 1, figsize=(2, 6))
 
 for leaf_ind, g_ind in enumerate(leaves):
     name = included_gloms[g_ind]
-    glom_mask_val = vpn_types.loc[vpn_types.get('vpn_types') == name, 'Unnamed: 0'].values[0]
+    # glom_mask_val = vpn_types.loc[vpn_types.get('vpn_types') == name, 'Unnamed: 0'].values[0]
 
     util.make_glom_map(ax=ax6[leaf_ind],
                        glom_map=glom_mask_2_meanbrain,
                        z_val=None,
-                       highlight_vals=[glom_mask_val])
+                       highlight_names=[name])
 
 fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent=True)
 
@@ -281,7 +289,7 @@ for li, leaf_ind in enumerate(eg_leaf_inds):
         ax2[li, fly_ind].plot(response_data.get('time_vector'), all_responses[g_ind, eg_stim_ind, :, fly_ind],
                               color='k', alpha=0.5)
         ax2[li, fly_ind].plot(response_data.get('time_vector'), np.mean(all_responses[g_ind, eg_stim_ind, :, :], axis=-1),
-                              color=colors[g_ind, :], linewidth=1, alpha=1.0)
+                              color=color_dict[included_gloms[g_ind]], linewidth=1, alpha=1.0)
         if fly_ind == 0 & li == 0:
             plot_tools.addScaleBars(ax2[0, 0], dT=2, dF=0.25, T_value=0, F_value=-0.05)
 
@@ -302,7 +310,7 @@ for li, leaf_ind in enumerate(eg_leaf_inds):
 
     for trial in range(5):
         ax5[li, trial].plot(trial_response_by_stimulus[eg_stim_ind][g_ind, trial, :], color='k', alpha=0.5)
-        ax5[li, trial].plot(np.mean(trial_response_by_stimulus[eg_stim_ind][g_ind, :, :], axis=0), color=colors[g_ind, :])
+        ax5[li, trial].plot(np.mean(trial_response_by_stimulus[eg_stim_ind][g_ind, :, :], axis=0), color=color_dict[included_gloms[g_ind]])
 
         if trial == 0 & li == 0:
             plot_tools.addScaleBars(ax5[0, 0], dT=2, dF=0.25, T_value=0, F_value=-0.08)
@@ -317,12 +325,12 @@ fh4, ax4 = plt.subplots(1, 1, figsize=(3.0, 2))
 for leaf_ind, g_ind in enumerate(leaves):
     name = included_gloms[g_ind]
     inter_corr = pd.DataFrame(response_amplitudes[g_ind, :, :]).corr().to_numpy()[np.triu_indices(response_amplitudes.shape[-1], k=1)]
-    mean_inter_corr = np.mean(inter_corr)
+    mean_inter_corr = np.nanmean(inter_corr)
     std_inter_corr = np.std(inter_corr)
     sem_inter_corr = np.std(inter_corr) / np.sqrt(len(inter_corr))
-    ax4.plot(leaf_ind * np.ones_like(inter_corr), inter_corr, color=colors[g_ind, :], marker='.', linestyle='none', alpha=0.5, markersize=4)
-    ax4.plot(leaf_ind, mean_inter_corr, color=colors[g_ind, :], marker='o', markersize=6)
-    ax4.plot([leaf_ind, leaf_ind], [mean_inter_corr-sem_inter_corr, mean_inter_corr+sem_inter_corr], marker='None', color=colors[g_ind, :])
+    ax4.plot(leaf_ind * np.ones_like(inter_corr), inter_corr, color=color_dict[included_gloms[g_ind]], marker='.', linestyle='none', alpha=0.5, markersize=4)
+    ax4.plot(leaf_ind, mean_inter_corr, color=color_dict[included_gloms[g_ind]], marker='o', markersize=6)
+    ax4.plot([leaf_ind, leaf_ind], [mean_inter_corr-sem_inter_corr, mean_inter_corr+sem_inter_corr], marker='None', color=color_dict[included_gloms[g_ind]])
 
 ax4.set_xticks(np.arange(len(included_gloms)))
 ax4.set_xticklabels([included_gloms[x] for x in leaves])

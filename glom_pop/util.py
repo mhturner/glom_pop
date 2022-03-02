@@ -4,10 +4,15 @@ maxwellholteturner@gmail.com
 https://github.com/mhturner/glom_pop
 """
 
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 import colorcet as cc
 from scipy import ndimage
+import seaborn as sns
+import pandas as pd
+
+from glom_pop import dataio, alignment
 
 
 def config_matplotlib():
@@ -27,36 +32,70 @@ def clean_axes(ax):
     ax.get_yaxis().set_ticks([])
 
 
-def make_glom_map(ax, glom_map, z_val=None, highlight_vals=[]):
-    vals = np.unique(glom_map)[1:]  # exclude first val (=0, not a glom)
+def get_color_dict():
+    color_dict = {
+                  'LC11': sns.desaturate('r', 1/3),
+                  'LC21': sns.desaturate('r', 2/3),
 
-    if highlight_vals == 'all':
-        highlight_vals = vals
+                  'LC18': sns.desaturate('g', 1/5),
+                  'LC9': sns.desaturate('g', 2/5),
+                  'LC15': sns.desaturate('g', 3/5),
+                  'LC12': sns.desaturate('g', 4/5),
+                  'LC17': sns.desaturate('g', 5/5),
+
+                  'LPLC2': sns.desaturate('b', 1/6),
+                  'LPLC1': sns.desaturate('b', 2/6),
+                  'LC6': sns.desaturate('b', 3/6),
+                  'LC26': sns.desaturate('b', 4/6),
+                  'LC16': sns.desaturate('b', 5/6),
+                  'LC4': sns.desaturate('b', 6/6),
+
+                  'LPLC4': sns.desaturate('k', 0),
+                  }
+
+    return color_dict
+
+
+def make_glom_map(ax, glom_map, z_val=None, highlight_names=[], colors='default'):
+    # base_dir = dataio.get_config_file()['base_dir']
+    # vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+
+    all_vals = np.unique(glom_map)[1:]  # exclude first val (=0, not a glom)
+    # all_names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(all_vals), 'vpn_types']
+
+    if highlight_names == 'all':
+        highlight_vals = all_vals
+    else:
+        highlight_vals = dataio.get_glom_vals_from_names(highlight_names)
 
     if z_val is None:
         # Max projection across all Z
         slice = glom_map.max(axis=2)
 
         #  Special case: if single glom highlighted, make sure it shows up on "top" of the projection
-        if len(highlight_vals) == 1:
+        if len(highlight_names) == 1:
             highlight_proj = np.any(glom_map == highlight_vals[0], axis=-1)
             slice[highlight_proj] = highlight_vals[0]
     else:
         # Specific Z value
         slice = glom_map[:, :, z_val]
 
-    highlight_colors = cc.cm.glasbey(vals/vals.max())
-    gray_color = cc.cm.gray(0.5)
+    gray_color = cc.cm.gray(0.75)
 
     shape = list(slice.shape)
     shape.append(4)  # x, y, RGBA
-    slice_rgb = np.zeros(shape)
+    slice_rgb = np.zeros(shape)  # Default: alpha=0
 
-    for v_ind, v in enumerate(vals):
-        if v in highlight_vals:
-            slice_rgb[slice == v, :] = highlight_colors[v_ind]
+    for v_ind, val in enumerate(all_vals):
+        if val in highlight_vals:
+            if colors == 'default':
+                highlight_color = list(get_color_dict()[dataio.get_glom_name_from_val(val)]) + [1]  # Append alpha=1
+            elif colors == 'glasbey':
+                highlight_color = cc.cm.glasbey(all_vals/all_vals.max())[v_ind, :]
+
+            slice_rgb[slice == val, :] = highlight_color
         else:
-            slice_rgb[slice == v, :] = gray_color
+            slice_rgb[slice == val, :] = list(gray_color)
 
     ax.imshow(np.swapaxes(slice_rgb, 0, 1), interpolation='none')
 
