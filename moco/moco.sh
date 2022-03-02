@@ -12,4 +12,4 @@
 module use /home/groups/trc/modules
 module load antspy/0.2.2
 
-python3 /home/users/mhturner/glom_pop/moco/moco.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20211208/TSeries-20211208-006 SPARSE
+python3 /home/users/mhturner/glom_pop/moco/moco.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20211208/TSeries-20211208-006
