@@ -201,20 +201,20 @@ fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(12, 6))
 
 
 fh1.subplots_adjust(wspace=0.00, hspace=0.00)
-for u_ind, un in enumerate(unique_parameter_values):
-    for leaf_ind, g_ind in enumerate(leaves):
-        name = included_gloms[g_ind]
-        # ax1[leaf_ind].set_ylabel(name, fontsize=11, rotation=0)
-        # ax1[leaf_ind].fill_between(time_concat,
-        #                            mean_concat[g_ind, :]-sem_concat[g_ind, :],
-        #                            mean_concat[g_ind, :]+sem_concat[g_ind, :],
-        #                            facecolor=sns.desaturate(colors[g_ind, :], 0.25), alpha=1.0, linewidth=0,
-        #                            rasterized=True)
-        ax1[leaf_ind].plot(time_concat, mean_concat[g_ind, :],
-                           color=color_dict.get(name), alpha=1.0, linewidth=1.0,
-                           rasterized=True)
-        if (leaf_ind == 0):
-            plot_tools.addScaleBars(ax1[leaf_ind], dT=2, dF=0.25, T_value=0, F_value=-0.1)
+# for u_ind, un in enumerate(unique_parameter_values):
+for leaf_ind, g_ind in enumerate(leaves):
+    name = included_gloms[g_ind]
+    # ax1[leaf_ind].set_ylabel(name, fontsize=11, rotation=0)
+    # ax1[leaf_ind].fill_between(time_concat,
+    #                            mean_concat[g_ind, :]-sem_concat[g_ind, :],
+    #                            mean_concat[g_ind, :]+sem_concat[g_ind, :],
+    #                            facecolor=sns.desaturate(colors[g_ind, :], 0.25), alpha=1.0, linewidth=0,
+    #                            rasterized=True)
+    ax1[leaf_ind].plot(time_concat, mean_concat[g_ind, :],
+                       color=color_dict.get(name), alpha=1.0, linewidth=1.0,
+                       rasterized=True)
+    if (leaf_ind == 0):
+        plot_tools.addScaleBars(ax1[leaf_ind], dT=2, dF=0.25, T_value=0, F_value=-0.1)
 
 [x.set_ylim([mean_responses.min(), 1.1*mean_responses.max()]) for x in ax1.ravel()]
 

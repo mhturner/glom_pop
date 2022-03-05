@@ -34,23 +34,23 @@ def clean_axes(ax):
 
 def get_color_dict():
     color_dict = {
-                  'LC11': sns.desaturate('r', 1/3),
-                  'LC21': sns.desaturate('r', 2/3),
-
-                  'LC18': sns.desaturate('g', 1/5),
-                  'LC9': sns.desaturate('g', 2/5),
-                  'LC15': sns.desaturate('g', 3/5),
-                  'LC12': sns.desaturate('g', 4/5),
-                  'LC17': sns.desaturate('g', 5/5),
-
-                  'LPLC2': sns.desaturate('b', 1/6),
-                  'LPLC1': sns.desaturate('b', 2/6),
-                  'LC6': sns.desaturate('b', 3/6),
-                  'LC26': sns.desaturate('b', 4/6),
-                  'LC16': sns.desaturate('b', 5/6),
-                  'LC4': sns.desaturate('b', 6/6),
-
                   'LPLC4': sns.desaturate('k', 0),
+
+                  'LC4': sns.desaturate('r', 6/6),
+                  'LC16': sns.desaturate('r', 5/6),
+                  'LC26': sns.desaturate('r', 4/6),
+                  'LC6': sns.desaturate('r', 3/6),
+                  'LPLC1': sns.desaturate('r', 2/6),
+                  'LPLC2': sns.desaturate('r', 1/6),
+
+                  'LC17': sns.desaturate('g', 5/5),
+                  'LC12': sns.desaturate('g', 4/5),
+                  'LC15': sns.desaturate('g', 3/5),
+                  'LC9': sns.desaturate('g', 2/5),
+                  'LC18': sns.desaturate('g', 1/5),
+
+                  'LC11': sns.desaturate('b', 1/3),
+                  'LC21': sns.desaturate('b', 2/3),
                   }
 
     return color_dict
