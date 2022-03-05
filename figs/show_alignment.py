@@ -183,14 +183,14 @@ file_paths = glob.glob(os.path.join(brain_directory, '*_anatomical.nii'))
 
 fh, ax = plt.subplots(3, len(dataset)+1, figsize=(11, 2.75))
 # [x.set_axis_off() for x in ax.ravel()]
-bar_length = 10 / meanbrain_green.spacing[0]  # um -> pix
-ax[0, 0].imshow(meanbrain_green[box1_xy[0]:box1_xy[0]+dx, box1_xy[1]:box1_xy[1]+dy, 10].T, cmap=cmap)
+bar_length = 10 / meanbrain_red.spacing[0]  # um -> pix
+ax[0, 0].imshow(meanbrain_red[box1_xy[0]:box1_xy[0]+dx, box1_xy[1]:box1_xy[1]+dy, 10].T, cmap=cmap)
 ax[0, 0].plot([5, 5+bar_length], [dy-5, dy-5], color='k', linestyle='-', marker='None', linewidth=2)
 
-ax[1, 0].imshow(meanbrain_green[box2_xy[0]:box2_xy[0]+dx, box2_xy[1]:box2_xy[1]+dy, 39].T, cmap=cmap)
+ax[1, 0].imshow(meanbrain_red[box2_xy[0]:box2_xy[0]+dx, box2_xy[1]:box2_xy[1]+dy, 39].T, cmap=cmap)
 ax[1, 0].plot([5, 5+bar_length], [dy-5, dy-5], color='k', linestyle='-', marker='None', linewidth=2)
 
-ax[2, 0].imshow(meanbrain_green[box3_xy[0]:box3_xy[0]+dx, box3_xy[1]:box3_xy[1]+dy, 39].T, cmap=cmap)
+ax[2, 0].imshow(meanbrain_red[box3_xy[0]:box3_xy[0]+dx, box3_xy[1]:box3_xy[1]+dy, 39].T, cmap=cmap)
 ax[2, 0].plot([5, 5+bar_length], [dy-5, dy-5], color='k', linestyle='-', marker='None', linewidth=2)
 
 ax[0, 0].imshow(glom_tmp[box1_xy[0]:box1_xy[0]+dx, box1_xy[1]:box1_xy[1]+dy, 10].T, cmap=cc.cm.glasbey, norm=norm, interpolation='none')
@@ -271,21 +271,46 @@ fh.savefig(os.path.join(save_directory, 'alignment_schematic_b.svg'), transparen
 
 
 # %%
-# Example single brain
-fh, ax = plt.subplots(2, 1, figsize=(3, 3))
+# Example single brain - entire FOV scan and PVLP/PLP scan
+
+fov_fn = 'TSeries-20220301-017_anatomical.nii'
+pvlp_fn = 'TSeries-20220301-016_anatomical.nii'
+
+fov_image = np.asanyarray(nib.load(os.path.join(base_dir, 'anatomical_brains', fov_fn)).dataobj).astype('uint32')
+pvlp_image = np.asanyarray(nib.load(os.path.join(base_dir, 'anatomical_brains', pvlp_fn)).dataobj).astype('uint32')
+
+fov_image.shape
+pvlp_image.shape
+
+# FOV scan
+dx = 50 / 0.5  # um -> pix
+fh, ax = plt.subplots(2, 1, figsize=(1.5, 3.0))
 [x.set_axis_off() for x in ax.ravel()]
-ax[0].imshow(anat_red.max(axis=2).T, cmap='Purples', vmax=np.quantile(anat_red.numpy(), 0.98))
-dx = 25 / anat_red.spacing[0]  # um -> pix
-ax[0].plot([290, 290+dx], [190, 190], color='k', linestyle='-', marker='None', linewidth=2)
-# ax[0].annotate('25 um', (284, 180), fontweight='bold', fontsize=12)
+ax[0].imshow(fov_image[:, :, :, 0, 0].max(axis=2).T,
+             cmap='Purples', vmax=np.quantile(fov_image[:, :, :, 0, 0].max(axis=2), 0.95))
+ax[0].plot([360, 360+dx], [500, 500], color='k', linestyle='-', marker='None', linewidth=2)
+ax[0].annotate('50 $\mu m$', (325, 460), fontweight='bold', fontsize=10)
 
-ax[1].imshow(anat_green.max(axis=2).T, cmap='Greens', vmax=np.quantile(anat_green.numpy(), 0.98))
-ax[1].plot([290, 290+dx], [190, 190], color='k', linestyle='-', marker='None', linewidth=2)
+ax[1].imshow(fov_image[:, :, :, 0, 1].max(axis=2).T,
+             cmap='Greens', vmax=np.quantile(fov_image[:, :, :, 0, 1].max(axis=2), 0.95))
+ax[1].plot([360, 360+dx], [500, 500], color='k', linestyle='-', marker='None', linewidth=2)
 
-fh.savefig(os.path.join(save_directory, 'alignment_singles.svg'), transparent=True)
+fh.savefig(os.path.join(save_directory, 'alignment_fov_scan.svg'), transparent=True)
 
+# PVLP scan
+dx = 25 / 0.5  # um -> pix
+fh, ax = plt.subplots(2, 1, figsize=(3.0, 2.75))
+[x.set_axis_off() for x in ax.ravel()]
+ax[0].imshow(pvlp_image[:, :, :, 0, 0].max(axis=2).T,
+             cmap='Purples', vmax=np.quantile(pvlp_image[:, :, :, 0, 0].max(axis=2), 0.95))
+ax[0].plot([275, 275+dx], [190, 190], color='k', linestyle='-', marker='None', linewidth=2)
+ax[0].annotate('25 $\mu m$', (230, 175), fontweight='bold', fontsize=10)
 
+ax[1].imshow(pvlp_image[:, :, :, 0, 1].max(axis=2).T,
+             cmap='Greens', vmax=np.quantile(pvlp_image[:, :, :, 0, 1].max(axis=2), 0.95))
+ax[1].plot([275, 275+dx], [190, 190], color='k', linestyle='-', marker='None', linewidth=2)
 
+fh.savefig(os.path.join(save_directory, 'alignment_pvlp_scan.svg'), transparent=True)
 
 
 
