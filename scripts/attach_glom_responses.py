@@ -23,17 +23,6 @@ import datetime
 
 from glom_pop import dataio, alignment
 
-
-# %%
-# Load PGS datasets from yaml
-dataset = dataio.get_dataset(dataset_id='pgs_tuning', only_included=True)
-
-if dataset.get('2021-08-04_1').get('aligned'):
-    print(dataset.get('2021-08-04_1'))
-
-
-# %%
-
 #                   (Time series, associated anatomical series for this fly)
 brain_file_sets = [
                    # ('TSeries-20210804-001', 'TSeries-20210804-003'),
