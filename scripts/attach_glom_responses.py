@@ -66,12 +66,12 @@ brain_file_sets = [
                    ('TSeries-20220301-018', 'TSeries-20220301-020'),
                    ('TSeries-20220301-019', 'TSeries-20220301-020'),
 
-                   # ('TSeries-20220307-002', 'TSeries-20220307-002'),  # No high res scan, use fxnal
-                   # ('TSeries-20220307-003', 'TSeries-20220307-002'),  # No high res scan, use fxnal
-                   # ('TSeries-20220307-004', 'TSeries-20220307-002'),  # No high res scan, use fxnal
-                   # ('TSeries-20220307-005', 'TSeries-20220307-008'),
-                   # ('TSeries-20220307-007', 'TSeries-20220307-008'),
-                   #
+                   ('TSeries-20220307-002', 'TSeries-20220307-002'),  # No high res scan, use fxnal
+                   ('TSeries-20220307-003', 'TSeries-20220307-002'),  # No high res scan, use fxnal
+                   ('TSeries-20220307-004', 'TSeries-20220307-002'),  # No high res scan, use fxnal
+                   ('TSeries-20220307-005', 'TSeries-20220307-008'),
+                   ('TSeries-20220307-007', 'TSeries-20220307-008'),
+
                    # ('TSeries-20220308-001', 'TSeries-20220308-004'),
                    # ('TSeries-20220308-002', 'TSeries-20220308-004'),
                    # ('TSeries-20220308-003', 'TSeries-20220308-004'),

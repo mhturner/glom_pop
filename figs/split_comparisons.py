@@ -11,11 +11,9 @@ from visanalysis.util import plot_tools
 
 util.config_matplotlib()
 
-base_dir = dataio.get_config_file()['base_dir']
-experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
+sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
-
-transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
+transform_directory = os.path.join(sync_dir, 'transforms', 'meanbrain_template')
 
 target_gloms = ['LC18', 'LC9', 'LC4']
 
@@ -26,7 +24,7 @@ sem_chat_responses = np.load(os.path.join(save_directory, 'sem_chat_responses.np
 included_gloms = dataio.get_included_gloms()
 
 # Load mask key for VPN types
-vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'))
 glom_mask_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'glom_mask_reg2meanbrain.nii')).numpy()
 glom_mask_2_meanbrain = alignment.filter_glom_mask_by_name(mask=glom_mask_2_meanbrain,
                                                            vpn_types=vpn_types,
@@ -57,7 +55,7 @@ for g_ind, target_glom in enumerate(target_gloms):
     # 0.5 micron pixels. 25 um scale bar
     plot_tools.addScaleBars(ax0[0, 0], dT=50, dF=0.0, T_value=35, F_value=175)
 
-    target_series = filterDataFiles(experiment_file_directory,
+    target_series = filterDataFiles(os.path.join(sync_dir, 'datafiles'),
                                     target_fly_metadata={'driver_1': target_glom},
                                     target_series_metadata={'protocol_ID': 'PanGlomSuite'},
                                     target_roi_series=['glom'])
