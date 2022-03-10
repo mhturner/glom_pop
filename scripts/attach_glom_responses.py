@@ -25,78 +25,77 @@ from glom_pop import dataio, alignment
 
 #                   (Time series, associated anatomical series for this fly)
 brain_file_sets = [
-                   # ('TSeries-20210804-001', 'TSeries-20210804-003'),
-                   # ('TSeries-20210804-002', 'TSeries-20210804-003'),
-                   # ('TSeries-20210804-004', 'TSeries-20210804-006'),
-                   # ('TSeries-20210804-005', 'TSeries-20210804-006'),
-                   # ('TSeries-20210804-007', 'TSeries-20210804-009'),
-                   # ('TSeries-20210804-008', 'TSeries-20210804-009'),
-                   #
-                   # ('TSeries-20210811-001', 'TSeries-20210811-003'),
-                   # ('TSeries-20210811-002', 'TSeries-20210811-003'),
-                   # ('TSeries-20210811-004', 'TSeries-20210811-006'),
-                   # ('TSeries-20210811-005', 'TSeries-20210811-006'),
-                   # ('TSeries-20210811-007', 'TSeries-20210811-009'),
-                   # ('TSeries-20210811-008', 'TSeries-20210811-009'),
-                   #
-                   # ('TSeries-20210820-002', 'TSeries-20210820-005'),
-                   # ('TSeries-20210820-003', 'TSeries-20210820-005'),
-                   # ('TSeries-20210820-004', 'TSeries-20210820-005'),
-                   # ('TSeries-20210820-006', 'TSeries-20210820-009'),
-                   # ('TSeries-20210820-008', 'TSeries-20210820-009'),
-                   #
-                   # ('TSeries-20210825-001', 'TSeries-20210825-004'),
-                   # ('TSeries-20210825-002', 'TSeries-20210825-004'),
-                   # ('TSeries-20210825-003', 'TSeries-20210825-004'),
-                   # ('TSeries-20210825-009', 'TSeries-20210825-012'),
-                   # ('TSeries-20210825-010', 'TSeries-20210825-012'),
-                   # ('TSeries-20210825-011', 'TSeries-20210825-012'),
-                   #
-                   # ('TSeries-20211129-002', 'TSeries-20211129-004'),
-                   # ('TSeries-20211129-003', 'TSeries-20211129-004'),
-                   # ('TSeries-20211129-008', 'TSeries-20211129-010'),
-                   # ('TSeries-20211129-009', 'TSeries-20211129-010'),
-                   #
-                   # ('TSeries-20220301-002', 'TSeries-20220301-008'),
-                   # ('TSeries-20220301-003', 'TSeries-20220301-008'),
-                   # ('TSeries-20220301-010', 'TSeries-20220301-012'),
-                   # ('TSeries-20220301-011', 'TSeries-20220301-012'),
-                   # ('TSeries-20220301-014', 'TSeries-20220301-016'),
-                   # ('TSeries-20220301-015', 'TSeries-20220301-016'),
-                   # ('TSeries-20220301-018', 'TSeries-20220301-020'),
-                   # ('TSeries-20220301-019', 'TSeries-20220301-020'),
+                   ('TSeries-20210804-001', 'TSeries-20210804-003'),
+                   ('TSeries-20210804-002', 'TSeries-20210804-003'),
+                   ('TSeries-20210804-004', 'TSeries-20210804-006'),
+                   ('TSeries-20210804-005', 'TSeries-20210804-006'),
+                   ('TSeries-20210804-007', 'TSeries-20210804-009'),
+                   ('TSeries-20210804-008', 'TSeries-20210804-009'),
 
-                   ('TSeries-20220307-002', 'TSeries-20220307-002'),  # No high res scan, use fxnal
-                   ('TSeries-20220307-003', 'TSeries-20220307-002'),  # No high res scan, use fxnal
-                   ('TSeries-20220307-004', 'TSeries-20220307-002'),  # No high res scan, use fxnal
-                   ('TSeries-20220307-005', 'TSeries-20220307-008'),
-                   ('TSeries-20220307-007', 'TSeries-20220307-008'),
+                   ('TSeries-20210811-001', 'TSeries-20210811-003'),
+                   ('TSeries-20210811-002', 'TSeries-20210811-003'),
+                   ('TSeries-20210811-004', 'TSeries-20210811-006'),
+                   ('TSeries-20210811-005', 'TSeries-20210811-006'),
+                   ('TSeries-20210811-007', 'TSeries-20210811-009'),
+                   ('TSeries-20210811-008', 'TSeries-20210811-009'),
 
-                   ('TSeries-20220308-001', 'TSeries-20220308-004'),
-                   ('TSeries-20220308-002', 'TSeries-20220308-004'),
-                   ('TSeries-20220308-003', 'TSeries-20220308-004'),
-                   ('TSeries-20220308-005', 'TSeries-20220308-008'),
-                   ('TSeries-20220308-006', 'TSeries-20220308-008'),
-                   ('TSeries-20220308-007', 'TSeries-20220308-008'),
-                   ('TSeries-20220308-009', 'TSeries-20220308-012'),
-                   ('TSeries-20220308-010', 'TSeries-20220308-012'),
-                   ('TSeries-20220308-011', 'TSeries-20220308-012'),
+                   ('TSeries-20210820-002', 'TSeries-20210820-005'),
+                   ('TSeries-20210820-003', 'TSeries-20210820-005'),
+                   ('TSeries-20210820-004', 'TSeries-20210820-005'),
+                   ('TSeries-20210820-006', 'TSeries-20210820-009'),
+                   ('TSeries-20210820-008', 'TSeries-20210820-009'),
+
+                   ('TSeries-20210825-001', 'TSeries-20210825-004'),
+                   ('TSeries-20210825-002', 'TSeries-20210825-004'),
+                   ('TSeries-20210825-003', 'TSeries-20210825-004'),
+                   ('TSeries-20210825-009', 'TSeries-20210825-012'),
+                   ('TSeries-20210825-010', 'TSeries-20210825-012'),
+                   ('TSeries-20210825-011', 'TSeries-20210825-012'),
+
+                   ('TSeries-20211129-002', 'TSeries-20211129-004'),
+                   ('TSeries-20211129-003', 'TSeries-20211129-004'),
+                   ('TSeries-20211129-008', 'TSeries-20211129-010'),
+                   ('TSeries-20211129-009', 'TSeries-20211129-010'),
+
+                   ('TSeries-20220301-002', 'TSeries-20220301-008'),
+                   ('TSeries-20220301-003', 'TSeries-20220301-008'),
+                   ('TSeries-20220301-010', 'TSeries-20220301-012'),
+                   ('TSeries-20220301-011', 'TSeries-20220301-012'),
+                   ('TSeries-20220301-014', 'TSeries-20220301-016'),
+                   ('TSeries-20220301-015', 'TSeries-20220301-016'),
+                   ('TSeries-20220301-018', 'TSeries-20220301-020'),
+                   ('TSeries-20220301-019', 'TSeries-20220301-020'),
+
+                   # ('TSeries-20220307-002', 'TSeries-20220307-002'),  # No high res scan, use fxnal
+                   # ('TSeries-20220307-003', 'TSeries-20220307-002'),  # No high res scan, use fxnal
+                   # ('TSeries-20220307-004', 'TSeries-20220307-002'),  # No high res scan, use fxnal
+                   # ('TSeries-20220307-005', 'TSeries-20220307-008'),
+                   # ('TSeries-20220307-007', 'TSeries-20220307-008'),
+                   #
+                   # ('TSeries-20220308-001', 'TSeries-20220308-004'),
+                   # ('TSeries-20220308-002', 'TSeries-20220308-004'),
+                   # ('TSeries-20220308-003', 'TSeries-20220308-004'),
+                   # ('TSeries-20220308-005', 'TSeries-20220308-008'),
+                   # ('TSeries-20220308-006', 'TSeries-20220308-008'),
+                   # ('TSeries-20220308-007', 'TSeries-20220308-008'),
+                   # ('TSeries-20220308-009', 'TSeries-20220308-012'),
+                   # ('TSeries-20220308-010', 'TSeries-20220308-012'),
+                   # ('TSeries-20220308-011', 'TSeries-20220308-012'),
 
                    ]
 
 meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
 
 data_dir = '/oak/stanford/groups/trc/data/Max/ImagingData/Bruker'
-base_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop'
-datafile_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/datafiles'
-
-transform_directory = os.path.join(base_dir, 'transforms')
+sync_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync'
+datafile_dir = os.path.join(sync_dir, 'datafiles')
+transform_directory = os.path.join(sync_dir, 'transforms')
 
 today = datetime.datetime.today().strftime('%Y%m%d')
 # %%
 
 # Load master meanbrain
-meanbrain = ants.image_read(os.path.join(base_dir, 'mean_brain', meanbrain_fn))
+meanbrain = ants.image_read(os.path.join(sync_dir, 'mean_brain', meanbrain_fn))
 [meanbrain_red, meanbrain_green] = ants.split_channels(meanbrain)
 
 # load transformed mask, in meanbrain space
@@ -104,7 +103,7 @@ fp_mask = os.path.join(transform_directory, 'meanbrain_template', 'glom_mask_reg
 glom_mask_2_meanbrain = ants.image_read(fp_mask).numpy()
 
 # Load mask key for VPN types
-vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'))
 vals = np.unique(glom_mask_2_meanbrain)[1:].astype('int')  # exclude first val (=0, not a glom)
 names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
 
@@ -123,7 +122,7 @@ for bf in brain_file_sets:
     series_number = int(functional_fn.split('-')[-1])
 
     # # # Load anatomical scan # # #
-    anat_filepath = os.path.join(base_dir, 'anatomical_brains', anatomical_fn + '_anatomical.nii')
+    anat_filepath = os.path.join(sync_dir, 'anatomical_brains', anatomical_fn + '_anatomical.nii')
     red_brain = ants.split_channels(ants.image_read(anat_filepath))[0]
 
     # # # (1) Transform map from MEANBRAIN -> ANAT # # #
@@ -173,7 +172,7 @@ for bf in brain_file_sets:
 
     # Save multichannel overlay image in fxn space: red, green, mask
     merged = ants.merge_channels([fxn_red, fxn_green, glom_mask_2_fxn])
-    save_path = os.path.join(base_dir, 'overlays', '{}_masked.nii'.format(functional_fn))
+    save_path = os.path.join(sync_dir, 'overlays', '{}_masked.nii'.format(functional_fn))
     ants.image_write(merged, save_path)
 
     # Load functional (green) brain series

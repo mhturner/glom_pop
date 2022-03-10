@@ -21,16 +21,14 @@ from glom_pop import alignment, dataio, util
 
 util.config_matplotlib()
 
-base_dir = dataio.get_config_file()['base_dir']
-experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
+sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
-transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 
 meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
 mask_fn = 'lobe_mask_chat_meanbrain_{}.nii'.format('20210824')
 
 included_gloms = dataio.get_included_gloms()
-matching_series = shared_analysis.filterDataFiles(data_directory=experiment_file_directory,
+matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
                                                   target_fly_metadata={'driver_1': 'ChAT-T2A',
                                                                        'indicator_1': 'Syt1GCaMP6f',
                                                                        'indicator_2': 'TdTomato'},
@@ -39,17 +37,17 @@ matching_series = shared_analysis.filterDataFiles(data_directory=experiment_file
 # %% Load
 
 # Load meanbrain
-meanbrain = ants.image_read(os.path.join(base_dir, 'mean_brain', meanbrain_fn))
+meanbrain = ants.image_read(os.path.join(sync_dir, 'mean_brain', meanbrain_fn))
 [meanbrain_red, meanbrain_green] = ants.split_channels(meanbrain)
 
-lobe_mask = np.asanyarray(nib.load(os.path.join(base_dir, 'mean_brain', mask_fn)).dataobj).astype('uint32')
+lobe_mask = np.asanyarray(nib.load(os.path.join(sync_dir, 'mean_brain', mask_fn)).dataobj).astype('uint32')
 
 # load transformed atlas and mask
-glom_mask_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'glom_mask_reg2meanbrain.nii')).numpy()
-template_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'JRC2018_reg2meanbrain.nii'))
+glom_mask_2_meanbrain = ants.image_read(os.path.join(sync_dir, 'transforms', 'meanbrain_template', 'glom_mask_reg2meanbrain.nii')).numpy()
+template_2_meanbrain = ants.image_read(os.path.join(sync_dir, 'transforms', 'meanbrain_template', 'JRC2018_reg2meanbrain.nii'))
 
 # Load mask key for VPN types
-vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'))
 
 glom_mask_2_meanbrain = alignment.filter_glom_mask_by_name(mask=glom_mask_2_meanbrain,
                                                            vpn_types=vpn_types,
@@ -189,7 +187,7 @@ ax[1].set_title('z = {} \u03BCm'.format(39), fontsize=11, fontweight='bold')
 fh.savefig(os.path.join(save_directory, 'alignment_areas.svg'), transparent=True)
 
 
-brain_directory = os.path.join(base_dir, 'anatomical_brains')
+brain_directory = os.path.join(sync_dir, 'anatomical_brains')
 file_paths = glob.glob(os.path.join(brain_directory, '*_anatomical.nii'))
 
 fh, ax = plt.subplots(3, len(matching_series)+1, figsize=(11, 2.75))
@@ -222,7 +220,7 @@ ax[0, 0].set_title('Mean', fontsize=11, fontweight='bold')
 
 for f_ind, series in enumerate(matching_series):
     fp = series.get('anatomical_brain')
-    transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_anatomical', 'TSeries-{}'.format(fp))
+    transform_dir = os.path.join(sync_dir, 'transforms', 'meanbrain_anatomical', 'TSeries-{}'.format(fp))
     brain_fp = os.path.join(transform_dir, 'meanbrain_reg.nii')
     ind_red = ants.split_channels(ants.image_read(brain_fp))[0]
     ind_green = ants.split_channels(ants.image_read(brain_fp))[1]
@@ -246,7 +244,7 @@ for f_ind, series in enumerate(matching_series):
     if f_ind < n_eg:
         # Load anat brain
         fp = series.get('anatomical_brain')
-        anat_brain_fp = os.path.join(base_dir, 'anatomical_brains', 'TSeries-{}_anatomical.nii'.format(fp))
+        anat_brain_fp = os.path.join(sync_dir, 'anatomical_brains', 'TSeries-{}_anatomical.nii'.format(fp))
         anat_red = ants.split_channels(ants.image_read(anat_brain_fp))[0]
         anat_green = ants.split_channels(ants.image_read(anat_brain_fp))[1]
 
@@ -287,8 +285,8 @@ fh.savefig(os.path.join(save_directory, 'alignment_schematic_b.svg'), transparen
 fov_fn = 'TSeries-20220301-017_anatomical.nii'
 pvlp_fn = 'TSeries-20220301-016_anatomical.nii'
 
-fov_image = np.asanyarray(nib.load(os.path.join(base_dir, 'anatomical_brains', fov_fn)).dataobj).astype('uint32')
-pvlp_image = np.asanyarray(nib.load(os.path.join(base_dir, 'anatomical_brains', pvlp_fn)).dataobj).astype('uint32')
+fov_image = np.asanyarray(nib.load(os.path.join(sync_dir, 'fov_anatomicals', fov_fn)).dataobj).astype('uint32')
+pvlp_image = np.asanyarray(nib.load(os.path.join(sync_dir, 'anatomical_brains', pvlp_fn)).dataobj).astype('uint32')
 
 fov_image.shape
 pvlp_image.shape
