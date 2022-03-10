@@ -19,11 +19,11 @@ transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 
 target_gloms = ['LC18', 'LC9', 'LC4']
 
+chat_response_amplitudes = np.load(os.path.join(save_directory, 'chat_response_amplitudes.npy'))
 all_chat_responses = np.load(os.path.join(save_directory, 'chat_responses.npy'))
 mean_chat_responses = np.load(os.path.join(save_directory, 'mean_chat_responses.npy'))
 sem_chat_responses = np.load(os.path.join(save_directory, 'sem_chat_responses.npy'))
-included_gloms = np.load(os.path.join(save_directory, 'included_gloms.npy'))
-colors = np.load(os.path.join(save_directory, 'colors.npy'))
+included_gloms = dataio.get_included_gloms()
 
 # Load mask key for VPN types
 vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
@@ -33,9 +33,7 @@ glom_mask_2_meanbrain = alignment.filter_glom_mask_by_name(mask=glom_mask_2_mean
                                                            included_gloms=included_gloms)
 
 for g_ind, target_glom in enumerate(target_gloms):
-    chat_glom_ind = np.where(included_gloms == target_glom)[0][0]
-    glom_mask_val = vpn_types.loc[vpn_types.get('vpn_types') == target_glom, 'Unnamed: 0'].values[0]
-
+    chat_glom_ind = np.where(np.array(included_gloms) == target_glom)[0][0]
     # Images & tuning response of split + chat
     fh0, ax0 = plt.subplots(2, 2, figsize=(3.0, 2),
                             gridspec_kw={'width_ratios': [1, 4], 'wspace': 0.01, 'hspace': 0.01})
@@ -54,7 +52,7 @@ for g_ind, target_glom in enumerate(target_gloms):
     util.make_glom_map(ax=ax0[0, 0],
                        glom_map=glom_mask_2_meanbrain,
                        z_val=None,
-                       highlight_vals=[glom_mask_val])
+                       highlight_names=[target_glom])
 
     # 0.5 micron pixels. 25 um scale bar
     plot_tools.addScaleBars(ax0[0, 0], dT=50, dF=0.0, T_value=35, F_value=175)
@@ -65,6 +63,7 @@ for g_ind, target_glom in enumerate(target_gloms):
                                     target_roi_series=['glom'])
 
     split_responses = []
+    split_response_amplitudes = []
     for s_ind, ser in enumerate(target_series):
         file_path = ser.get('file_name') + '.hdf5'
         series_number = ser.get('series')
@@ -79,9 +78,14 @@ for g_ind, target_glom in enumerate(target_gloms):
         # Align responses
         roi_data = ID.getRoiResponses('glom')
         unique_parameter_values, mean_response, _, _ = ID.getTrialAverages(roi_data['epoch_response'])
+
+        response_amp = ID.getResponseAmplitude(mean_response, metric='max')
+
+        split_response_amplitudes.append(response_amp)
         split_responses.append(mean_response)
 
-    split_responses = np.vstack(split_responses)
+    split_responses = np.vstack(split_responses)  # flies x stim x time
+    split_response_amplitudes = np.vstack(split_response_amplitudes)  # flies x stim
 
     # shape = (n flies, concatenated time)
     individual_split_concat = np.concatenate([split_responses[:, x, :] for x in np.arange(len(unique_parameter_values)-2)], axis=1)
@@ -92,11 +96,11 @@ for g_ind, target_glom in enumerate(target_gloms):
     mean_chat = individual_chat_concat.mean(axis=0)
     err_chat = individual_chat_concat.std(axis=0) / np.sqrt(individual_chat_concat.shape[0])
     ax0[0, 1].plot(concat_time, mean_chat,
-                   color=colors[chat_glom_ind, :], alpha=1.0, linewidth=1)
+                   color=util.get_color_dict().get(target_glom), alpha=1.0, linewidth=1)
     ax0[0, 1].fill_between(concat_time,
                            mean_chat - err_chat,
                            mean_chat + err_chat,
-                           color=colors[chat_glom_ind, :], alpha=0.5, linewidth=0)
+                           color=util.get_color_dict().get(target_glom), alpha=0.5, linewidth=0)
 
     mean_split = individual_split_concat.mean(axis=0)
     err_split = individual_split_concat.std(axis=0) / np.sqrt(individual_split_concat.shape[0])
@@ -110,13 +114,11 @@ for g_ind, target_glom in enumerate(target_gloms):
     plot_tools.addScaleBars(ax0[0, 1], dT=5, dF=0.10, T_value=0, F_value=-0.045)
 
     # Compare mean response amplitudes
-    split_amp = split_responses.max(axis=2)[:, :30]  # shape = (flies, stims)
-
+    split_amp = split_response_amplitudes[:, :30]  # shape = (flies, stims)
     mean_split_amp = np.mean(split_amp, axis=0)
     sem_split_amp = (np.std(split_amp, axis=0) / np.sqrt(split_amp.shape[0]))
 
-    chat_amp = all_chat_responses[chat_glom_ind, :, :, :].max(axis=1).T  # shape = (flies, stims)
-
+    chat_amp = chat_response_amplitudes[chat_glom_ind, :, :].T  # shape = (flies, stims)
     mean_chat_amp = np.mean(chat_amp, axis=0)
     sem_chat_amp = np.std(chat_amp, axis=0) / np.sqrt(chat_amp.shape[0])
 

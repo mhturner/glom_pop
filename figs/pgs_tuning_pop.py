@@ -17,10 +17,8 @@ from glom_pop import dataio, util, alignment
 
 util.config_matplotlib()
 
-base_dir = dataio.get_config_file()['base_dir']
-experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
+sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
-transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 
 # TODO: Tuning to some params:
 #       -light/dark
@@ -32,8 +30,8 @@ transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
 glom_size_threshold = 10
 
 # Load overall glom map
-vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
-glom_mask_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'glom_mask_reg2meanbrain.nii')).numpy()
+vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'))
+glom_mask_2_meanbrain = ants.image_read(os.path.join(sync_dir, 'transforms', 'meanbrain_template', 'glom_mask_reg2meanbrain.nii')).numpy()
 all_vals, all_names = dataio.get_glom_mask_decoder(glom_mask_2_meanbrain)
 
 all_sizes = pd.DataFrame(data=[np.sum(glom_mask_2_meanbrain == mv) for mv in all_vals],
@@ -43,7 +41,12 @@ all_sizes = pd.DataFrame(data=[np.sum(glom_mask_2_meanbrain == mv) for mv in all
 included_gloms = dataio.get_included_gloms()
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-matching_series = shared_analysis.filterDataFiles(data_directory=experiment_file_directory,
+# Get all glom mask values & names
+vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'))
+all_glom_values = vpn_types['Unnamed: 0'].values
+all_glom_names = vpn_types['vpn_types'].values
+
+matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
                                                   target_fly_metadata={'driver_1': 'ChAT-T2A',
                                                                        'indicator_1': 'Syt1GCaMP6f',
                                                                        'indicator_2': 'TdTomato'},
@@ -64,20 +67,22 @@ for s_ind, series in enumerate(matching_series):
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
 
-    # epoch_response_matrix: shape=(gloms, trials, time)
+    # epoch_response_matrix: shape=(included_gloms, trials, time)
     epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
     epoch_response_matrix[:] = np.nan
 
-    glom_sizes = np.zeros(len(included_vals))
-    for val_ind, included_val in enumerate(included_vals):
-        new_glom_size = np.sum(response_data.get('mask') == included_val)
+    glom_sizes = np.zeros(len(all_glom_values))  # Glom sizes of ALL gloms, not just included
+    for val_ind, new_val in enumerate(all_glom_values):
+        new_glom_size = np.sum(response_data.get('mask') == new_val)
         glom_sizes[val_ind] = new_glom_size
 
-        if new_glom_size > glom_size_threshold:
-            pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
-            epoch_response_matrix[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
-        else:  # Exclude because this glom, in this fly, is too tiny
-            pass
+        if new_val in included_vals:  # Append responses for included gloms only
+            included_ind = np.where(new_val == included_vals)[0]
+            if new_glom_size > glom_size_threshold:
+                pull_ind = np.where(new_val == response_data.get('mask_vals'))[0][0]
+                epoch_response_matrix[included_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
+            else:  # Exclude because this glom, in this fly, is too tiny
+                pass
 
     # Align responses
     unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
@@ -114,23 +119,35 @@ std_concat = np.vstack(np.concatenate([std_responses[:, x, :] for x in np.arange
 time_concat = np.arange(0, mean_concat.shape[-1]) * ID.getAcquisitionMetadata().get('sample_period')
 
 np.save(os.path.join(save_directory, 'chat_responses.npy'), all_responses)
+np.save(os.path.join(save_directory, 'chat_response_amplitudes.npy'), response_amplitudes)
 np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
 np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
 np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
 
-# %% QC: Number of voxels in each glomerulus
-empties = (all_glom_sizes < glom_size_threshold).sum(axis=1)
+# %% QC: Number of voxels in each glomerulus. Included vs. excluded gloms sizes
+
+glom_sizes_pd = pd.DataFrame(data=all_glom_sizes.copy(),
+                             index=all_glom_names)
+# Drop gloms with all zeros
+glom_sizes_pd = glom_sizes_pd.loc[~(glom_sizes_pd == 0).all(axis=1)]
 
 
 fh, ax = plt.subplots(1, 1, figsize=(5, 3))
-for ind, ig in enumerate(included_gloms):
-    ax.plot(ind*np.ones(all_glom_sizes.shape[1]), all_glom_sizes[ind, :], 'k.')
+for ind, ig in enumerate(glom_sizes_pd.index):
+    if ig in included_gloms:
+        color = 'k'
+    else:
+        color = 'r'
+    ax.plot(ind*np.ones(glom_sizes_pd.shape[1]),
+            glom_sizes_pd.loc[ig, :],
+            color=color, marker='.', linestyle='none')
 
 ax.set_ylabel('Number of voxels')
 ax.axhline(glom_size_threshold, color='k', linestyle='-', alpha=0.5)
-ax.set_xticks(np.arange(0, len(included_gloms)))
-ax.set_xticklabels(included_gloms, rotation=90)
+ax.set_xticks(np.arange(0, len(glom_sizes_pd.index)))
+ax.set_xticklabels(glom_sizes_pd.index, rotation=90);
 ax.set_yscale('log')
+fh.savefig(os.path.join(save_directory, 'pgs_glom_sizes.svg'), transparent=True)
 
 # %% QC: glom response traces. For MC or occlusion artifacts
 
@@ -192,7 +209,6 @@ ax0.spines['right'].set_visible(False)
 ax0.spines['bottom'].set_visible(False)
 ax0.spines['left'].set_visible(False)
 ax0.invert_yaxis()
-
 
 
 # Plot mean concatenated responses
@@ -284,11 +300,11 @@ fh7.savefig(os.path.join(save_directory, 'pgs_fly_cv.svg'), transparent=True)
 scaling = np.nanmax(np.nanmean(response_amplitudes, axis=-1), axis=-1)
 # cv = np.nanstd(response_amplitudes, axis=-1) / scaling[:, None]
 cv = np.nanstd(response_amplitudes, -1) / np.nanmean(response_amplitudes, -1)
-eg_leaf_inds = [2, 3, 12]  # [1, 3, 12]
+eg_leaf_inds = [2, 6, 8]
 eg_stim_ind = 8  # 8
 fh2, ax2 = plt.subplots(len(eg_leaf_inds), all_responses.shape[-1], figsize=(4.0, 2.5))
 print(unique_parameter_values[eg_stim_ind])
-[x.set_ylim([-0.1, 0.50]) for x in ax2.ravel()]
+[x.set_ylim([-0.1, 0.65]) for x in ax2.ravel()]
 [x.set_axis_off() for x in ax2.ravel()]
 for li, leaf_ind in enumerate(eg_leaf_inds):
     g_ind = leaves[leaf_ind]
@@ -305,24 +321,6 @@ for li, leaf_ind in enumerate(eg_leaf_inds):
 
 fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=True)
 
-
-# %% Trial-to-trial variability
-
-fh5, ax5 = plt.subplots(len(eg_leaf_inds), 5, figsize=(3.0, 2))
-
-[x.set_ylim([-0.2, 1.2]) for x in ax5.ravel()]
-[x.set_axis_off() for x in ax5.ravel()]
-for li, leaf_ind in enumerate(eg_leaf_inds):
-    g_ind = leaves[leaf_ind]
-
-    for trial in range(5):
-        ax5[li, trial].plot(trial_response_by_stimulus[eg_stim_ind][g_ind, trial, :], color='k', alpha=0.5)
-        ax5[li, trial].plot(np.mean(trial_response_by_stimulus[eg_stim_ind][g_ind, :, :], axis=0), color=util.get_color_dict()[included_gloms[g_ind]])
-
-        if trial == 0 & li == 0:
-            plot_tools.addScaleBars(ax5[0, 0], dT=2, dF=0.25, T_value=0, F_value=-0.08)
-
-fh5.savefig(os.path.join(save_directory, 'pgs_trial_responses.svg'), transparent=True)
 
 
 
@@ -351,7 +349,7 @@ fh4.savefig(os.path.join(save_directory, 'pgs_Inter_Ind_Corr.svg'), transparent=
 
 # %% OTHER STUFF
 
-# %% Visualize clustering of individual gloms, with aligned glom identiy overlaid
+# %% Visualize clustering of individual gloms, with aligned glom identity overlaid
 
 # X: individual gloms x features
 # Row order = LCa_fly1, LCa_fly2, ..., LCb_fly1, LCb_fly2, ... LCn_flyn

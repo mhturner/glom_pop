@@ -114,9 +114,9 @@ mask_ids = np.unique(brain_mask_transformed.numpy())[1:]  # exclude first (=0, i
 closed_eroded_mask = np.zeros_like(brain_mask_transformed.numpy())
 for mask_id in mask_ids:
     # Closing
-    morph_mask = morphology.closing(brain_mask_transformed.numpy() == mask_id, selem=morphology.ball(4))
+    morph_mask = morphology.closing(brain_mask_transformed.numpy() == mask_id, footprint=morphology.ball(6.0))
     # One more erosion to remove speckles
-    morph_mask = morphology.binary_erosion(morph_mask, selem=morphology.ball(1))
+    morph_mask = morphology.binary_erosion(morph_mask, selem=morphology.ball(1.0))
     closed_eroded_mask[morph_mask] = mask_id
 
 # Convert to ANTs image & save: closed mask

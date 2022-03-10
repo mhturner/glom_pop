@@ -218,9 +218,10 @@ def load_responses(ID, response_set_name='glom', get_voxel_responses=False):
     return response_data
 
 
-def get_glom_mask_decoder(mask, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
+def get_glom_mask_decoder(mask):
+    sync_dir = get_config_file()['sync_dir']
     # Load mask key for VPN types
-    vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+    vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'))
 
     vals = np.unique(mask)[1:]  # exclude first val (=0, not a glom)
 
@@ -228,16 +229,18 @@ def get_glom_mask_decoder(mask, base_dir='/Users/mhturner/Dropbox/ClandininLab/A
     return vals, names
 
 
-def get_glom_name_from_val(val, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
+def get_glom_name_from_val(val):
+    sync_dir = get_config_file()['sync_dir']
     # Load mask key for VPN types
-    vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+    vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'))
     name = vpn_types.iloc[np.where(vpn_types['Unnamed: 0'] == val)[0], 1].values[0]
 
     return name
 
 
-def get_glom_vals_from_names(glom_names, base_dir='/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'):
-    vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
+def get_glom_vals_from_names(glom_names):
+    sync_dir = get_config_file()['sync_dir']
+    vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'))
     vals = np.array([vpn_types.iloc[np.where(vpn_types.vpn_types == ig)[0][0], 0] for ig in glom_names])
 
     return vals

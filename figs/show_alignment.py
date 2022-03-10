@@ -16,6 +16,7 @@ import ants
 from matplotlib.patches import Rectangle
 import glob
 
+from visanalysis.analysis import shared_analysis
 from glom_pop import alignment, dataio, util
 
 util.config_matplotlib()
@@ -29,8 +30,12 @@ meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
 mask_fn = 'lobe_mask_chat_meanbrain_{}.nii'.format('20210824')
 
 included_gloms = dataio.get_included_gloms()
-dataset = dataio.get_dataset(dataset_id='pgs_tuning', only_included=True)
-
+matching_series = shared_analysis.filterDataFiles(data_directory=experiment_file_directory,
+                                                  target_fly_metadata={'driver_1': 'ChAT-T2A',
+                                                                       'indicator_1': 'Syt1GCaMP6f',
+                                                                       'indicator_2': 'TdTomato'},
+                                                  target_series_metadata={'protocol_ID': 'PanGlomSuite',
+                                                                          'include_in_analysis': True})
 # %% Load
 
 # Load meanbrain
@@ -52,7 +57,7 @@ glom_mask_2_meanbrain = alignment.filter_glom_mask_by_name(mask=glom_mask_2_mean
 
 # %%
 
-fh, ax = plt.subplots(1, 2, figsize=(6, 4))
+fh, ax = plt.subplots(1, 3, figsize=(8, 3))
 util.make_glom_map(ax=ax[0],
                    glom_map=glom_mask_2_meanbrain,
                    z_val=None,
@@ -62,6 +67,12 @@ util.make_glom_map(ax=ax[1],
                    glom_map=glom_mask_2_meanbrain,
                    z_val=None,
                    highlight_names='all')
+
+util.make_glom_map(ax=ax[2],
+                   glom_map=glom_mask_2_meanbrain,
+                   z_val=None,
+                   highlight_names='all',
+                   colors='glasbey')
 
 # %%
 # Show z slices of meanbrain, template, & glom map for alignment
@@ -181,7 +192,7 @@ fh.savefig(os.path.join(save_directory, 'alignment_areas.svg'), transparent=True
 brain_directory = os.path.join(base_dir, 'anatomical_brains')
 file_paths = glob.glob(os.path.join(brain_directory, '*_anatomical.nii'))
 
-fh, ax = plt.subplots(3, len(dataset)+1, figsize=(11, 2.75))
+fh, ax = plt.subplots(3, len(matching_series)+1, figsize=(11, 2.75))
 # [x.set_axis_off() for x in ax.ravel()]
 bar_length = 10 / meanbrain_red.spacing[0]  # um -> pix
 ax[0, 0].imshow(meanbrain_red[box1_xy[0]:box1_xy[0]+dx, box1_xy[1]:box1_xy[1]+dy, 10].T, cmap=cmap)
@@ -209,8 +220,8 @@ ax[0, 0].set_title('Mean', fontsize=11, fontweight='bold')
 [s.set_linewidth(2) for s in ax[1, 0].spines.values()]
 [s.set_linewidth(2) for s in ax[2, 0].spines.values()]
 
-for f_ind, key in enumerate(dataset):
-    fp = dataset.get(key).get('anatomical_brain')
+for f_ind, series in enumerate(matching_series):
+    fp = series.get('anatomical_brain')
     transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_anatomical', 'TSeries-{}'.format(fp))
     brain_fp = os.path.join(transform_dir, 'meanbrain_reg.nii')
     ind_red = ants.split_channels(ants.image_read(brain_fp))[0]
@@ -231,10 +242,10 @@ n_eg = 2
 fh, ax = plt.subplots(n_eg*2, 1, figsize=(2.5, n_eg*1.5))
 [x.set_axis_off() for x in ax.ravel()]
 
-for f_ind, key in enumerate(dataset):
+for f_ind, series in enumerate(matching_series):
     if f_ind < n_eg:
         # Load anat brain
-        fp = dataset.get(key).get('anatomical_brain')
+        fp = series.get('anatomical_brain')
         anat_brain_fp = os.path.join(base_dir, 'anatomical_brains', 'TSeries-{}_anatomical.nii'.format(fp))
         anat_red = ants.split_channels(ants.image_read(anat_brain_fp))[0]
         anat_green = ants.split_channels(ants.image_read(anat_brain_fp))[1]

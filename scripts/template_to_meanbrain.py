@@ -140,3 +140,33 @@ for s_ind, slice in enumerate(slices):
 
     ax[s_ind, 2].imshow(disp_meanbrain[:, :, slice].T, alpha=0.5, cmap='Greens', vmax=np.quantile(disp_meanbrain, 0.99))
     ax[s_ind, 2].imshow(glom_tmp[:, :, slice].T, alpha=0.5, cmap=cc.cm.glasbey, interpolation='nearest')
+
+
+# %% Re-apply saved transform to remade glom map
+transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_template')
+
+# Load brains
+meanbrain = ants.image_read(os.path.join(base_dir, 'mean_brain', meanbrain_fn))
+[meanbrain_red, meanbrain_green] = ants.split_channels(meanbrain)
+
+# Load glom mask
+glom_mask = ants.image_read(os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_closed.nii'))
+
+# load pre-registered (above) template
+template_warped = ants.image_read(os.path.join(transform_dir, 'JRC2018_reg2meanbrain.nii'))
+
+# Load transform
+transform_list = dataio.get_transform_list(transform_dir, direction='forward')
+
+glom_mask_warped = ants.apply_transforms(fixed=meanbrain_green,
+                                         moving=glom_mask,
+                                         transformlist=transform_list,
+                                         interpolator='genericLabel')
+
+# Save transformed images
+ants.image_write(glom_mask_warped, os.path.join(transform_dir, 'glom_mask_reg2meanbrain.nii'))
+
+# Save overlay multichannel image
+merged = ants.merge_channels([meanbrain_red, meanbrain_green, template_warped, glom_mask_warped])
+save_path = os.path.join(transform_dir, 'overlay_meanbrain.nii')
+ants.image_write(merged, save_path)

@@ -1,42 +1,25 @@
 from visanalysis.plugin import bruker
-from visanalysis.util import h5io
-import os
-from glom_pop import dataio
+from visanalysis.util import registration
+import ants
+import time
 
-experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
+t0 = time.time()
+fp_base = '/oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20220307/TSeries-20220307-002'
 
-expt_files = [
-              '2021-08-04',
-              '2021-08-11',
-              '2021-08-20',
-              '2021-08-25',
-              '2021-11-29',
-              '2021-12-02',
-              '2021-12-07',
-              '2021-12-08',
-              '2022-03-01',
-              '2022-03-07',
-              '2022-03-08',
-]
+metadata = bruker.getMetaData(fp_base)
+spacing = [float(metadata['micronsPerPixel_XAxis']),
+           float(metadata['micronsPerPixel_YAxis']),
+           float(metadata['micronsPerPixel_ZAxis'])]
 
-for experiment_file_name in expt_files:
-    experiment_filepath = os.path.join(experiment_file_directory, experiment_file_name) +'.hdf5'
+ch1_mb = registration.get_ants_brain(fp_base+'_reg.nii', metadata, channel=0).mean(axis=3)
+ch2_mb = registration.get_ants_brain(fp_base+'_reg.nii', metadata, channel=1).mean(axis=3)
 
-    plug = bruker.BrukerPlugin()
+ch1 = ants.from_numpy(ch1_mb, spacing=spacing)
+ch2 = ants.from_numpy(ch2_mb, spacing=spacing)
 
-    # Add 'include_in_analysis' flag to each series
-    for sn in plug.getSeriesNumbers(file_path=experiment_filepath):
-        h5io.updateSeriesAttribute(file_path=experiment_filepath,
-                                   series_number=sn,
-                                   attr_key='include_in_analysis',
-                                   attr_val=True)
+merged = ants.merge_channels([ch1, ch2])
+save_path = '{}_anatomical.nii'.format(fp_base)
+# Note saving as ANTs image here (32 bit)
+ants.image_write(merged, save_path)
 
-        h5io.updateSeriesAttribute(file_path=experiment_filepath,
-                                   series_number=sn,
-                                   attr_key='anatomical_brain',
-                                   attr_val='')
-
-        h5io.updateSeriesAttribute(file_path=experiment_filepath,
-                                   series_number=sn,
-                                   attr_key='series_notes',
-                                   attr_val='')
+print('Saved registered meanbrain to {}. Total time = {:.1f}'.format(save_path, time.time()-t0))
