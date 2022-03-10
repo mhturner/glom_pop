@@ -130,7 +130,8 @@ glom_sizes_pd = pd.DataFrame(data=all_glom_sizes.copy(),
                              index=all_glom_names)
 # Drop gloms with all zeros
 glom_sizes_pd = glom_sizes_pd.loc[~(glom_sizes_pd == 0).all(axis=1)]
-
+nonzero_glom_names = glom_sizes_pd.index.values
+nonzero_glom_vals = dataio.get_glom_vals_from_names(nonzero_glom_names)
 
 fh, ax = plt.subplots(1, 1, figsize=(5, 3))
 for ind, ig in enumerate(glom_sizes_pd.index):
@@ -162,15 +163,14 @@ for s_ind, series in enumerate(matching_series):
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
 
-    fh, ax = plt.subplots(14, 1, figsize=(12, 12))
+    fh, ax = plt.subplots(len(nonzero_glom_vals), 1, figsize=(8, 12))
     ax[0].set_title('{}: {}'.format(os.path.split(file_path)[-1], series_number))
-    ct = 0
-    for i in range(19):
-        val = response_data['mask_vals'][i]
-        if val in included_vals:
-            ax[ct].plot(response_data['response'][i, :])
-            ax[ct].set_ylabel(dataio.get_glom_name_from_val(val))
-            ct += 1
+
+    for g_ind, g_val in enumerate(nonzero_glom_vals):
+        pull_ind = np.where(g_val == response_data['mask_vals'])[0][0]
+
+        ax[g_ind].plot(response_data['response'][pull_ind, :])
+        ax[g_ind].set_ylabel(dataio.get_glom_name_from_val(g_val))
 
 # %%
 
@@ -236,7 +236,7 @@ for leaf_ind, g_ind in enumerate(leaves):
 
 fh0.savefig(os.path.join(save_directory, 'pgs_tuning_dendrogram.svg'), transparent=True)
 fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True, dpi=300)
-
+# plt.get_cmap('tab20b')
 # Save leaves list and ordered response dataframe
 np.save(os.path.join(save_directory, 'cluster_leaves_list.npy'), leaves)
 np.save(os.path.join(save_directory, 'cluster_vals.npy'), clusters)

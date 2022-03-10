@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 from glom_pop import dataio
 
-base_dir = dataio.get_config_file()['base_dir']
+sync_dir = dataio.get_config_file()['sync_dir']
 
 # %% Fxn def'n
 
@@ -101,10 +101,20 @@ def registerBrainsToReference(brain_file_path,
 
 # Load meanbrain
 meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
-meanbrain = ants.image_read(os.path.join(base_dir, 'mean_brain', meanbrain_fn))
+meanbrain = ants.image_read(os.path.join(sync_dir, 'mean_brain', meanbrain_fn))
 
-# Note dir. change: registering all anatomical brains to meanbrain now
-file_paths = glob.glob(os.path.join(base_dir, 'anatomical_brains', '*_anatomical.nii'))
+# Register all anatomical brains to meanbrain
+# file_paths = glob.glob(os.path.join(sync_dir, 'anatomical_brains', '*_anatomical.nii'))
+
+# Register select brains
+file_names = [
+              'TSeries-20220307-002_anatomical.nii',
+              'TSeries-20220307-008_anatomical.nii',
+              'TSeries-20220308-004_anatomical.nii',
+              'TSeries-20220308-008_anatomical.nii',
+              'TSeries-20220308-012_anatomical.nii',
+              ]
+file_paths = [os.path.join(sync_dir, 'anatomical_brains', x) for x in file_names]
 
 # %% Run through all brains in dir
 # Register each anatomical brain to the meanbrain
@@ -126,10 +136,10 @@ for brain_file_path in file_paths:
     # Lobe mask helps. Brain missing part of 6 & 16 at top
 
 mask_fn = 'lobe_mask_chat_meanbrain_{}.nii'.format('20210824')
-lobe_mask = np.asanyarray(nib.load(os.path.join(base_dir, 'mean_brain', mask_fn)).dataobj).astype('uint32')
+lobe_mask = np.asanyarray(nib.load(os.path.join(sync_dir, 'mean_brain', mask_fn)).dataobj).astype('uint32')
 lobe_mask = ants.from_numpy(np.squeeze(lobe_mask), spacing=meanbrain.spacing)
 
-file_path = os.path.join(base_dir, 'anatomical_brains', 'TSeries-20210820-009_anatomical.nii')
+file_path = os.path.join(sync_dir, 'anatomical_brains', 'TSeries-20210820-009_anatomical.nii')
 individual_brain = ants.image_read(file_path)
 
 fixed_red = ants.n4_bias_field_correction(ants.split_channels(meanbrain)[0])
@@ -160,7 +170,7 @@ registerBrainsToReference(file_path,
 
 series_name = os.path.split(file_path)[-1].split('_')[0]
 # Make save paths for transforms
-transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_anatomical', series_name)
+transform_dir = os.path.join(sync_dir, 'transforms', 'meanbrain_anatomical', series_name)
 brain_fp = os.path.join(transform_dir, 'meanbrain_reg.nii')
 ind_red = ants.split_channels(ants.image_read(brain_fp))[0]
 slices = [2, 5, 10, 20, 30, 40, 44]
@@ -175,7 +185,7 @@ for s_ind, s in enumerate(slices):
 
 for f_ind, fp in enumerate(file_paths):
     series_name = os.path.split(fp)[-1].split('_')[0]
-    transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_anatomical', series_name)
+    transform_dir = os.path.join(sync_dir, 'transforms', 'meanbrain_anatomical', series_name)
     brain_fp = os.path.join(transform_dir, 'meanbrain_reg.nii')
     ind_red = ants.split_channels(ants.image_read(brain_fp))[0]
     ants.plot(ants.split_channels(meanbrain)[0], ind_red,
@@ -192,7 +202,7 @@ fh, ax = plt.subplots(len(file_paths), len(slices), figsize=(12, 18))
 [x.set_axis_off() for x in ax.ravel()]
 for f_ind, fp in enumerate(file_paths):
     series_name = os.path.split(fp)[-1].split('_')[0]
-    transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_anatomical', series_name)
+    transform_dir = os.path.join(sync_dir, 'transforms', 'meanbrain_anatomical', series_name)
     brain_fp = os.path.join(transform_dir, 'meanbrain_reg.nii')
     ind_red = ants.split_channels(ants.image_read(brain_fp))[0]
     for s_ind, s in enumerate(slices):
@@ -209,7 +219,7 @@ dy = 60
 
 meanbrain_red = ants.split_channels(meanbrain)[0]
 meanbrain_red
-brain_directory = os.path.join(base_dir, 'anatomical_brains')
+brain_directory = os.path.join(sync_dir, 'anatomical_brains')
 file_paths = glob.glob(os.path.join(brain_directory, '*_anatomical.nii'))
 
 boxes = [(55, 10), (30, 110), (120, 5)]
@@ -231,7 +241,7 @@ for b_ind, box in enumerate(boxes):
 
     for f_ind, fp in enumerate(file_paths):
         series_name = os.path.split(fp)[-1].split('_')[0]
-        transform_dir = os.path.join(base_dir, 'transforms', 'meanbrain_anatomical', series_name)
+        transform_dir = os.path.join(sync_dir, 'transforms', 'meanbrain_anatomical', series_name)
         brain_fp = os.path.join(transform_dir, 'meanbrain_reg.nii')
         ind_red = ants.split_channels(ants.image_read(brain_fp))[0]
 

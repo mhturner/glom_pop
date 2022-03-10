@@ -34,22 +34,23 @@ def clean_axes(ax):
 
 def get_color_dict():
     color_dict = {
-                  'LC11': plt.get_cmap('tab20b')(1/20),
-                  'LC21': plt.get_cmap('tab20b')(2/20),
-                  'LC18': plt.get_cmap('tab20b')(3/20),
+                  'LC11': plt.get_cmap('tab20b')(0/20),
+                  'LC21': plt.get_cmap('tab20b')(1/20),
+                  'LC18': plt.get_cmap('tab20b')(2/20),
 
-                  'LC15': plt.get_cmap('tab20b')(5/20),
-                  'LC12': plt.get_cmap('tab20b')(6/20),
-                  'LC17': plt.get_cmap('tab20b')(7/20),
+                  'LC6': plt.get_cmap('tab20b')(4/20),
+                  'LC26': plt.get_cmap('tab20b')(5/20),
+                  'LC16': plt.get_cmap('tab20b')(6/20),
+                  'LPLC2': plt.get_cmap('tab20b')(7/20),
 
-                  'LC9': plt.get_cmap('tab20b')(9/20),
-                  'LPLC1': plt.get_cmap('tab20b')(10/20),
-                  'LC4': plt.get_cmap('tab20b')(11/20),
+                  'LC4': plt.get_cmap('tab20b')(8/20),
+                  'LPLC1': plt.get_cmap('tab20b')(9/20),
+                  'LC9': plt.get_cmap('tab20b')(10/20),
 
-                  'LPLC2': plt.get_cmap('tab20b')(16/20),
-                  'LC16': plt.get_cmap('tab20b')(17/20),
-                  'LC26': plt.get_cmap('tab20b')(18/20),
-                  'LC6': plt.get_cmap('tab20b')(19/20),
+                  'LC15': plt.get_cmap('tab20b')(16/20),
+                  'LC12': plt.get_cmap('tab20b')(17/20),
+                  'LC17': plt.get_cmap('tab20b')(18/20),
+
                   }
 
     return color_dict
