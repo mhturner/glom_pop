@@ -1,9 +1,15 @@
 from visanalysis.analysis import imaging_data
 from visanalysis.util import plot_tools
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 import numpy as np
 import os
-from glom_pop import dataio, util
+# import colorcet as cc
+import pandas as pd
+import ants
+import seaborn as sns
+
+from glom_pop import dataio, util, alignment
 
 util.config_matplotlib()
 
@@ -11,6 +17,8 @@ base_dir = dataio.get_config_file()['base_dir']
 experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
 save_directory = dataio.get_config_file()['save_directory']
 transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
+
+dataset = dataio.get_dataset(dataset_id='pgs_reduced', only_included=True)
 
 leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.get_included_gloms()
@@ -51,13 +59,27 @@ for s_ind, key in enumerate(dataset):
             pass
 
     # Align responses
-    unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix, parameter_key='current_coherence')
+    unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
 
     response_amp = ID.getResponseAmplitude(mean_response, metric='max')
 
     all_responses.append(mean_response)
     response_amplitudes.append(response_amp)
     all_glom_sizes.append(glom_sizes)
+
+    # Trial by trial variability
+    stim_ind = 2
+    trial_response_amp = ID.getResponseAmplitude(trial_response_by_stimulus[stim_ind], metric='max')
+
+    fh, ax = plt.subplots(len(included_gloms), 30, figsize=(20, 6))
+    [x.set_ylim([-0.15, 1.0]) for x in ax.ravel()]
+    [util.clean_axes(x) for x in ax.ravel()]
+    [x.set_ylim() for x in ax.ravel()]
+    for g_ind, glom in enumerate(included_gloms):
+        ax[g_ind, 0].set_ylabel(glom)
+        for t in range(30):
+            ax[g_ind, t].plot(trial_response_by_stimulus[stim_ind][g_ind, t, :], color=util.get_color_dict()[glom])
+
 
 
 # Stack accumulated responses
@@ -71,10 +93,11 @@ mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, param, time)
 sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, param, time)
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
 
-# %% Plot resp. vs. dot coherence
+# %%
+response_amplitudes.shape
 
 fh, ax = plt.subplots(len(included_gloms), len(unique_parameter_values), figsize=(6, 7))
-[x.set_ylim([-0.15, 0.3]) for x in ax.ravel()]
+[x.set_ylim([-0.15, 0.6]) for x in ax.ravel()]
 # [x.set_axis_off() for x in ax.ravel()]
 [util.clean_axes(x) for x in ax.ravel()]
 for g_ind, glom in enumerate(included_gloms):
@@ -84,22 +107,28 @@ for g_ind, glom in enumerate(included_gloms):
         ax[g_ind, u_ind].plot(mean_responses[g_ind, u_ind, :], color=util.get_color_dict()[glom])
         # ax[g_ind, u_ind].plot(all_responses[g_ind, u_ind, :, :], alpha=0.5, color='k')
 
-clusters = [['LPLC2', 'LPLC1', 'LC6', 'LC26', 'LC16', 'LC4'],
-            ['LC18', 'LC9', 'LC15', 'LC12', 'LC17'],
-            ['LC11', 'LC21']]
+# %%
 
+trial_response_amp = ID.getResponseAmplitude(trial_response_by_stimulus[2], metric='max')
 
-fh, ax = plt.subplots(3, 1, figsize=(2.0, 4.5))
-[x.set_ylim([0, 0.3]) for x in ax.ravel()]
+unique_parameter_values
+trial_response_by_stimulus[2].shape
+stim_ind = 2
+g_ind = 7
+
+fh, ax = plt.subplots(len(included_gloms), 30, figsize=(20, 6))
+[x.set_ylim([-0.15, 1.0]) for x in ax.ravel()]
+[util.clean_axes(x) for x in ax.ravel()]
+[x.set_ylim() for x in ax.ravel()]
 for g_ind, glom in enumerate(included_gloms):
+    ax[g_ind, 0].set_ylabel(glom)
+    for t in range(30):
+        ax[g_ind, t].plot(trial_response_by_stimulus[stim_ind][g_ind, t, :], color=util.get_color_dict()[glom])
 
-    cluster_ind = np.where([glom in c for c in clusters])[0]
-    if len(cluster_ind) > 0:
-        ax[cluster_ind[0]].plot(unique_parameter_values, response_amplitudes[g_ind, :, :].mean(axis=-1),
-                                color=util.get_color_dict()[glom], marker='o', linestyle='-')
 
-ax[2].set_xlabel('Coherence')
-ax[1].set_ylabel('Mean response (dF/F)')
-cluster_ind
 
+# %%
+corr = pd.DataFrame(data=trial_response_amp.T).corr()
+
+sns.heatmap(corr)
 # %%

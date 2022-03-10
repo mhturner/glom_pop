@@ -64,7 +64,23 @@ brain_file_sets = [
                    # ('TSeries-20220301-014', 'TSeries-20220301-016'),
                    # ('TSeries-20220301-015', 'TSeries-20220301-016'),
                    # ('TSeries-20220301-018', 'TSeries-20220301-020'),
-                   ('TSeries-20220301-019', 'TSeries-20220301-020'),
+                   # ('TSeries-20220301-019', 'TSeries-20220301-020'),
+
+                   ('TSeries-20220307-002', 'TSeries-20220307-002'),  # No high res scan, use fxnal
+                   ('TSeries-20220307-003', 'TSeries-20220307-002'),  # No high res scan, use fxnal
+                   ('TSeries-20220307-004', 'TSeries-20220307-002'),  # No high res scan, use fxnal
+                   ('TSeries-20220307-005', 'TSeries-20220307-008'),
+                   ('TSeries-20220307-007', 'TSeries-20220307-008'),
+
+                   ('TSeries-20220308-001', 'TSeries-20220308-004'),
+                   ('TSeries-20220308-002', 'TSeries-20220308-004'),
+                   ('TSeries-20220308-003', 'TSeries-20220308-004'),
+                   ('TSeries-20220308-005', 'TSeries-20220308-008'),
+                   ('TSeries-20220308-006', 'TSeries-20220308-008'),
+                   ('TSeries-20220308-007', 'TSeries-20220308-008'),
+                   ('TSeries-20220308-009', 'TSeries-20220308-012'),
+                   ('TSeries-20220308-010', 'TSeries-20220308-012'),
+                   ('TSeries-20220308-011', 'TSeries-20220308-012'),
 
                    ]
 
@@ -72,7 +88,7 @@ meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
 
 data_dir = '/oak/stanford/groups/trc/data/Max/ImagingData/Bruker'
 base_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop'
-datafile_dir = '/oak/stanford/groups/trc/data/Max/ImagingData/DataFiles'
+datafile_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/datafiles'
 
 transform_directory = os.path.join(base_dir, 'transforms')
 

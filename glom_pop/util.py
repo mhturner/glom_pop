@@ -34,23 +34,22 @@ def clean_axes(ax):
 
 def get_color_dict():
     color_dict = {
-                  'LPLC4': sns.desaturate('k', 0),
+                  'LC11': plt.get_cmap('tab20b')(1/20),
+                  'LC21': plt.get_cmap('tab20b')(2/20),
+                  'LC18': plt.get_cmap('tab20b')(3/20),
 
-                  'LC4': sns.desaturate('r', 6/6),
-                  'LC16': sns.desaturate('r', 5/6),
-                  'LC26': sns.desaturate('r', 4/6),
-                  'LC6': sns.desaturate('r', 3/6),
-                  'LPLC1': sns.desaturate('r', 2/6),
-                  'LPLC2': sns.desaturate('r', 1/6),
+                  'LC15': plt.get_cmap('tab20b')(5/20),
+                  'LC12': plt.get_cmap('tab20b')(6/20),
+                  'LC17': plt.get_cmap('tab20b')(7/20),
 
-                  'LC17': sns.desaturate('g', 5/5),
-                  'LC12': sns.desaturate('g', 4/5),
-                  'LC15': sns.desaturate('g', 3/5),
-                  'LC9': sns.desaturate('g', 2/5),
-                  'LC18': sns.desaturate('g', 1/5),
+                  'LC9': plt.get_cmap('tab20b')(9/20),
+                  'LPLC1': plt.get_cmap('tab20b')(10/20),
+                  'LC4': plt.get_cmap('tab20b')(11/20),
 
-                  'LC11': sns.desaturate('b', 1/3),
-                  'LC21': sns.desaturate('b', 2/3),
+                  'LPLC2': plt.get_cmap('tab20b')(16/20),
+                  'LC16': plt.get_cmap('tab20b')(17/20),
+                  'LC26': plt.get_cmap('tab20b')(18/20),
+                  'LC6': plt.get_cmap('tab20b')(19/20),
                   }
 
     return color_dict
@@ -89,7 +88,7 @@ def make_glom_map(ax, glom_map, z_val=None, highlight_names=[], colors='default'
     for v_ind, val in enumerate(all_vals):
         if val in highlight_vals:
             if colors == 'default':
-                highlight_color = list(get_color_dict()[dataio.get_glom_name_from_val(val)]) + [1]  # Append alpha=1
+                highlight_color = list(get_color_dict()[dataio.get_glom_name_from_val(val)])  # Append alpha=1
             elif colors == 'glasbey':
                 highlight_color = cc.cm.glasbey(all_vals/all_vals.max())[v_ind, :]
 
