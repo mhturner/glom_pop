@@ -15,7 +15,7 @@ import yaml
 import xml.etree.ElementTree as ET
 
 from glom_pop import util
-from visanalysis.analysis import imaging_data
+from visanalysis.util import h5io
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # #  Config settings  # # # # # # # # # # # # # # # # # # # # #
@@ -29,26 +29,22 @@ def get_config_file():
     return cfg
 
 
-def get_dataset(dataset_id, only_included=True):
-    path_to_dataset_yaml = get_config_file()['dataset_yaml']
-    with open(path_to_dataset_yaml, 'r') as ymlfile:
-        data_file = yaml.safe_load(ymlfile)
-        dataset = data_file.get(dataset_id)
-
-    if only_included:
-        dataset = {entry: dataset.get(entry) for entry in dataset if dataset.get(entry).get('included')}
-    else:
-        pass
-
-    return dataset
+# def get_dataset(dataset_id, only_included=True):
+#     path_to_dataset_yaml = get_config_file()['dataset_yaml']
+#     with open(path_to_dataset_yaml, 'r') as ymlfile:
+#         data_file = yaml.safe_load(ymlfile)
+#         dataset = data_file.get(dataset_id)
+#
+#     if only_included:
+#         dataset = {entry: dataset.get(entry) for entry in dataset if dataset.get(entry).get('included')}
+#     else:
+#         pass
+#
+#     return dataset
 
 
 def get_included_gloms():
-    path_to_dataset_yaml = get_config_file()['dataset_yaml']
-    with open(path_to_dataset_yaml, 'r') as ymlfile:
-        data_file = yaml.safe_load(ymlfile)
-
-    return data_file.get('included_gloms')
+    return get_config_file()['included_gloms']
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -166,7 +162,7 @@ def get_bruker_metadata(file_path):
 def attach_responses(file_path, series_number, mask, meanbrain, responses, mask_vals,
                      response_set_name='glom', voxel_responses=None):
     with h5py.File(file_path, 'r+') as experiment_file:
-        find_partial = functools.partial(find_series, sn=series_number)
+        find_partial = functools.partial(h5io.find_series, sn=series_number)
         epoch_run_group = experiment_file.visititems(find_partial)
         parent_roi_group = epoch_run_group.require_group('aligned_response')
         current_roi_group = parent_roi_group.require_group(response_set_name)
@@ -188,17 +184,11 @@ def overwrite_dataset(group, name, data):
     group.create_dataset(name, data=data)
 
 
-def find_series(name, obj, sn):
-    target_group_name = 'series_{}'.format(str(sn).zfill(3))
-    if target_group_name in name:
-        return obj
-
-
 def load_responses(ID, response_set_name='glom', get_voxel_responses=False):
 
     response_data = {}
     with h5py.File(ID.file_path, 'r') as experiment_file:
-        find_partial = functools.partial(imaging_data.find_series, series_number=ID.series_number)
+        find_partial = functools.partial(h5io.find_series, sn=ID.series_number)
         roi_parent_group = experiment_file.visititems(find_partial)['aligned_response']
         roi_set_group = roi_parent_group[response_set_name]
         response_data['response'] = roi_set_group.get("response")[:]

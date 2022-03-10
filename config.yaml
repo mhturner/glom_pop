@@ -1,0 +1,7 @@
+update_date: '2022-03-09'
+
+experiment_file_directory: '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/datafiles'
+base_dir: '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop'
+save_directory: '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
+# dataset_yaml: '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/dataset.yaml'
+included_gloms: [LC4, LC6, LC9, LC11, LC12, LC15, LC16, LC17, LC18, LC21, LC26, LPLC1, LPLC2]
