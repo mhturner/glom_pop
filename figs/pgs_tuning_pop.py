@@ -20,9 +20,6 @@ util.config_matplotlib()
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
 
-
-# TODO: correlation within/across flies?
-
 # %% MEAN RESPONSES TO TUNING SUITE
 
 glom_size_threshold = 10
@@ -201,14 +198,13 @@ colors = ['b',
 
 set_link_color_palette(colors)
 # DENDROGRAM
-fh0, ax0 = plt.subplots(1, 1, figsize=(1.5, 6))
+fh0, ax0 = plt.subplots(1, 1, figsize=(0.75, 6))
 D = dendrogram(Z, p=len(included_gloms), truncate_mode='lastp', ax=ax0,
                above_threshold_color='black',
                color_threshold=5.0, orientation='left',
                labels=included_gloms)
 leaves = leaves_list(Z)  # glom indices
 
-# ax0.set_yticks([])
 ax0.set_xticks([])
 ax0.spines['top'].set_visible(False)
 ax0.spines['right'].set_visible(False)
@@ -218,7 +214,7 @@ ax0.invert_yaxis()
 
 
 # Plot mean concatenated responses
-fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(12, 6))
+fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(6, 6))
 [util.clean_axes(x) for x in ax1.ravel()]
 
 fh1.subplots_adjust(wspace=0.00, hspace=0.00)
@@ -238,7 +234,7 @@ for leaf_ind, g_ind in enumerate(leaves):
     if (leaf_ind == 0):
         plot_tools.addScaleBars(ax1[leaf_ind], dT=2, dF=0.25, T_value=0, F_value=-0.1)
 
-[x.set_ylim([mean_responses.min(), 1.1*mean_responses.max()]) for x in ax1.ravel()]
+[x.set_ylim([-0.12, 1.1*mean_responses.max()]) for x in ax1.ravel()]
 
 fh0.savefig(os.path.join(save_directory, 'pgs_tuning_dendrogram.svg'), transparent=True)
 fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True, dpi=300)
@@ -258,7 +254,7 @@ glom_mask_2_meanbrain = alignment.filter_glom_mask_by_name(mask=glom_mask_2_mean
                                                            vpn_types=vpn_types,
                                                            included_gloms=included_gloms)
 
-fh6, ax6 = plt.subplots(len(np.unique(clusters)), 1, figsize=(1.5, 9))
+fh6, ax6 = plt.subplots(len(np.unique(clusters)), 1, figsize=(1.0, 6))
 [x.set_xlim([30, 230]) for x in ax6.ravel()]
 [x.set_ylim([180, 5]) for x in ax6.ravel()]
 [x.set_axis_off() for x in ax6.ravel()]
@@ -272,45 +268,132 @@ for c in np.unique(clusters):
 
 fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent=True)
 
-# %%
+# %% Tuning on some stim params:
+# Leftward: + speed, 0 for bar, 180 for grating (oof)
+# Rightward: - speed, 180 for bar, 0 for grating
 # TODO: Tuning to some params:
 #       -light/dark
-#       -L/R movement
 #       -Spot size
 
-# (1) Left vs. right movement
+# (1) 0=Left vs. 1=right movement
 comparison_inds = (
-                   [0, 1],  # Grating
-                   [6, 7],  # 15 deg dark
-                   [8, 9],  # 15 deg light
+                   [7, 6],  # 15 deg dark
+                   [9, 8],  # 15 deg light
                    [20, 22],  # bar dark
                    [21, 23],  # bar light
                     )
-response_amplitudes
-fh, ax = plt.subplots(1, len(comparison_inds), figsize=(6.5, 1.25))
+
+fh, ax = plt.subplots(2, 2, figsize=(2.5, 2.5), tight_layout=True)
+ax = ax.ravel()
 for ci_ind, ci in enumerate(comparison_inds):
-    ax[ci_ind].plot([0, 0.6], [0, 0.6], 'k--', alpha=0.5)
-    mean_x = response_amplitudes[:, ci[0], :].mean(axis=-1)
-    err_x = response_amplitudes[:, ci[0], :].std(axis=-1) / np.sqrt(response_amplitudes.shape[-1])
-    mean_y = response_amplitudes[:, ci[1], :].mean(axis=-1)
-    err_y = response_amplitudes[:, ci[1], :].std(axis=-1) / np.sqrt(response_amplitudes.shape[-1])
+    ax[ci_ind].plot([0, 0.75], [0, 0.75], 'k--', zorder=0, alpha=0.5)
+    mean_x = np.nanmean(response_amplitudes[:, ci[0], :], axis=-1)
+    err_x = np.nanstd(response_amplitudes[:, ci[0], :], axis=-1) / np.sqrt(response_amplitudes.shape[-1])
+    mean_y = np.nanmean(response_amplitudes[:, ci[1], :], axis=-1)
+    err_y = np.nanstd(response_amplitudes[:, ci[1], :], axis=-1) / np.sqrt(response_amplitudes.shape[-1])
+
+    ax[ci_ind].scatter(mean_x,
+                       mean_y,
+                       c=[util.get_color_dict()[x] for x in included_gloms], alpha=1.0)
+    ebar = ax[ci_ind].errorbar(mean_x,
+                               mean_y,
+                               yerr=err_y,
+                               xerr=err_x,
+                               fmt='none', zorder=0)
+    ebar.lines[2][0].set_color([util.get_color_dict()[x] for x in included_gloms])
+    ebar.lines[2][1].set_color([util.get_color_dict()[x] for x in included_gloms])
+    ax[ci_ind].spines['top'].set_visible(False)
+    ax[ci_ind].spines['right'].set_visible(False)
+    ax[ci_ind].set_xlim([0, 0.75])
+    ax[ci_ind].set_ylim([0, 0.75])
+    ax[ci_ind].set_xticks([0, 0.5])
+    ax[ci_ind].set_yticks([0, 0.5])
+
+fh.text(0.5, 0.01, 'Left response (dF/F)', ha='center', va='center')
+fh.text(0.01, 0.5, 'Right response (dF/F)', ha='center', va='center', rotation='vertical')
+
+fh.savefig(os.path.join(save_directory, 'pgs_direction_tuning.svg'), transparent=True)
+
+
+# %%
+# (2) 0-Dark, 1-light
+comparison_inds = (
+                   [3, 5],  # 5 deg:
+                   [7, 9],  # 15 deg
+                   [11, 13],  # 50 deg
+                   [20, 21],  # bar
+                    )
+response_amplitudes
+fh, ax = plt.subplots(2, 2, figsize=(2.5, 2.5), tight_layout=True)
+ax = ax.ravel()
+for ci_ind, ci in enumerate(comparison_inds):
+    ax[ci_ind].plot([0, 0.75], [0, 0.75], 'k--', zorder=0, alpha=0.5)
+    mean_x = np.nanmean(response_amplitudes[:, ci[0], :], axis=-1)
+    err_x = np.nanstd(response_amplitudes[:, ci[0], :], axis=-1) / np.sqrt(response_amplitudes.shape[-1])
+    mean_y = np.nanmean(response_amplitudes[:, ci[1], :], axis=-1)
+    err_y = np.nanstd(response_amplitudes[:, ci[1], :], axis=-1) / np.sqrt(response_amplitudes.shape[-1])
 
     ax[ci_ind].scatter(mean_x,
                        mean_y,
                        c=[util.get_color_dict()[x] for x in included_gloms])
-    ax[ci_ind].plot([mean_x, mean_x],
-                    [mean_y-err_y, mean_y+err_y])
+    ebar = ax[ci_ind].errorbar(mean_x,
+                               mean_y,
+                               yerr=err_y,
+                               xerr=err_x,
+                               fmt='none',
+                               zorder=0)
+    ebar.lines[2][0].set_color([util.get_color_dict()[x] for x in included_gloms])
+    ebar.lines[2][1].set_color([util.get_color_dict()[x] for x in included_gloms])
     ax[ci_ind].spines['top'].set_visible(False)
     ax[ci_ind].spines['right'].set_visible(False)
+    ax[ci_ind].set_xlim([0, 0.75])
+    ax[ci_ind].set_ylim([0, 0.75])
+    ax[ci_ind].set_xticks([0, 0.5])
+    ax[ci_ind].set_yticks([0, 0.5])
+
+fh.text(0.5, 0.01, 'Dark response (dF/F)', ha='center', va='center')
+fh.text(0.01, 0.5, 'Bright response (dF/F)', ha='center', va='center', rotation='vertical')
 
 
-response_amplitudes.shape
+fh.savefig(os.path.join(save_directory, 'pgs_intensity_tuning.svg'), transparent=True)
+
 # %%
-unique_parameter_values[0]
-unique_parameter_values[1]
-response_amplitudes.shape
-unique_parameter_values
-response_amplitudes[:, ci[0], :].mean(axis=-1)
+# (3) Spot size
+comparison_inds = (
+                   [3, 7, 11],  # dark, +80
+                   [5, 9, 13],  # light, +80
+                    )
+
+fh, ax = plt.subplots(len(included_gloms), len(comparison_inds), figsize=(2, 6))
+for ci_ind, ci in enumerate(comparison_inds):
+    sizes = [unique_parameter_values[x][1] for x in ci]
+    mean_y = np.nanmean(response_amplitudes[:, ci, :], axis=-1)
+    err_y = np.nanstd(response_amplitudes[:, ci, :], axis=-1) / np.sqrt(response_amplitudes.shape[-1])
+
+    for leaf_ind, g_ind in enumerate(leaves):
+        ig = included_gloms[g_ind]
+
+        ax[leaf_ind, ci_ind].plot(sizes, mean_y[g_ind, :], marker='.', color=util.get_color_dict()[ig])
+        ebar = ax[leaf_ind, ci_ind].errorbar(sizes,
+                                             mean_y[g_ind, :],
+                                             yerr=err_y[g_ind, :],
+                                             fmt='none',
+                                             color=util.get_color_dict()[ig])
+        ax[leaf_ind, ci_ind].spines['top'].set_visible(False)
+        ax[leaf_ind, ci_ind].spines['right'].set_visible(False)
+        ax[leaf_ind, ci_ind].set_ylim([0, 0.75])
+        ax[leaf_ind, ci_ind].set_xlim([0, 55])
+        ax[leaf_ind, ci_ind].set_xticks([])
+        ax[leaf_ind, ci_ind].set_yticks([])
+
+ax[leaf_ind, 0].set_yticks([0, 0.5])
+ax[leaf_ind, 0].set_xticks(sizes)
+ax[leaf_ind, 0].set_xlabel('Spot size (deg.)')
+ax[6, 0].set_ylabel('Peak response (dF/F)')
+
+fh.savefig(os.path.join(save_directory, 'pgs_size_tuning.svg'), transparent=True)
+
+
 
 # %% fly-fly variability for each stim
 
@@ -328,8 +411,6 @@ ax7.set_title('Fly to fly variability')
 
 fh7.savefig(os.path.join(save_directory, 'pgs_fly_cv.svg'), transparent=True)
 
-
-
 # %% For example stims, show individual fly responses
 # cv := std across animals normalized by mean across animals and across all stims for that glom
 
@@ -337,14 +418,15 @@ fh7.savefig(os.path.join(save_directory, 'pgs_fly_cv.svg'), transparent=True)
 scaling = np.nanmax(np.nanmean(response_amplitudes, axis=-1), axis=-1)
 # cv = np.nanstd(response_amplitudes, axis=-1) / scaling[:, None]
 cv = np.nanstd(response_amplitudes, -1) / np.nanmean(response_amplitudes, -1)
-eg_leaf_inds = [2, 6, 8]
+# eg_leaf_inds = [2, 6, 8]
+eg_glom_names = ['LC18', 'LC9', 'LC4']
 eg_stim_ind = 8  # 8
-fh2, ax2 = plt.subplots(len(eg_leaf_inds), all_responses.shape[-1], figsize=(4.0, 2.5))
+fh2, ax2 = plt.subplots(len(eg_glom_names), all_responses.shape[-1], figsize=(3.0, 2.5))
 print(unique_parameter_values[eg_stim_ind])
 [x.set_ylim([-0.1, 0.65]) for x in ax2.ravel()]
 [x.set_axis_off() for x in ax2.ravel()]
-for li, leaf_ind in enumerate(eg_leaf_inds):
-    g_ind = leaves[leaf_ind]
+for li, glom_name in enumerate(eg_glom_names):
+    g_ind = np.where(glom_name == np.array(included_gloms))[0][0]
     for fly_ind in range(all_responses.shape[-1]):
         ax2[li, fly_ind].plot(response_data.get('time_vector'), all_responses[g_ind, eg_stim_ind, :, fly_ind],
                               color='k', alpha=0.5)
@@ -359,117 +441,72 @@ for li, leaf_ind in enumerate(eg_leaf_inds):
 fh2.savefig(os.path.join(save_directory, 'pgs_fly_responses.svg'), transparent=True)
 
 
+# %% Correlation between individual flies and mean (excluding that fly)
 
-
-# %% Inter-individual correlation for each glom
-# TODO: check this out...
-fh4, ax4 = plt.subplots(1, 1, figsize=(3.0, 2))
+fh5, ax5 = plt.subplots(1, 1, figsize=(3.0, 2))
 for leaf_ind, g_ind in enumerate(leaves):
     name = included_gloms[g_ind]
-    inter_corr = pd.DataFrame(response_amplitudes[g_ind, :, :]).corr().to_numpy()[np.triu_indices(response_amplitudes.shape[-1], k=1)]
-    mean_inter_corr = np.nanmean(inter_corr)
-    std_inter_corr = np.std(inter_corr)
-    sem_inter_corr = np.std(inter_corr) / np.sqrt(len(inter_corr))
-    ax4.plot(leaf_ind * np.ones_like(inter_corr), inter_corr, color=util.get_color_dict()[included_gloms[g_ind]], marker='.', linestyle='none', alpha=0.5, markersize=4)
-    ax4.plot(leaf_ind, mean_inter_corr, color=util.get_color_dict()[included_gloms[g_ind]], marker='o', markersize=6)
-    ax4.plot([leaf_ind, leaf_ind], [mean_inter_corr-sem_inter_corr, mean_inter_corr+sem_inter_corr], marker='None', color=util.get_color_dict()[included_gloms[g_ind]])
+    corr_with_mean = []
+    for f_ind in range(response_amplitudes.shape[-1]):
+        if np.any(response_amplitudes[g_ind, :, f_ind] is np.nan):
+            pass
+        else:
+            mean_except_this_fly = np.nanmean(response_amplitudes[g_ind, :, np.arange(response_amplitudes.shape[-1])!=f_ind], axis=0)
+            new_corr = np.corrcoef(response_amplitudes[g_ind, :, f_ind],
+                                   mean_except_this_fly)[1, 0]
+        corr_with_mean.append(new_corr)
 
-ax4.set_xticks(np.arange(len(included_gloms)))
-ax4.set_xticklabels([included_gloms[x] for x in leaves])
-ax4.set_ylabel('Inter-individual corr. (r)', fontsize=11)
-ax4.tick_params(axis='y', labelsize=11)
-ax4.tick_params(axis='x', labelsize=11, rotation=90)
-# ax4.set_ylim([0, 1])
-inter_corr
-fh4.savefig(os.path.join(save_directory, 'pgs_Inter_Ind_Corr.svg'), transparent=True)
+    mean_inter_corr = np.nanmean(corr_with_mean)
+    sem_inter_corr = np.nanstd(corr_with_mean) / np.sqrt(len(corr_with_mean))
+    ax5.plot(leaf_ind * np.ones_like(corr_with_mean),
+             corr_with_mean,
+             color=util.get_color_dict()[name],
+             marker='.', linestyle='none', alpha=0.5, markersize=4)
+    ax5.errorbar(leaf_ind,
+                 mean_inter_corr,
+                 sem_inter_corr,
+                 fmt='o',
+                 color=util.get_color_dict()[name])
+
+ax5.set_xticks(np.arange(len(included_gloms)))
+ax5.set_xticklabels([included_gloms[x] for x in leaves])
+ax5.set_ylabel('Correlation (r)', fontsize=11)
+ax5.tick_params(axis='y', labelsize=11)
+ax5.tick_params(axis='x', labelsize=11, rotation=90)
+ax5.set_ylim([0, 1])
+ax5.spines['top'].set_visible(False)
+ax5.spines['right'].set_visible(False)
+ax5.set_title('Similarity between \n individuals and population')
+
+fh5.savefig(os.path.join(save_directory, 'pgs_Ind_Corr.svg'), transparent=True)
 
 
 # %% OTHER STUFF
 
-# %% Visualize clustering of individual gloms, with aligned glom identity overlaid
-
-# X: individual gloms x features
-# Row order = LCa_fly1, LCa_fly2, ..., LCb_fly1, LCb_fly2, ... LCn_flyn
-glom_ids = np.repeat(included_vals, response_amplitudes.shape[-1], axis=0)
-glom_names = np.array([np.array(included_gloms)[x == included_vals][0] for x in glom_ids])
-# X: response traces
-all_concat = np.hstack([all_responses[:, :, x, :] for x in range(30)])
-X = np.reshape(np.swapaxes(all_concat, 1, -1), (-1, all_concat.shape[1]))
-
-# Remove individual gloms that were not included in that fly (vals replaced by nan)
-nan_glom_ind = np.any(np.isnan(X), axis=1)
-glom_ids = np.delete(glom_ids, nan_glom_ind, axis=0)
-glom_names = np.delete(glom_names, nan_glom_ind, axis=0)
-X = np.delete(X, nan_glom_ind, axis=0)
-
-
-row_colors = cmap(glom_ids/glom_ids.max())
-X = zscore(X, axis=1)
-
-# Compute linkage matrix, Z
-Z = linkage(X,
-            method='average',
-            metric='euclidean',
-            optimal_ordering=True)
-
-# DENDROGRAM
-fh5, ax5 = plt.subplots(1, 2, figsize=(4, 9), gridspec_kw={'width_ratios': [1, 3], 'wspace': 0.01})
-[util.clean_axes(x) for x in ax5.ravel()]
-
-with plt.rc_context({'lines.linewidth': 0.25}):
-    D = dendrogram(Z, p=len(glom_ids), truncate_mode='lastp', ax=ax5[0],
-                   above_threshold_color='black',
-                   color_threshold=1,
-                   orientation='left',
-                   leaf_rotation=0,
-                   leaf_font_size=10,
-                   count_sort=True,
-                   labels=glom_ids)
-
-ind_glom_leaves = glom_ids[D.get('leaves')]
-ind_glom_leaf_colors = row_colors[D.get('leaves')]
-ind_glom_leaves
-included_gloms
-
-ylbls = ax5[0].get_ymajorticklabels()
-for l_ind, lbl in enumerate(ylbls):
-    lbl.set_color(cmap(int(lbl.get_text())/glom_ids.max()))
-# ax5[0].set_yticklabels([r'$\blacksquare$' for x in range(len(glom_names))], fontweight='bold', fontsize=3)
-# ax5[0].set_yticklabels([r'$\blacksquare$ ' + glom_names[D.get('leaves')][x] for x in range(len(glom_names))], fontweight='bold', fontsize=10)
-
-dx = 1
-dy = 1
-
-# Plot all color rects
-for leaf_ind, leaf in enumerate(ind_glom_leaves):
-    x0 = 0
-    y0 = leaf_ind
-    color = ind_glom_leaf_colors[leaf_ind, :]
-    rect = Rectangle((x0, y0), dx, dy, color=color)
-    ax5[1].add_patch(rect)
-
-for glom_ind, glom_val in enumerate(included_vals):
-    for leaf_ind, leaf in enumerate(ind_glom_leaves):
-        x0 = 1+glom_ind
-        y0 = leaf_ind
-
-        if leaf == glom_val:
-            color = ind_glom_leaf_colors[leaf_ind, :]
+ind_glom_tuning = []
+glom_id = []
+fly_id = []
+for leaf_ind, g_ind in enumerate(leaves):
+    name = included_gloms[g_ind]
+    for f_ind in range(response_amplitudes.shape[-1]):
+        if np.any(np.isnan(response_amplitudes[g_ind, :, f_ind])):
+            print('skipping glom {}: fly {}'.format(g_ind, f_ind))
         else:
-            color = [0.6, 0.6, 0.6, 1.0]
-        rect = Rectangle((x0, y0), dx, dy, color=color)
-        ax5[1].add_patch(rect)
+            ind_glom_tuning.append(response_amplitudes[g_ind, :, f_ind])
+            glom_id.append(name)
+            fly_id.append(f_ind)
 
-disp_gloms = included_gloms.copy()
-disp_gloms.insert(0, 'All')
+ind_glom_tuning = np.vstack(ind_glom_tuning)
 
-ax5[1].set_xlim([0, glom_ind+dx+1])
-ax5[1].set_ylim([0, leaf_ind+dy])
-ax5[1].set_xticks(np.arange(0, len(disp_gloms))+0.5)
-ax5[1].set_xticklabels(disp_gloms, rotation=90)
-ax5[1].set_yticks([])
-ax5[1].xaxis.tick_top()
+cmat = pd.DataFrame(data=ind_glom_tuning.T).corr()
+cmat.index = glom_id
+cmat.columns = glom_id
 
-ax5[0].get_yaxis().set_visible(False)
+sns.heatmap(cmat)
 
-fh5.savefig(os.path.join(save_directory, 'pgs_ind_dendrogram.svg'), transparent=True)
+# %%
+
+ind_glom_tuning.shape
+df = pd.DataFrame(data=ind_glom_tuning, index=glom_id)
+
+sns.clustermap(df, col_cluster=False, yticklabels=True, xticklabels=False)

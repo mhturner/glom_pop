@@ -3,16 +3,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-from visanalysis import shared_analysis
 
 from glom_pop import dataio, model, util
 
 util.config_matplotlib()
 
-sync_dir = dataio.get_config_file()['sync_dir']
+base_dir = dataio.get_config_file()['base_dir']
+experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
 save_directory = dataio.get_config_file()['save_directory']
 
-vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'))
+vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 
 # %% Include all gloms and all flies
 leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
@@ -21,12 +21,7 @@ included_gloms = dataio.get_included_gloms()
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
-                                                  target_fly_metadata={'driver_1': 'ChAT-T2A',
-                                                                       'indicator_1': 'Syt1GCaMP6f',
-                                                                       'indicator_2': 'TdTomato'},
-                                                  target_series_metadata={'protocol_ID': 'PanGlomSuite',
-                                                                          'include_in_analysis': True})
+dataset = dataio.get_dataset(dataset_id='pgs_tuning', only_included=True)
 
 ste = model.SingleTrialEncoding(dataset=dataset, included_vals=included_vals)
 ste.evaluate_performance(
