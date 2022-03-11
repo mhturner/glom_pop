@@ -24,6 +24,7 @@ save_directory = dataio.get_config_file()['save_directory']
 #       -light/dark
 #       -L/R movement
 #       -Spot size
+# TODO: correlation within/across flies?
 
 # %% MEAN RESPONSES TO TUNING SUITE
 
@@ -63,6 +64,7 @@ for s_ind, series in enumerate(matching_series):
     ID = imaging_data.ImagingDataObject(file_path,
                                         series_number,
                                         quiet=True)
+    print('Adding fly from {}: {}'.format(os.path.split(file_path)[-1], series_number))
 
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
@@ -93,6 +95,7 @@ for s_ind, series in enumerate(matching_series):
     response_amplitudes.append(response_amp)
     all_glom_sizes.append(glom_sizes)
     del response_amp, mean_response, glom_sizes
+    print('------------')
 
 
 # Stack accumulated responses
@@ -146,7 +149,13 @@ for ind, ig in enumerate(glom_sizes_pd.index):
 ax.set_ylabel('Number of voxels')
 ax.axhline(glom_size_threshold, color='k', linestyle='-', alpha=0.5)
 ax.set_xticks(np.arange(0, len(glom_sizes_pd.index)))
-ax.set_xticklabels(glom_sizes_pd.index, rotation=90);
+ax.set_xticklabels(glom_sizes_pd.index, rotation=90)
+for t_ind, tick in enumerate(ax.get_xticklabels()):
+    if tick.get_text() in included_gloms:
+        tick.set_color('k')
+    else:
+        tick.set_color('r')
+
 ax.set_yscale('log')
 fh.savefig(os.path.join(save_directory, 'pgs_glom_sizes.svg'), transparent=True)
 

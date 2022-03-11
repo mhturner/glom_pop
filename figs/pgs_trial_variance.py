@@ -1,4 +1,4 @@
-from visanalysis.analysis import imaging_data
+from visanalysis.analysis import imaging_data, shared_analysis
 from visanalysis.util import plot_tools
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -11,14 +11,21 @@ import seaborn as sns
 
 from glom_pop import dataio, util, alignment
 
+# TODO: cleanup. Check timing
+
+
 util.config_matplotlib()
 
-base_dir = dataio.get_config_file()['base_dir']
-experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
+sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
-transform_directory = os.path.join(base_dir, 'transforms', 'meanbrain_template')
+transform_directory = os.path.join(sync_dir, 'transforms', 'meanbrain_template')
 
-dataset = dataio.get_dataset(dataset_id='pgs_reduced', only_included=True)
+matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
+                                                  target_fly_metadata={'driver_1': 'ChAT-T2A',
+                                                                       'indicator_1': 'Syt1GCaMP6f',
+                                                                       'indicator_2': 'TdTomato'},
+                                                  target_series_metadata={'protocol_ID': 'PGS_Reduced',
+                                                                          'include_in_analysis': True})
 
 leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.get_included_gloms()
@@ -30,12 +37,9 @@ glom_size_threshold = 10
 
 all_responses = []
 response_amplitudes = []
-all_glom_sizes = []
-for s_ind, key in enumerate(dataset):
-    experiment_file_name = key.split('_')[0]
-    series_number = int(key.split('_')[1])
-
-    file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
+for s_ind, series in enumerate(matching_series):
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
     ID = imaging_data.ImagingDataObject(file_path,
                                         series_number,
                                         quiet=True)
@@ -47,10 +51,8 @@ for s_ind, key in enumerate(dataset):
     epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
     epoch_response_matrix[:] = np.nan
 
-    glom_sizes = np.zeros(len(included_vals))
     for val_ind, included_val in enumerate(included_vals):
         new_glom_size = np.sum(response_data.get('mask') == included_val)
-        glom_sizes[val_ind] = new_glom_size
 
         if new_glom_size > glom_size_threshold:
             pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
@@ -65,7 +67,6 @@ for s_ind, key in enumerate(dataset):
 
     all_responses.append(mean_response)
     response_amplitudes.append(response_amp)
-    all_glom_sizes.append(glom_sizes)
 
     # Trial by trial variability
     stim_ind = 2
@@ -86,12 +87,14 @@ for s_ind, key in enumerate(dataset):
 # The glom order here is included_gloms
 all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, param, time, fly)
 response_amplitudes = np.stack(response_amplitudes, axis=-1)  # dims = (gloms, param, fly)
-all_glom_sizes = np.stack(all_glom_sizes, axis=-1)  # dims = (gloms, fly)
 
 # stats across animals
 mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, param, time)
 sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, param, time)
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
+
+# %%
+ID.getStimulusTiming(plot_trace_flag=True)
 
 # %%
 response_amplitudes.shape

@@ -26,20 +26,18 @@ library(rhdf5)
 
 options(warn=1)
 
-data_dir = '/oak/stanford/groups/trc/data/Max/flynet/data'
-# data_dir = '/home/mhturner/Dropbox/ClandininLab/Analysis/SC-FC/data'
-save_dir = '/oak/stanford/groups/trc/data/Max/Analysis/Clustering/glom_map'
-# save_dir = '/home/mhturner/CurrentData/glom_map'
+data_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync/template_brain'
+data_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync/template_brain/all_vpns'
 
 t0 = Sys.time()
 
 # Load atlas
 res = 0.38 # um/voxel of atlas
-ito_atlas <- bioimagetools::readTIF(file.path(data_dir, 'template_brains', 'ito_2018.tif'), as.is=TRUE)
+ito_atlas <- bioimagetools::readTIF(file.path(data_dir, 'ito_2018.tif'), as.is=TRUE)
 
 # Get neuron / body IDs for different projection neuron types
-# VPNs = neuprint_search("type:(LC|LPLC|LLPC|LT|MC)[0-9].*")
-VPNs = neuprint_search("type:(LC|LPLC)[0-9].*")
+VPNs = neuprint_search("type:(LC|LPLC|LLPC|LT|MC)[0-9].*")
+# VPNs = neuprint_search("type:(LC|LPLC)[0-9].*")
 
 vpn_types = unique(VPNs[,'type'])
 
