@@ -95,7 +95,7 @@ std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
 
 # %%
 ID.getStimulusTiming(plot_trace_flag=True)
-
+unique_parameter_values
 # %%
 response_amplitudes.shape
 

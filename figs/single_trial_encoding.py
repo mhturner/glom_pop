@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-from visanalysis import shared_analysis
+from visanalysis.analysis import shared_analysis
 
 from glom_pop import dataio, model, util
 
@@ -28,7 +28,10 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                   target_series_metadata={'protocol_ID': 'PanGlomSuite',
                                                                           'include_in_analysis': True})
 
-ste = model.SingleTrialEncoding(dataset=dataset, included_vals=included_vals)
+
+# %%
+
+ste = model.SingleTrialEncoding(data_series=matching_series, included_gloms=included_gloms)
 ste.evaluate_performance(
                          model_type='LogReg',
                          iterations=100,
@@ -40,7 +43,6 @@ ste.evaluate_performance(
 # %% Plot some example traces
 n_rows = 3
 start_trial = 40
-
 split_length = int(ste.eg_traces.shape[1] / len(included_gloms))
 included_gloms
 fh0, ax0 = plt.subplots(n_rows, 1, figsize=(6, 3))
@@ -50,7 +52,7 @@ for t in range(n_rows):
     for g_ind, g_name in enumerate(included_gloms):
         start_pt = g_ind * split_length
         end_pt = (g_ind+1) * split_length
-        ax0[t].plot(np.arange(start_pt, end_pt), ste.eg_traces[start_trial+t, start_pt:end_pt], color=ste.colors[g_ind, :])
+        ax0[t].plot(np.arange(start_pt, end_pt), ste.eg_traces[start_trial+t, start_pt:end_pt], color=ste.colors[g_ind])
     ax0[t].set_title(str(ste.eg_stim_identity[start_trial+t]))
 
 fh0.savefig(os.path.join(save_directory, 'single_trial_traces.svg'))
@@ -131,17 +133,14 @@ ax4.set_xticks([])
 fh4.savefig(os.path.join(save_directory, 'single_trial_weights.svg'))
 
 # %% Measure performance with subsets of gloms
-clusters = [['LC11', 'LC21'],
-            ['LC18', 'LC9', 'LC15', 'LC12', 'LC17'],
-            ['LPLC2', 'LPLC1', 'LC6', 'LC26', 'LC16', 'LC4']]
+clusters = [['LC11', 'LC21', 'LC18'],
+            ['LC6', 'LC26', 'LC16', 'LPLC2'],
+            ['LC4', 'LPLC1', 'LC9'],
+            ['LC17', 'LC12', 'LC15']]
 
 cluster_performance = []
 for clust_ind, included_gloms in enumerate(clusters):
-    included_vals = dataio.get_glom_vals_from_names(included_gloms)
-
-    dataset = dataio.get_dataset(dataset_id='pgs_tuning', only_included=True)
-
-    ste_clust = model.SingleTrialEncoding(dataset=dataset, included_vals=included_vals)
+    ste_clust = model.SingleTrialEncoding(data_series=matching_series, included_gloms=included_gloms)
     ste_clust.evaluate_performance(
                                     model_type='LogReg',
                                     iterations=100,
@@ -167,22 +166,24 @@ mean_cmat = pd.DataFrame(data=ste.cmats.mean(axis=-1), index=col_names, columns=
 
 
 # Plot performance for each cluster:
-
-cluster_colors = ['r', 'g', 'b']
+colors = ['b',
+          'g',
+          'y',
+          'm']
 offset = [-0.2, 0, 0.2]
-for clust_ind in range(3):
+for clust_ind in range(4):
 
     mean_diag = np.mean(cluster_performance[clust_ind], axis=0)
     err_diag = np.std(cluster_performance[clust_ind], axis=0) / np.sqrt(cluster_performance[clust_ind].shape[0])
 
     ax5.plot(np.arange(0, len(mean_diag)), mean_diag,
              marker='o', linestyle='none',
-             color=sns.desaturate(cluster_colors[clust_ind], 0.6),
+             color=colors[clust_ind],
              label='Cluster {}'.format(clust_ind+1))
     for d_ind in range(len(col_names)):
         ax5.plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]],
                  linestyle='-',
-                 color=sns.desaturate(cluster_colors[clust_ind], 0.6))
+                 color=sns.desaturate(colors[clust_ind], 0.6))
 
 
 # Plot overall performance

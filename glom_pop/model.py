@@ -2,35 +2,32 @@
 
 """
 import numpy as np
-import os
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
-import colorcet as cc
 from scipy.signal import detrend
 from scipy.stats import zscore
 
 from visanalysis.analysis import imaging_data
-from glom_pop import dataio
+from glom_pop import dataio, util
 
 
 class SingleTrialEncoding():
-    def __init__(self, dataset, included_vals, experiment_file_directory='/Users/mhturner/CurrentData'):
+    def __init__(self, data_series, included_gloms, experiment_file_directory='/Users/mhturner/CurrentData'):
         self.experiment_file_directory = experiment_file_directory
-        self.dataset = dataset
-        self.included_vals = included_vals
+        self.data_series = data_series
+        self.included_gloms = included_gloms
+        self.included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
     def evaluate_performance(self, model_type='LogReg', iterations=20, pull_eg=0, classify_on_amplitude=False, random_state=None):
 
         self.cmats = []
         self.overall_performances = []
-        for s_ind, key in enumerate(self.dataset):
-            experiment_file_name = key.split('_')[0]
-            series_number = int(key.split('_')[1])
-
-            file_path = os.path.join(self.experiment_file_directory, experiment_file_name + '.hdf5')
+        for s_ind, series in enumerate(self.data_series):
+            series_number = series['series']
+            file_path = series['file_name'] + '.hdf5'
             ID = imaging_data.ImagingDataObject(file_path,
                                                 series_number,
                                                 quiet=True)
@@ -38,16 +35,16 @@ class SingleTrialEncoding():
             # Load response data
             response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
 
-            # Only select gloms in included_vals
+            # Only select gloms in included_gloms
             glom_size_threshold = 10
             # response_matrix: shape=(gloms, time)
-            response_matrix = np.zeros((len(self.included_vals), response_data.get('response').shape[1]))
-            for val_ind, included_val in enumerate(self.included_vals):
-                new_glom_size = np.sum(response_data.get('mask') == included_val)
+            response_matrix = np.zeros((len(self.included_gloms), response_data.get('response').shape[1]))
+            for glom_ind, included_glom in enumerate(self.included_gloms):
+                new_glom_size = np.sum(response_data.get('mask') == self.included_vals[glom_ind])
 
                 if new_glom_size > glom_size_threshold:
-                    pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
-                    response_matrix[val_ind, :] = response_data.get('response')[pull_ind, :]
+                    pull_ind = np.where(self.included_vals[glom_ind] == response_data.get('mask_vals'))[0][0]
+                    response_matrix[glom_ind, :] = response_data.get('response')[pull_ind, :]
                 else:  # Exclude because this glom, in this fly, is too tiny
                     pass
             response_matrix = np.stack(response_matrix, axis=0)
@@ -72,8 +69,7 @@ class SingleTrialEncoding():
 
             print('single_trial_responses shape = {}'.format(single_trial_responses.shape))
 
-            cmap = cc.cm.glasbey
-            self.colors = cmap(self.included_vals/self.included_vals.max())
+            self.colors = [util.get_color_dict()[x] for x in self.included_gloms]
 
             parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
             unique_parameter_values = np.unique(np.array(parameter_values, dtype='object'))
