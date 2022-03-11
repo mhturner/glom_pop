@@ -20,10 +20,7 @@ util.config_matplotlib()
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
 
-# TODO: Tuning to some params:
-#       -light/dark
-#       -L/R movement
-#       -Spot size
+
 # TODO: correlation within/across flies?
 
 # %% MEAN RESPONSES TO TUNING SUITE
@@ -273,16 +270,17 @@ for c in np.unique(clusters):
                        z_val=None,
                        highlight_names=highlight_names)
 
-# for leaf_ind, g_ind in enumerate(leaves):
-#     name = included_gloms[g_ind]
-#     # glom_mask_val = vpn_types.loc[vpn_types.get('vpn_types') == name, 'Unnamed: 0'].values[0]
-#
-#     util.make_glom_map(ax=ax6[leaf_ind],
-#                        glom_map=glom_mask_2_meanbrain,
-#                        z_val=None,
-#                        highlight_names=[name])
+fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent=True)
 
-# fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent=True)
+# %%
+# TODO: Tuning to some params:
+#       -light/dark
+#       -L/R movement
+#       -Spot size
+
+
+
+
 
 # %% fly-fly variability for each stim
 

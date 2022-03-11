@@ -27,7 +27,7 @@ library(rhdf5)
 options(warn=1)
 
 data_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync/template_brain'
-data_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync/template_brain/all_vpns'
+save_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync/template_brain/all_vpns'
 
 t0 = Sys.time()
 
