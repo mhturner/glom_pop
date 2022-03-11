@@ -24,7 +24,8 @@ library(dplyr)
 library(bioimagetools)
 library(rhdf5)
 
-download_saalfeldlab_registrations()
+# Only have to do this once:
+# download_saalfeldlab_registrations()
 
 options(warn=1)
 
