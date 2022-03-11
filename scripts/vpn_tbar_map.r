@@ -24,6 +24,8 @@ library(dplyr)
 library(bioimagetools)
 library(rhdf5)
 
+download_saalfeldlab_registrations()
+
 options(warn=1)
 
 data_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync/template_brain'

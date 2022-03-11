@@ -278,9 +278,39 @@ fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent
 #       -L/R movement
 #       -Spot size
 
+# (1) Left vs. right movement
+comparison_inds = (
+                   [0, 1],  # Grating
+                   [6, 7],  # 15 deg dark
+                   [8, 9],  # 15 deg light
+                   [20, 22],  # bar dark
+                   [21, 23],  # bar light
+                    )
+response_amplitudes
+fh, ax = plt.subplots(1, len(comparison_inds), figsize=(6.5, 1.25))
+for ci_ind, ci in enumerate(comparison_inds):
+    ax[ci_ind].plot([0, 0.6], [0, 0.6], 'k--', alpha=0.5)
+    mean_x = response_amplitudes[:, ci[0], :].mean(axis=-1)
+    err_x = response_amplitudes[:, ci[0], :].std(axis=-1) / np.sqrt(response_amplitudes.shape[-1])
+    mean_y = response_amplitudes[:, ci[1], :].mean(axis=-1)
+    err_y = response_amplitudes[:, ci[1], :].std(axis=-1) / np.sqrt(response_amplitudes.shape[-1])
+
+    ax[ci_ind].scatter(mean_x,
+                       mean_y,
+                       c=[util.get_color_dict()[x] for x in included_gloms])
+    ax[ci_ind].plot([mean_x, mean_x],
+                    [mean_y-err_y, mean_y+err_y])
+    ax[ci_ind].spines['top'].set_visible(False)
+    ax[ci_ind].spines['right'].set_visible(False)
 
 
-
+response_amplitudes.shape
+# %%
+unique_parameter_values[0]
+unique_parameter_values[1]
+response_amplitudes.shape
+unique_parameter_values
+response_amplitudes[:, ci[0], :].mean(axis=-1)
 
 # %% fly-fly variability for each stim
 
