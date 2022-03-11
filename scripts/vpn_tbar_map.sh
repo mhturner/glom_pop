@@ -5,7 +5,7 @@
 #SBATCH --time=36:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --output=/home/users/mhturner/SC-FC/job_outputs/%x.%j.out
+#SBATCH --output=/home/users/mhturner/glom_pop/scripts/%x.%j.out
 #SBATCH --open-mode=append
 
 module use /home/groups/trc/modules
