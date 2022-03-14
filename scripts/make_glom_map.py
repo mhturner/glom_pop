@@ -16,7 +16,7 @@ import ants
 
 from glom_pop import dataio
 
-base_dir = dataio.get_config_file()['base_dir']
+sync_dir = dataio.get_config_file()['sync_dir']
 
 # %% LOAD TEMPLATE ARRAYS
 # (1) Load
@@ -25,7 +25,7 @@ base_dir = dataio.get_config_file()['base_dir']
 # (4) Flip along z axis. Template has anterior at the top, but want anterior at the bottom of the stack
 
 # Load glom map hdf5 as array
-fileh = h5py.File(os.path.join(base_dir, 'template_brain', 'vpn_glom_map.h5'), 'r')  # dim order = zxy
+fileh = h5py.File(os.path.join(sync_dir, 'template_brain', 'vpn_glom_map.h5'), 'r')  # dim order = zxy
 
 # Mask with VPN identity
 brain_mask = np.zeros(fileh.get('mask/array').shape, dtype='uint8')
@@ -38,14 +38,19 @@ fileh['density/array'].read_direct(brain_density)
 brain_density = np.moveaxis(brain_density, (0, 1, 2), (2, 0, 1))  # to xyz
 
 fileh.close()
+# %%
+fh, ax = plt.subplots(1, 2, figsize=(10, 4))
+ax[0].imshow(brain_density.max(axis=-1).T, cmap='Greys_r')
+ax[1].imshow(brain_density[410:645, 250:450, 230:340].max(axis=-1).T, cmap='Greys_r')
 
+# %%
 print('Full brain_mask shape = {}'.format(brain_mask.shape))
 brain_mask = np.flip(brain_mask[410:645, 250:450, 230:340], axis=2)
 brain_density = np.flip(brain_density[410:645, 250:450, 230:340], axis=2)
 print('Trimmed brain_mask shape = {}'.format(brain_mask.shape))
 
 # Load template brain
-template = np.squeeze(np.asanyarray(nib.load(os.path.join(base_dir, 'template_brain', 'JRC2018_FEMALE_38um_iso_16bit.nii')).dataobj).astype('uint32'))  # xyz
+template = np.squeeze(np.asanyarray(nib.load(os.path.join(sync_dir, 'template_brain', 'JRC2018_FEMALE_38um_iso_16bit.nii')).dataobj).astype('uint32'))  # xyz
 print('Full template shape = {}'.format(template.shape))
 template = np.flip(template[410:645, 250:450, 230:340], axis=2)
 print('Trimmed template shape = {}'.format(template.shape))
@@ -56,17 +61,17 @@ template = ants.from_numpy(template, spacing=atlas_spacing)
 brain_mask = ants.from_numpy(brain_mask, spacing=atlas_spacing)
 brain_density = ants.from_numpy(brain_density, spacing=atlas_spacing)
 
-# Save trimmed template & mask (pre-transformation) as ants images
-ants.image_write(template, os.path.join(base_dir, 'template_brain', 'jrc2018.nii'))
-ants.image_write(brain_mask, os.path.join(base_dir, 'template_brain', 'vpn_glom_mask.nii'))
-ants.image_write(brain_density, os.path.join(base_dir, 'template_brain', 'vpn_glom_density.nii'))
+# # Save trimmed template & mask (pre-transformation) as ants images
+ants.image_write(template, os.path.join(sync_dir, 'template_brain', 'jrc2018.nii'))
+ants.image_write(brain_mask, os.path.join(sync_dir, 'template_brain', 'vpn_glom_mask.nii'))
+ants.image_write(brain_density, os.path.join(sync_dir, 'template_brain', 'vpn_glom_density.nii'))
 
 # %% Register density -> template
 
 # Load:
-template = ants.image_read(os.path.join(base_dir, 'template_brain', 'jrc2018.nii'))
-brain_mask = ants.image_read(os.path.join(base_dir, 'template_brain', 'vpn_glom_mask.nii'))
-brain_density = ants.image_read(os.path.join(base_dir, 'template_brain', 'vpn_glom_density.nii'))
+template = ants.image_read(os.path.join(sync_dir, 'template_brain', 'jrc2018.nii'))
+brain_mask = ants.image_read(os.path.join(sync_dir, 'template_brain', 'vpn_glom_mask.nii'))
+brain_density = ants.image_read(os.path.join(sync_dir, 'template_brain', 'vpn_glom_density.nii'))
 
 # registration images: Smoothed template and closed density map
 template_smoothed = ants.smooth_image(template, sigma=[3, 3, 2], sigma_in_physical_coordinates=False)
@@ -84,7 +89,7 @@ reg = ants.registration(fixed=template_smoothed,  # fixed = template, nc82, smoo
 
 # %%
 # Save transform
-transform_dir = os.path.join(base_dir, 'transforms', 'template_density')
+transform_dir = os.path.join(sync_dir, 'transforms', 'template_density')
 os.makedirs(transform_dir, exist_ok=True)
 dataio.save_transforms(reg, transform_dir)
 
@@ -101,13 +106,13 @@ brain_mask_transformed = ants.apply_transforms(fixed=template,
                                                interpolator='genericLabel')
 
 # Save transformed mask & density
-ants.image_write(brain_mask_transformed, os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_transformed.nii'))
-ants.image_write(brain_density_transformed, os.path.join(base_dir, 'template_brain', 'vpn_glom_density_transformed.nii'))
+ants.image_write(brain_mask_transformed, os.path.join(sync_dir, 'template_brain', 'vpn_glom_mask_transformed.nii'))
+ants.image_write(brain_density_transformed, os.path.join(sync_dir, 'template_brain', 'vpn_glom_density_transformed.nii'))
 
 # %% MORPHOLOGICAL OPERATIONS ON EACH GLOMERULUS MASK
 
 # Load:
-brain_mask_transformed = ants.image_read(os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_transformed.nii'))
+brain_mask_transformed = ants.image_read(os.path.join(sync_dir, 'template_brain', 'vpn_glom_mask_transformed.nii'))
 
 mask_ids = np.unique(brain_mask_transformed.numpy())[1:]  # exclude first (=0, i.e. nothing)
 
@@ -121,15 +126,15 @@ for mask_id in mask_ids:
 
 # Convert to ANTs image & save: closed mask
 closed_eroded_mask = ants.from_numpy(closed_eroded_mask, spacing=brain_mask_transformed.spacing)
-ants.image_write(closed_eroded_mask, os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_closed.nii'))
+ants.image_write(closed_eroded_mask, os.path.join(sync_dir, 'template_brain', 'vpn_glom_mask_closed.nii'))
 
 # %% SHOW
 z_slice = 60
 
 # Load:
-brain_density_transformed = ants.image_read(os.path.join(base_dir, 'template_brain', 'vpn_glom_density_transformed.nii'))
-closed_eroded_mask = ants.image_read(os.path.join(base_dir, 'template_brain', 'vpn_glom_mask_closed.nii'))
-template = ants.image_read(os.path.join(base_dir, 'template_brain', 'jrc2018.nii'))
+brain_density_transformed = ants.image_read(os.path.join(sync_dir, 'template_brain', 'vpn_glom_density_transformed.nii'))
+closed_eroded_mask = ants.image_read(os.path.join(sync_dir, 'template_brain', 'vpn_glom_mask_closed.nii'))
+template = ants.image_read(os.path.join(sync_dir, 'template_brain', 'jrc2018.nii'))
 
 norm = mcolors.Normalize(vmin=1, vmax=closed_eroded_mask.max(), clip=True)
 

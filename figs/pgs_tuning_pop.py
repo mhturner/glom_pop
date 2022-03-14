@@ -1,7 +1,6 @@
 from visanalysis.analysis import imaging_data, shared_analysis
 from visanalysis.util import plot_tools
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 import numpy as np
 import os
 import pandas as pd

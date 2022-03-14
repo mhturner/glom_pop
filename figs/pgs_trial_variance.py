@@ -1,12 +1,12 @@
 from visanalysis.analysis import imaging_data, shared_analysis
 from visanalysis.util import plot_tools
+
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import numpy as np
 import os
 # import colorcet as cc
 import pandas as pd
-import ants
 import seaborn as sns
 
 from glom_pop import dataio, util, alignment
@@ -43,6 +43,8 @@ for s_ind, series in enumerate(matching_series):
     ID = imaging_data.ImagingDataObject(file_path,
                                         series_number,
                                         quiet=True)
+
+    print('Adding fly from {}: {}'.format(os.path.split(file_path)[-1], series_number))
 
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
@@ -81,8 +83,116 @@ for s_ind, series in enumerate(matching_series):
         for t in range(30):
             ax[g_ind, t].plot(trial_response_by_stimulus[stim_ind][g_ind, t, :], color=util.get_color_dict()[glom])
 
+    print('------------')
+
+# %%
+
+# %% PGS_reduced
+matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
+                                                  target_fly_metadata={'driver_1': 'ChAT-T2A',
+                                                                       'indicator_1': 'Syt1GCaMP6f',
+                                                                       'indicator_2': 'TdTomato'},
+                                                  target_series_metadata={'protocol_ID': 'PGS_Reduced',
+                                                                          'include_in_analysis': True})
+
+series = matching_series[0]
+series_number = series['series']
+file_path = series['file_name'] + '.hdf5'
+print('Adding fly from {}: {}'.format(os.path.split(file_path)[-1], series_number))
+ID = imaging_data.ImagingDataObject(file_path,
+                                    series_number,
+                                    quiet=True)
 
 
+response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+
+# epoch_response_matrix: shape=(gloms, trials, time)
+epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
+epoch_response_matrix[:] = np.nan
+
+for val_ind, included_val in enumerate(included_vals):
+    new_glom_size = np.sum(response_data.get('mask') == included_val)
+
+    if new_glom_size > glom_size_threshold:
+        pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
+        epoch_response_matrix[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
+    else:  # Exclude because this glom, in this fly, is too tiny
+        pass
+
+# Align responses
+unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
+
+response_amp = ID.getResponseAmplitude(mean_response, metric='max')
+
+
+included_gloms
+ep_1 = [x.get('current_diameter', 0) for x in ID.getEpochParameterDicts()]
+ep_2 = [x.get('current_intensity', 0) for x in ID.getEpochParameterDicts()]
+
+fh, ax = plt.subplots(5, 20, figsize=(20, 5))
+ax = ax.ravel()
+[x.set_axis_off() for x in ax]
+[x.set_ylim([-0.10, 1.25]) for x in ax]
+for t in range(100):
+    color = 'k'
+    if ep_1[t] == 15:
+        if ep_2[t] == 0:
+            color='r'
+    ax[t].plot(epoch_response_matrix[0, t, :], color=color)
+    ax[t].set_title('{}:{}'.format(int(ep_1[t]), int(ep_2[t])), color=color)
+
+# %% Test the same w old PGS data...
+
+
+matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
+                                                  target_fly_metadata={'driver_1': 'ChAT-T2A',
+                                                                       'indicator_1': 'Syt1GCaMP6f',
+                                                                       'indicator_2': 'TdTomato'},
+                                                  target_series_metadata={'protocol_ID': 'PanGlomSuite',
+                                                                          'include_in_analysis': True})
+series = matching_series[9]
+series_number = series['series']
+file_path = series['file_name'] + '.hdf5'
+print('Adding fly from {}: {}'.format(os.path.split(file_path)[-1], series_number))
+ID = imaging_data.ImagingDataObject(file_path,
+                                    series_number,
+                                    quiet=True)
+
+
+response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+
+# epoch_response_matrix: shape=(gloms, trials, time)
+epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
+epoch_response_matrix[:] = np.nan
+
+for val_ind, included_val in enumerate(included_vals):
+    new_glom_size = np.sum(response_data.get('mask') == included_val)
+
+    if new_glom_size > glom_size_threshold:
+        pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
+        epoch_response_matrix[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
+    else:  # Exclude because this glom, in this fly, is too tiny
+        pass
+
+# Align responses
+unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
+
+ep_1 = [x.get('current_diameter', 0) for x in ID.getEpochParameterDicts()]
+ep_2 = [x.get('current_intensity', 0) for x in ID.getEpochParameterDicts()]
+fh, ax = plt.subplots(5, 20, figsize=(20, 5))
+ax = ax.ravel()
+[x.set_axis_off() for x in ax]
+[x.set_ylim([-0.10, 1.25]) for x in ax]
+for t in range(100):
+    color = 'k'
+    if ep_1[t] == 15:
+        if ep_2[t] == 0:
+            color='r'
+    ax[t].plot(epoch_response_matrix[0, t, :], color=color)
+    ax[t].set_title('{}:{}'.format(int(ep_1[t]), int(ep_2[t])), color=color)
+
+
+# %%
 # Stack accumulated responses
 # The glom order here is included_gloms
 all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, param, time, fly)
@@ -94,8 +204,7 @@ sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
 
 # %%
-ID.getStimulusTiming(plot_trace_flag=True)
-unique_parameter_values
+
 # %%
 response_amplitudes.shape
 
