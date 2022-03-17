@@ -11,7 +11,7 @@ from pathlib import Path
 import_dir = sys.argv[1]  # name of import directory in imports folder, e.g. 20200803-mht
 
 data_directory = '/oak/stanford/groups/trc/data/Max/ImagingData/'
-datafile_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/datafiles'
+datafile_dir = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync/datafiles'
 
 # (1) COPY TO NEW DATE DIRECTORY
 from_import_directory = os.path.join(data_directory, 'Bruker', 'imports', import_dir)
