@@ -17,7 +17,6 @@ setup(
                       'ipykernel',
                       'pyyaml',
                       'nibabel',
-                      'antspyx',
                       'seaborn',
                       ],
     include_package_data=True,
