@@ -19,5 +19,5 @@ ml python/3.6 antspy/0.2.2
 
 args="{\"directory\":\"$DIRECTORY\",\"brain_master\":\"$BRAIN_MASTER\",\"brain_mirror\":\"$BRAIN_MIRROR\"}"
 
-python3 -u ./motion_correction.py $args
-python3 -u /home/users/mhturner/glom_pop/moco/h5_to_nii.py "${DIRECTORY}/${SERIES_BASE}"
+python3 -u /home/users/mhturner/brainsss/scripts/motion_correction.py $args
+python3 -u /home/users/mhturner/glom_pop/moco/h5_to_nii.py "${DIRECTORY}${SERIES_BASE}"
