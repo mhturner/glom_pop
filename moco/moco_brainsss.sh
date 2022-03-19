@@ -29,4 +29,4 @@ args="{\"directory\":\"$DIRECTORY\",\"brain_master\":\"$BRAIN_MASTER\",\"brain_m
 python3 -u /home/users/mhturner/brainsss/scripts/motion_correction.py $args
 python3 -u /home/users/mhturner/glom_pop/moco/h5_to_nii.py "${MOCO_DIRECTORY}${SERIES_BASE}"
 
-mv "${DATA_DIRECTORY}${SERIES_BASE}_reg.nii" $DIRECTORY
+mv "${DATA_DIRECTORY}/${SERIES_BASE}_reg.nii" $DIRECTORY
