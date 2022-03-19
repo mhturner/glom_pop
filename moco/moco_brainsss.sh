@@ -16,7 +16,7 @@ SERIES_BASE=$2
 BRAIN_MASTER="${SERIES_BASE}_channel_1.nii"
 BRAIN_MIRROR="${SERIES_BASE}_channel_2.nii"
 
-DATA_DIRECTORY="${}moco/"
+DATA_DIRECTORY="${DIRECTORY}moco/"
 
 ml python/3.6 antspy/0.2.2
 
