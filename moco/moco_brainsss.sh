@@ -20,7 +20,7 @@ echo $DIRECTORY
 echo $BRAIN_MASTER
 echo $BRAIN_MIRROR
 
-MOCO_DIRECTORY="${DIRECTORY}moco/"
+MOCO_DIRECTORY="${DIRECTORY}/moco/"
 
 ml python/3.6 antspy/0.2.2
 
