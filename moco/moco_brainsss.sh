@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --mail-type=END,FAIL
 #SBATCH --job-name=moco
-#SBATCH --time=4-00:00:00
+#SBATCH --time=2-00:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
 #SBATCH --output=/home/users/mhturner/glom_pop/moco/%x.%j.out
