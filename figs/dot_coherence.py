@@ -31,12 +31,13 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
 
 all_responses = []
 response_amplitudes = []
-for s_ind, series in enumerate(matching_series):
+for s_ind, series in enumerate(matching_series[:5]):
     series_number = series['series']
     file_path = series['file_name'] + '.hdf5'
     ID = imaging_data.ImagingDataObject(file_path,
                                         series_number,
                                         quiet=True)
+    print('Adding fly from {}: {}'.format(os.path.split(file_path)[-1], series_number))
 
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
@@ -54,7 +55,9 @@ for s_ind, series in enumerate(matching_series):
             pass
 
     # Align responses
-    unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix, parameter_key='current_coherence')
+    # parameter_key = ('current_speed', 'current_coherence')
+    parameter_key = 'current_coherence'
+    unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix, parameter_key=parameter_key)
     print(unique_parameter_values)
     response_amp = ID.getResponseAmplitude(mean_response, metric='max')
 
@@ -71,10 +74,11 @@ mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, param, time)
 sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, param, time)
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
 
-# %% Plot resp. vs. dot coherence
+# %%
 
+# %% Plot resp. vs. dot coherence
 fh, ax = plt.subplots(len(included_gloms), len(unique_parameter_values), figsize=(6, 7))
-[x.set_ylim([-0.15, 0.3]) for x in ax.ravel()]
+[x.set_ylim([-0.15, 0.2]) for x in ax.ravel()]
 # [x.set_axis_off() for x in ax.ravel()]
 [util.clean_axes(x) for x in ax.ravel()]
 for g_ind, glom in enumerate(included_gloms):
@@ -83,13 +87,13 @@ for g_ind, glom in enumerate(included_gloms):
         ax[0, u_ind].set_title(up)
         ax[g_ind, u_ind].plot(mean_responses[g_ind, u_ind, :], color=util.get_color_dict()[glom])
         # ax[g_ind, u_ind].plot(all_responses[g_ind, u_ind, :, :], alpha=0.5, color='k')
+clusters = [['LC11', 'LC21', 'LC18'],
+            ['LC6', 'LC26', 'LC16', 'LPLC2'],
+            ['LC4', 'LPLC1', 'LC9'],
+            ['LC17', 'LC12', 'LC15']]
 
-clusters = [['LPLC2', 'LPLC1', 'LC6', 'LC26', 'LC16', 'LC4'],
-            ['LC18', 'LC9', 'LC15', 'LC12', 'LC17'],
-            ['LC11', 'LC21']]
 
-
-fh, ax = plt.subplots(3, 1, figsize=(2.0, 4.5))
+fh, ax = plt.subplots(len(clusters), 1, figsize=(2.0, 4.5))
 [x.set_ylim([0, 0.3]) for x in ax.ravel()]
 for g_ind, glom in enumerate(included_gloms):
 
@@ -100,6 +104,5 @@ for g_ind, glom in enumerate(included_gloms):
 
 ax[2].set_xlabel('Coherence')
 ax[1].set_ylabel('Mean response (dF/F)')
-cluster_ind
 
 # %%
