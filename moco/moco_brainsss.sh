@@ -24,7 +24,7 @@ echo $brain_mirror
 
 # Optional params
 type_of_transform="${3:-"Rigid"}"
-meanbrain_n_frames = "${4:-"100"}"
+meanbrain_n_frames="${4:-"100"}"
 
 output_format="nii"
 echo $meanbrain_n_frames
