@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --mail-type=END,FAIL
 #SBATCH --job-name=moco
+#SBATCH --partition=trc
 #SBATCH --time=2-00:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
