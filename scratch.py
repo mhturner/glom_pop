@@ -1,5 +1,10 @@
 import numpy as np
+import os
 
 
-a = np.arange(100)
-a[:None]
+
+video_dir = '/Users/mhturner/CurrentData/
+
+date_dir = '20220318'
+
+series_dir = 'Series006'
