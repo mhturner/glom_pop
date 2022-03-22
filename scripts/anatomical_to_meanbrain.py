@@ -108,14 +108,12 @@ meanbrain = ants.image_read(os.path.join(sync_dir, 'mean_brain', meanbrain_fn))
 
 # Register select brains
 file_names = [
-              'TSeries-20220307-002_anatomical.nii',
-              'TSeries-20220307-008_anatomical.nii',
-              'TSeries-20220308-004_anatomical.nii',
-              'TSeries-20220308-008_anatomical.nii',
-              'TSeries-20220308-012_anatomical.nii',
+              'TSeries-20220317-007_anatomical.nii',
+              'TSeries-20220318-004_anatomical.nii',
+              'TSeries-20220318-009_anatomical.nii',
               ]
 file_paths = [os.path.join(sync_dir, 'anatomical_brains', x) for x in file_names]
-
+print(file_paths)
 # %% Run through all brains in dir
 # Register each anatomical brain to the meanbrain
 # For each anatomical brain, saves:
@@ -220,7 +218,7 @@ dy = 60
 meanbrain_red = ants.split_channels(meanbrain)[0]
 meanbrain_red
 brain_directory = os.path.join(sync_dir, 'anatomical_brains')
-file_paths = glob.glob(os.path.join(brain_directory, '*_anatomical.nii'))
+# file_paths = glob.glob(os.path.join(brain_directory, '*_anatomical.nii'))
 
 boxes = [(55, 10), (30, 110), (120, 5)]
 zs = [10, 39, 39]
