@@ -39,7 +39,7 @@ glom_size_threshold = 10
 # %% ALL FLIES
 all_responses = []
 response_amplitudes = []
-for s_ind, series in enumerate(matching_series[:1]):
+for s_ind, series in enumerate(matching_series):
     series_number = series['series']
     file_path = series['file_name'] + '.hdf5'
     ID = imaging_data.ImagingDataObject(file_path,

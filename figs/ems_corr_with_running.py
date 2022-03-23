@@ -27,10 +27,10 @@ included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
 glom_size_threshold = 10
 
-series_number = 10
+series_number = 8
 file_name = '2022-03-18.hdf5'
 # For video:
-series_dir = 'Series010'
+series_dir = 'Series008'
 date_dir = '20220318'
 
 file_path = os.path.join(data_directory, file_name)
@@ -84,16 +84,8 @@ for val_ind, included_val in enumerate(included_vals):
         pass
 
 # Align responses
-unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
-
-_, epoch_running_matrix = ID.getEpochResponseMatrix(err_rmse_ds[np.newaxis, :], dff=False)
-_, _, _, trial_running_by_stimulus = ID.getTrialAverages(epoch_running_matrix)
-
-# Trial by trial variability
-stim_ind = 1
-unique_parameter_values[stim_ind]
-# Align responses from running
-eg_trials = np.arange(0, 20)
+_, running_response_matrix = ID.getEpochResponseMatrix(err_rmse_ds[np.newaxis, :], dff=False)
+eg_trials = np.arange(0, 50)
 
 fh, ax = plt.subplots(1+len(included_gloms), len(eg_trials), figsize=(20, 6))
 [x.set_ylim([-0.15, 1.0]) for x in ax.ravel()]
@@ -102,18 +94,18 @@ fh, ax = plt.subplots(1+len(included_gloms), len(eg_trials), figsize=(20, 6))
 for g_ind, glom in enumerate(included_gloms):
     ax[g_ind, 0].set_ylabel(glom)
     for t in eg_trials:
-        ax[g_ind+1, t].plot(trial_response_by_stimulus[stim_ind][g_ind, t, :], color=util.get_color_dict()[glom])
+        ax[1+g_ind, t].plot(epoch_response_matrix[g_ind, t, :], color=util.get_color_dict()[glom])
 
         if g_ind == 0:
-            ax[0, t].plot(trial_running_by_stimulus[stim_ind][0, t, :], color='k')
+            ax[0, t].plot(running_response_matrix[0, t, :], color='k')
             ax[0, t].set_axis_off()
             ax[0, t].set_ylim([err_rmse_ds.min(), 40])
 
 
-
 # %% summary
-response_amp = ID.getResponseAmplitude(trial_response_by_stimulus[stim_ind], metric='max')
-running_amp = ID.getResponseAmplitude(trial_running_by_stimulus[stim_ind], metric='mean')
+
+response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
+running_amp = ID.getResponseAmplitude(running_response_matrix, metric='mean')
 
 fh, ax = plt.subplots(1+len(included_gloms), 1, figsize=(6, 6))
 ax[0].plot(running_amp.T, 'k-')
@@ -130,6 +122,8 @@ fh, ax = plt.subplots(1, 1, figsize=(6, 3))
 ax.axhline(y=0, color='k', alpha=0.5)
 ax.plot(corr_with_running, 'ko')
 ax.set_ylim([-1, 1])
+
+
 
 
 
