@@ -27,11 +27,18 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                        'indicator_1': 'Syt1GCaMP6f',
                                                                        'indicator_2': 'TdTomato'},
                                                   target_series_metadata={'protocol_ID': 'CoherentDots',
-                                                                          'include_in_analysis': True})
+                                                                          'include_in_analysis': True,
+                                                                          # 'speed': [80, -80],
+                                                                          'speed': 80,
+                                                                          'coherence': [0, 0.125, 0.25, 0.5, 0.75, 0.875, 1.0],
+                                                                          # 'coherence': [0, 0.25, 0.5, 0.75, 1.0],
+                                                                          })
 
+
+# %%
 all_responses = []
 response_amplitudes = []
-for s_ind, series in enumerate(matching_series[:5]):
+for s_ind, series in enumerate(matching_series):
     series_number = series['series']
     file_path = series['file_name'] + '.hdf5'
     ID = imaging_data.ImagingDataObject(file_path,
@@ -61,6 +68,15 @@ for s_ind, series in enumerate(matching_series[:5]):
     print(unique_parameter_values)
     response_amp = ID.getResponseAmplitude(mean_response, metric='max')
 
+    fh, ax = plt.subplots(len(included_gloms), len(unique_parameter_values), figsize=(6, 7))
+    [x.set_ylim([-0.15, 0.5]) for x in ax.ravel()]
+    [util.clean_axes(x) for x in ax.ravel()]
+    for g_ind, glom in enumerate(included_gloms):
+        ax[g_ind, 0].set_ylabel(glom)
+        for u_ind, up in enumerate(unique_parameter_values):
+            ax[g_ind, u_ind].plot(mean_response[g_ind, u_ind, :], color=util.get_color_dict()[glom])
+    ax[0, 0].set_title('{}: {}'.format(os.path.split(file_path)[-1], series_number))
+
     all_responses.append(mean_response)
     response_amplitudes.append(response_amp)
 
@@ -74,11 +90,9 @@ mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, param, time)
 sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, param, time)
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
 
-# %%
-
 # %% Plot resp. vs. dot coherence
 fh, ax = plt.subplots(len(included_gloms), len(unique_parameter_values), figsize=(6, 7))
-[x.set_ylim([-0.15, 0.2]) for x in ax.ravel()]
+[x.set_ylim([-0.15, 0.5]) for x in ax.ravel()]
 # [x.set_axis_off() for x in ax.ravel()]
 [util.clean_axes(x) for x in ax.ravel()]
 for g_ind, glom in enumerate(included_gloms):
@@ -93,13 +107,13 @@ clusters = [['LC11', 'LC21', 'LC18'],
             ['LC17', 'LC12', 'LC15']]
 
 
-fh, ax = plt.subplots(len(clusters), 1, figsize=(2.0, 4.5))
+fh, ax = plt.subplots(1, len(clusters), figsize=(4.5, 2))
 [x.set_ylim([0, 0.3]) for x in ax.ravel()]
 for g_ind, glom in enumerate(included_gloms):
 
     cluster_ind = np.where([glom in c for c in clusters])[0]
     if len(cluster_ind) > 0:
-        ax[cluster_ind[0]].plot(unique_parameter_values, response_amplitudes[g_ind, :, :].mean(axis=-1),
+        ax[cluster_ind[0]].plot(response_amplitudes[g_ind, :, :].mean(axis=-1),
                                 color=util.get_color_dict()[glom], marker='o', linestyle='-')
 
 ax[2].set_xlabel('Coherence')
