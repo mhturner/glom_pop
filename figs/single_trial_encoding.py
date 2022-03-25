@@ -52,7 +52,9 @@ for t in range(n_rows):
     for g_ind, g_name in enumerate(included_gloms):
         start_pt = g_ind * split_length
         end_pt = (g_ind+1) * split_length
+        peak_point = start_pt + np.argmax(ste.eg_traces[start_trial+t, start_pt:end_pt])
         ax0[t].plot(np.arange(start_pt, end_pt), ste.eg_traces[start_trial+t, start_pt:end_pt], color=ste.colors[g_ind])
+        ax0[t].plot(peak_point, ste.eg_traces[start_trial+t, peak_point], 'k.')
     ax0[t].set_title(str(ste.eg_stim_identity[start_trial+t]))
 
 fh0.savefig(os.path.join(save_directory, 'single_trial_traces.svg'))
@@ -179,7 +181,7 @@ for clust_ind in range(4):
     ax5.plot(np.arange(0, len(mean_diag)), mean_diag,
              marker='o', linestyle='none',
              color=colors[clust_ind],
-             label='Cluster {}'.format(clust_ind+1))
+             label='Group {}'.format(clust_ind+1))
     for d_ind in range(len(col_names)):
         ax5.plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]],
                  linestyle='-',

@@ -11,6 +11,7 @@ import pandas as pd
 
 from glom_pop import dataio, util, alignment
 
+# TODO: double check timing based on video triggers? Not sure that's necessary tho
 video_dir = '/Users/mhturner/CurrentData/'
 
 
@@ -68,7 +69,6 @@ fh, ax = plt.subplots(2, 1, figsize=(18, 2))
 ax[0].plot(err_rmse_ds, 'k')
 ax[1].plot(response_data.get('response')[2])
 
-
 # %%
 # epoch_response_matrix: shape=(gloms, trials, time)
 epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
@@ -85,22 +85,23 @@ for val_ind, included_val in enumerate(included_vals):
 
 # Align responses
 _, running_response_matrix = ID.getEpochResponseMatrix(err_rmse_ds[np.newaxis, :], dff=False)
-eg_trials = np.arange(0, 50)
+eg_trials = np.arange(50, 100)
 
 fh, ax = plt.subplots(1+len(included_gloms), len(eg_trials), figsize=(20, 6))
 [x.set_ylim([-0.15, 1.0]) for x in ax.ravel()]
 [util.clean_axes(x) for x in ax.ravel()]
 [x.set_ylim() for x in ax.ravel()]
 for g_ind, glom in enumerate(included_gloms):
-    ax[g_ind, 0].set_ylabel(glom)
-    for t in eg_trials:
-        ax[1+g_ind, t].plot(epoch_response_matrix[g_ind, t, :], color=util.get_color_dict()[glom])
+    ax[1+g_ind, 0].set_ylabel(glom)
+    for t_ind, t in enumerate(eg_trials):
+        ax[1+g_ind, t_ind].plot(epoch_response_matrix[g_ind, t, :], color=util.get_color_dict()[glom])
 
         if g_ind == 0:
-            ax[0, t].plot(running_response_matrix[0, t, :], color='k')
-            ax[0, t].set_axis_off()
-            ax[0, t].set_ylim([err_rmse_ds.min(), 40])
+            ax[0, t_ind].plot(running_response_matrix[0, t, :], color='k')
+            ax[0, t_ind].set_axis_off()
+            ax[0, t_ind].set_ylim([err_rmse_ds.min(), 40])
 
+# %% response - triggered walking?
 
 # %% summary
 
