@@ -217,18 +217,15 @@ fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(6, 6))
 [util.clean_axes(x) for x in ax1.ravel()]
 
 fh1.subplots_adjust(wspace=0.00, hspace=0.00)
-# for u_ind, un in enumerate(unique_parameter_values):
 for leaf_ind, g_ind in enumerate(leaves):
     name = included_gloms[g_ind]
-    # ax1[leaf_ind].set_ylabel(name, fontsize=11, rotation=0)
-    # ax1[leaf_ind].fill_between(time_concat,
-    #                            mean_concat[g_ind, :]-sem_concat[g_ind, :],
-    #                            mean_concat[g_ind, :]+sem_concat[g_ind, :],
-    #                            facecolor=sns.desaturate(colors[g_ind, :], 0.25), alpha=1.0, linewidth=0,
-    #                            rasterized=True)
+    ax1[leaf_ind].fill_between(time_concat,
+                               mean_concat[g_ind, :]-sem_concat[g_ind, :],
+                               mean_concat[g_ind, :]+sem_concat[g_ind, :],
+                               facecolor=util.get_color_dict().get(name), alpha=0.5, linewidth=0,
+                               rasterized=True)
     ax1[leaf_ind].plot(time_concat, mean_concat[g_ind, :],
-                       color=util.get_color_dict().get(name), alpha=1.0, linewidth=1.0,
-                       rasterized=True)
+                       color=util.get_color_dict().get(name), alpha=1.0, linewidth=1.0)
 
     if (leaf_ind == 0):
         plot_tools.addScaleBars(ax1[leaf_ind], dT=2, dF=0.25, T_value=0, F_value=-0.1)
@@ -237,7 +234,6 @@ for leaf_ind, g_ind in enumerate(leaves):
 
 fh0.savefig(os.path.join(save_directory, 'pgs_tuning_dendrogram.svg'), transparent=True)
 fh1.savefig(os.path.join(save_directory, 'pgs_mean_tuning.svg'), transparent=True, dpi=300)
-# plt.get_cmap('tab20b')
 # Save leaves list and ordered response dataframe
 np.save(os.path.join(save_directory, 'cluster_leaves_list.npy'), leaves)
 np.save(os.path.join(save_directory, 'cluster_vals.npy'), clusters)
@@ -270,9 +266,6 @@ fh6.savefig(os.path.join(save_directory, 'pgs_glom_highlights.svg'), transparent
 # %% Tuning on some stim params:
 # Leftward: + speed, 0 for bar, 180 for grating (oof)
 # Rightward: - speed, 180 for bar, 0 for grating
-# TODO: Tuning to some params:
-#       -light/dark
-#       -Spot size
 
 # (1) 0=Left vs. 1=right movement
 comparison_inds = (
@@ -481,31 +474,3 @@ fh5.savefig(os.path.join(save_directory, 'pgs_Ind_Corr.svg'), transparent=True)
 
 
 # %% OTHER STUFF
-
-ind_glom_tuning = []
-glom_id = []
-fly_id = []
-for leaf_ind, g_ind in enumerate(leaves):
-    name = included_gloms[g_ind]
-    for f_ind in range(response_amplitudes.shape[-1]):
-        if np.any(np.isnan(response_amplitudes[g_ind, :, f_ind])):
-            print('skipping glom {}: fly {}'.format(g_ind, f_ind))
-        else:
-            ind_glom_tuning.append(response_amplitudes[g_ind, :, f_ind])
-            glom_id.append(name)
-            fly_id.append(f_ind)
-
-ind_glom_tuning = np.vstack(ind_glom_tuning)
-
-cmat = pd.DataFrame(data=ind_glom_tuning.T).corr()
-cmat.index = glom_id
-cmat.columns = glom_id
-
-sns.heatmap(cmat)
-
-# %%
-
-ind_glom_tuning.shape
-df = pd.DataFrame(data=ind_glom_tuning, index=glom_id)
-
-sns.clustermap(df, col_cluster=False, yticklabels=True, xticklabels=False)

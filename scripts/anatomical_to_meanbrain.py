@@ -108,9 +108,11 @@ meanbrain = ants.image_read(os.path.join(sync_dir, 'mean_brain', meanbrain_fn))
 
 # Register select brains
 file_names = [
-              'TSeries-20220317-007_anatomical.nii',
-              'TSeries-20220318-004_anatomical.nii',
-              'TSeries-20220318-009_anatomical.nii',
+              'TSeries-20220324-005_anatomical.nii',
+              'TSeries-20220324-006_anatomical.nii',
+              'TSeries-20220324-011_anatomical.nii',
+              'TSeries-20220324-015_anatomical.nii',
+              'TSeries-20220324-018_anatomical.nii',
               ]
 file_paths = [os.path.join(sync_dir, 'anatomical_brains', x) for x in file_names]
 print(file_paths)
