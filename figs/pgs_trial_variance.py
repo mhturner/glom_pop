@@ -33,8 +33,6 @@ included_gloms = dataio.get_included_gloms()
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-glom_size_threshold = 10
-
 
 # %% ALL FLIES
 all_responses = []
@@ -50,19 +48,7 @@ for s_ind, series in enumerate(matching_series):
 
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
-
-    # epoch_response_matrix: shape=(gloms, trials, time)
-    epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
-    epoch_response_matrix[:] = np.nan
-
-    for val_ind, included_val in enumerate(included_vals):
-        new_glom_size = np.sum(response_data.get('mask') == included_val)
-
-        if new_glom_size > glom_size_threshold:
-            pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
-            epoch_response_matrix[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
-        else:  # Exclude because this glom, in this fly, is too tiny
-            pass
+    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
 
     # Align responses
     unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)

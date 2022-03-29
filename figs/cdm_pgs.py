@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-from glom_pop import dataio, util, alignment
+from glom_pop import dataio, util
 
 util.config_matplotlib()
 

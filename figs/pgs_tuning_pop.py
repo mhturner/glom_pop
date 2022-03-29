@@ -21,8 +21,6 @@ save_directory = dataio.get_config_file()['save_directory']
 
 # %% MEAN RESPONSES TO TUNING SUITE
 
-glom_size_threshold = 10
-
 # Load overall glom map
 vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'))
 glom_mask_2_meanbrain = ants.image_read(os.path.join(sync_dir, 'transforms', 'meanbrain_template', 'glom_mask_reg2meanbrain.nii')).numpy()
@@ -61,23 +59,12 @@ for s_ind, series in enumerate(matching_series):
 
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
-
-    # epoch_response_matrix: shape=(included_gloms, trials, time)
-    epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
-    epoch_response_matrix[:] = np.nan
+    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
 
     glom_sizes = np.zeros(len(all_glom_values))  # Glom sizes of ALL gloms, not just included
     for val_ind, new_val in enumerate(all_glom_values):
         new_glom_size = np.sum(response_data.get('mask') == new_val)
         glom_sizes[val_ind] = new_glom_size
-
-        if new_val in included_vals:  # Append responses for included gloms only
-            included_ind = np.where(new_val == included_vals)[0]
-            if new_glom_size > glom_size_threshold:
-                pull_ind = np.where(new_val == response_data.get('mask_vals'))[0][0]
-                epoch_response_matrix[included_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
-            else:  # Exclude because this glom, in this fly, is too tiny
-                pass
 
     # Align responses
     unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
@@ -140,7 +127,7 @@ for ind, ig in enumerate(glom_sizes_pd.index):
             color=color, marker='.', linestyle='none')
 
 ax.set_ylabel('Number of voxels')
-ax.axhline(glom_size_threshold, color='k', linestyle='-', alpha=0.5)
+ax.axhline(10, color='k', linestyle='-', alpha=0.5)
 ax.set_xticks(np.arange(0, len(glom_sizes_pd.index)))
 ax.set_xticklabels(glom_sizes_pd.index, rotation=90)
 for t_ind, tick in enumerate(ax.get_xticklabels()):
@@ -471,6 +458,3 @@ ax5.spines['right'].set_visible(False)
 ax5.set_title('Similarity between \n individuals and population')
 
 fh5.savefig(os.path.join(save_directory, 'pgs_Ind_Corr.svg'), transparent=True)
-
-
-# %% OTHER STUFF

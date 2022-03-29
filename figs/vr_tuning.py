@@ -14,29 +14,29 @@ from glom_pop import dataio, util
 
 util.config_matplotlib()
 
-base_dir = dataio.get_config_file()['base_dir']
-experiment_file_directory = dataio.get_config_file()['experiment_file_directory']
+sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
-vpn_types = pd.read_csv(os.path.join(base_dir, 'template_brain', 'vpn_types.csv'))
 
+leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.get_included_gloms()
+# sort by dendrogram leaves ordering
+included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-dataset = dataio.get_dataset(dataset_id='vr_walk', only_included=True)
+matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
+                                                  target_fly_metadata={'driver_1': 'ChAT-T2A',
+                                                                       'indicator_1': 'Syt1GCaMP6f',
+                                                                       'indicator_2': 'TdTomato'},
+                                                  target_series_metadata={'protocol_ID': 'ForestRandomWalk',
+                                                                          'include_in_analysis': True})
 
-cmap = cc.cm.glasbey
-colors = cmap(included_vals/included_vals.max())
-
-glom_size_threshold = 10
+# %%
 
 all_resp = []
 all_concat = []
-for s_ind, key in enumerate(dataset):
-    experiment_file_name = key.split('_')[0]
-    series_number = int(key.split('_')[1])
-
-    file_path = os.path.join(experiment_file_directory, experiment_file_name + '.hdf5')
-
+for s_ind, series in enumerate(matching_series):
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
     # ImagingDataObject wants a path to an hdf5 file and a series number from that file
     ID = imaging_data.ImagingDataObject(file_path,
                                         series_number,
@@ -47,23 +47,10 @@ for s_ind, key in enumerate(dataset):
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom')
     vals, names = dataio.get_glom_mask_decoder(response_data.get('mask'))
+    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
 
     meanbrain_red = response_data.get('meanbrain')[..., 0]
     meanbrain_green = response_data.get('meanbrain')[..., 1]
-
-    # epoch_response_matrix: shape=(gloms, trials, time)
-    epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
-    epoch_response_matrix[:] = np.nan
-
-    # Only select gloms in included_gloms
-    for val_ind, included_val in enumerate(included_vals):
-        new_glom_size = np.sum(response_data.get('mask') == included_val)
-
-        if new_glom_size > glom_size_threshold:
-            pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
-            epoch_response_matrix[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
-        else:  # Exclude because this glom, in this fly, is too tiny
-            pass
 
     # Align responses
     unique_parameter_values, mean_response, _, _ = ID.getTrialAverages(epoch_response_matrix, parameter_key='current_trajectory_index')
@@ -91,7 +78,7 @@ for i in range(10):
 
 # %%
 
-fly_ind = 2
+fly_ind = 9
 
 cmap = cc.cm.glasbey
 colors = cmap(included_vals/included_vals.max())
@@ -99,14 +86,14 @@ fh, ax = plt.subplots(len(included_gloms)+1, len(unique_parameter_values), figsi
 [util.clean_axes(x) for x in ax.ravel()]
 fh.subplots_adjust(wspace=0.00, hspace=0.00)
 for u_ind, un in enumerate(unique_parameter_values):
-    for g_ind, name in enumerate(included_gloms):
-        ax[g_ind+1, u_ind].set_ylim([-0.15, 0.50])
+    for g_ind, glom in enumerate(included_gloms):
+        ax[g_ind+1, u_ind].set_ylim([-0.15, 0.65])
         ax[g_ind+1, u_ind].axhline(0, alpha=0.25, color='k', linewidth=0.5)
-        ax[g_ind+1, u_ind].plot(all_resp[g_ind, u_ind, :, fly_ind], color=colors[g_ind], linewidth=2)
+        ax[g_ind+1, u_ind].plot(all_resp[g_ind, u_ind, :, fly_ind], color=util.get_color_dict().get(glom), linewidth=2)
 
         # ax[g_ind, u_ind].plot(all_resp[g_ind, :, u_ind, :], color=colors[g_ind], alpha=0.5)
         if (u_ind == 0):
-            ax[g_ind+1, u_ind].set_ylabel(name, fontsize=12, fontweight='bold')
+            ax[g_ind+1, u_ind].set_ylabel(glom, fontsize=12, fontweight='bold')
         if (u_ind == 0) & (g_ind == 0):
             plot_tools.addScaleBars(ax[g_ind+1, u_ind], dT=5, dF=0.10, T_value=-0.25, F_value=-0.04)
 

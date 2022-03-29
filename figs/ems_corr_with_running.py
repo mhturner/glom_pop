@@ -24,8 +24,6 @@ included_gloms = dataio.get_included_gloms()
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-glom_size_threshold = 10
-
 # 2022-03-24.hdf5 : 1, 7, 12, 16
 # 2022-03-18.hdf5: 8
 series_number = 1
@@ -61,7 +59,7 @@ ax.plot(err_rmse)
 # %%
 # Load response data
 response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
-
+epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
 # Resample to imaging rate and plot
 
 err_rmse_ds = resample(err_rmse, response_data.get('response').shape[1])  # DO this properly based on response
@@ -77,20 +75,8 @@ for g_ind, glom in enumerate(included_gloms):
 # ax[1].plot(response_data.get('response')[2])
 
 # %%
-# epoch_response_matrix: shape=(gloms, trials, time)
-epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
-epoch_response_matrix[:] = np.nan
 
-for val_ind, included_val in enumerate(included_vals):
-    new_glom_size = np.sum(response_data.get('mask') == included_val)
-
-    if new_glom_size > glom_size_threshold:
-        pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
-        epoch_response_matrix[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
-    else:  # Exclude because this glom, in this fly, is too tiny
-        pass
-
-# Align responses
+# Align running responses
 _, running_response_matrix = ID.getEpochResponseMatrix(err_rmse_ds[np.newaxis, :], dff=False)
 eg_trials = np.arange(0, 50)
 
