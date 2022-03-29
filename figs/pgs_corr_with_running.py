@@ -26,9 +26,9 @@ included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
 glom_size_threshold = 10
 
-# 2022-03-24.hdf5 : 1, 7, 12, 16
-# 2022-03-18.hdf5: 8
-series_number = 1
+# 2022-03-24.hdf5 : 2, 8, 13, 17
+# 2022-03-18.hdf5:
+series_number = 2
 file_name = '2022-03-24.hdf5'
 # For video:
 series_dir = 'series' + str(series_number).zfill(3)
@@ -74,7 +74,6 @@ for g_ind, glom in enumerate(included_gloms):
     pull_ind = np.where(response_data['mask_vals'] == included_vals[g_ind])[0][0]
     ax[1+g_ind].set_ylabel(glom)
     ax[1+g_ind].plot(response_data.get('response')[pull_ind])
-# ax[1].plot(response_data.get('response')[2])
 
 # %%
 # epoch_response_matrix: shape=(gloms, trials, time)
@@ -92,13 +91,17 @@ for val_ind, included_val in enumerate(included_vals):
 
 # Align responses
 _, running_response_matrix = ID.getEpochResponseMatrix(err_rmse_ds[np.newaxis, :], dff=False)
-eg_trials = np.arange(0, 50)
+# query = {'component_stim_type': 'ExpandingMovingSpot', 'current_diameter': 15}
+query = {'component_stim_type': 'LoomingSpot'}
+pull_trials, pull_inds = shared_analysis.filterTrials(epoch_response_matrix,
+                                                      ID,
+                                                      query,
+                                                      return_inds=True)
+concat_response = np.concatenate([pull_trials[:, x, :] for x in range(pull_trials.shape[1])], axis=1)
+concat_running = np.concatenate([running_response_matrix[:, x, :] for x in pull_inds], axis=1)
 
-concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in range(epoch_response_matrix.shape[1])], axis=1)
-concat_running = np.concatenate([running_response_matrix[:, x, :] for x in range(running_response_matrix.shape[1])], axis=1)
-
-fh, ax = plt.subplots(1+len(included_gloms), 1, figsize=(12, 8))
-[x.set_ylim([-0.15, 1.0]) for x in ax.ravel()]
+cfh, ax = plt.subplots(1+len(included_gloms), 1, figsize=(12, 8))
+[x.set_ylim([-0.15, 1.2]) for x in ax.ravel()]
 [util.clean_axes(x) for x in ax.ravel()]
 [x.set_ylim() for x in ax.ravel()]
 
@@ -110,7 +113,7 @@ for g_ind, glom in enumerate(included_gloms):
     ax[1+g_ind].plot(concat_response[g_ind, :], color=util.get_color_dict()[glom])
     ax[1+g_ind].set_ylim([-0.1, 0.8])
 
-fh.savefig(os.path.join(save_directory, 'ems_behavior_eg.pdf'), transparent=True)
+fh.savefig(os.path.join(save_directory, 'pgs_behavior_eg.pdf'), transparent=True)
 
 # %% response - triggered walking?
 

@@ -5,7 +5,6 @@ import numpy as np
 import os
 from glom_pop import dataio, util
 from scipy.stats import ttest_rel
-import pandas as pd
 
 util.config_matplotlib()
 
@@ -84,7 +83,8 @@ for s_ind, series in enumerate(matching_series):
         all_responses.append(trial_averages)
         response_amplitudes.append(response_amp)
 
-    if s_ind == eg_ind:
+    # if s_ind == eg_ind:
+    if True:
         fh0, ax = plt.subplots(len(included_gloms), len(target_coherence), figsize=(3, 6))
         [x.set_ylim([-0.15, 0.5]) for x in ax.ravel()]
         [util.clean_axes(x) for x in ax.ravel()]
