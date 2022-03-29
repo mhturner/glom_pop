@@ -108,11 +108,8 @@ meanbrain = ants.image_read(os.path.join(sync_dir, 'mean_brain', meanbrain_fn))
 
 # Register select brains
 file_names = [
-              'TSeries-20220324-005_anatomical.nii',
-              'TSeries-20220324-006_anatomical.nii',
-              'TSeries-20220324-011_anatomical.nii',
-              'TSeries-20220324-015_anatomical.nii',
-              'TSeries-20220324-018_anatomical.nii',
+              'TSeries-20220328-006_anatomical.nii',
+              'TSeries-20220328-011_anatomical.nii',
               ]
 file_paths = [os.path.join(sync_dir, 'anatomical_brains', x) for x in file_names]
 print(file_paths)
@@ -127,13 +124,7 @@ for brain_file_path in file_paths:
                               type_of_transform='SyN')
 
 # %% tweak individual brain registrations that are problematic
-# Problematic:
-#   20210811-003 is way off
-    # Split affine & Syn, then lobe mask. Looks OK now
-#   20210820-005 is a little off, down by 12 & 17 esp.
-    # Helps to split affine & syn only
-#   20210820-009 is way off
-    # Lobe mask helps. Brain missing part of 6 & 16 at top
+# Helps to split affine & syn only
 
 mask_fn = 'lobe_mask_chat_meanbrain_{}.nii'.format('20210824')
 lobe_mask = np.asanyarray(nib.load(os.path.join(sync_dir, 'mean_brain', mask_fn)).dataobj).astype('uint32')

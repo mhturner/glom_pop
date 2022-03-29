@@ -21,12 +21,11 @@ import nibabel as nib
 import pandas as pd
 import datetime
 from visanalysis.plugin import bruker
-from visanalysis.util import h5io
 from visanalysis.analysis import imaging_data
 
 from glom_pop import dataio, alignment
 
-target_datafiles = ['2022-03-24.hdf5']
+target_datafiles = ['2022-03-28.hdf5']
 
 meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
 
