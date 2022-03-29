@@ -88,11 +88,12 @@ for s_ind, series in enumerate(matching_series):
         fh0, ax = plt.subplots(len(included_gloms), len(target_coherence), figsize=(3, 6))
         [x.set_ylim([-0.15, 0.5]) for x in ax.ravel()]
         [util.clean_axes(x) for x in ax.ravel()]
+        ax[0, 0].set_title('{}: {}'.format(os.path.split(file_path)[-1], series_number))
         for g_ind, glom in enumerate(included_gloms):
             ax[g_ind, 0].set_ylabel(glom, fontsize=9)
             for u_ind, up in enumerate(target_coherence):
                 if g_ind == 0:
-                    ax[0, u_ind].set_title(up)
+                    # ax[0, u_ind].set_title(up)
                     if u_ind == 0:
                         plot_tools.addScaleBars(ax[0, 0], dT=4, dF=0.25, T_value=0, F_value=-0.1)
                 ax[g_ind, u_ind].plot(trial_averages[g_ind, u_ind, :], color=util.get_color_dict()[glom])
@@ -107,22 +108,22 @@ mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, param, time)
 sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, param, time)
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
 
-fh0.savefig(os.path.join(save_directory, 'coherence_eg_fly.svg'), transparent=True)
+# fh0.savefig(os.path.join(save_directory, 'coherence_eg_fly.svg'), transparent=True)
 
 # %% Plot resp. vs. dot coherence
-fh1, ax = plt.subplots(len(included_gloms), len(target_coherence), figsize=(3, 6))
-[x.set_ylim([-0.15, 0.5]) for x in ax.ravel()]
+# fh1, ax = plt.subplots(len(included_gloms), len(target_coherence), figsize=(3, 6))
+# [x.set_ylim([-0.15, 0.5]) for x in ax.ravel()]
 # [x.set_axis_off() for x in ax.ravel()]
-[util.clean_axes(x) for x in ax.ravel()]
+# [util.clean_axes(x) for x in ax.ravel()]
 for g_ind, glom in enumerate(included_gloms):
-    ax[g_ind, 0].set_ylabel(glom)
+    # ax[g_ind, 0].set_ylabel(glom)
     for u_ind, up in enumerate(target_coherence):
         if g_ind == 0:
-            ax[0, u_ind].set_title(up)
+            ax[0, u_ind+4].set_title(up)
         # ax[g_ind, u_ind].plot(all_responses[g_ind, u_ind, :, :], alpha=0.25, color='k')
         ax[g_ind, u_ind].plot(mean_responses[g_ind, u_ind, :], color=util.get_color_dict()[glom])
 
-fh1.savefig(os.path.join(save_directory, 'coherence_mean_fly.svg'), transparent=True)
+fh0.savefig(os.path.join(save_directory, 'coherence_responses.svg'), transparent=True)
 
 
 # %%

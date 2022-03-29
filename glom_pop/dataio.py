@@ -29,20 +29,6 @@ def get_config_file():
     return cfg
 
 
-# def get_dataset(dataset_id, only_included=True):
-#     path_to_dataset_yaml = get_config_file()['dataset_yaml']
-#     with open(path_to_dataset_yaml, 'r') as ymlfile:
-#         data_file = yaml.safe_load(ymlfile)
-#         dataset = data_file.get(dataset_id)
-#
-#     if only_included:
-#         dataset = {entry: dataset.get(entry) for entry in dataset if dataset.get(entry).get('included')}
-#     else:
-#         pass
-#
-#     return dataset
-
-
 def get_included_gloms():
     return get_config_file()['included_gloms']
 
@@ -244,3 +230,20 @@ def get_glom_vals_from_names(glom_names):
     vals = np.array([vpn_types.iloc[np.where(vpn_types.vpn_types == ig)[0][0], 0] for ig in glom_names])
 
     return vals
+
+
+def filter_epoch_response_matrix(response_data, included_vals, glom_size_threshold=10):
+    # epoch_response_matrix: shape=(gloms, trials, time)
+    epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
+    epoch_response_matrix[:] = np.nan
+
+    for val_ind, included_val in enumerate(included_vals):
+        new_glom_size = np.sum(response_data.get('mask') == included_val)
+
+        if new_glom_size > glom_size_threshold:
+            pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
+            epoch_response_matrix[val_ind, :, :] = response_data.get('epoch_response')[pull_ind, :, :]
+        else:  # Exclude because this glom, in this fly, is too tiny
+            pass
+
+    return epoch_response_matrix
