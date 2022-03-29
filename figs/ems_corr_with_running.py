@@ -20,8 +20,7 @@ included_gloms = dataio.get_included_gloms()
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-# 2022-03-24.hdf5 : 1, 7, 12, 16
-# 2022-03-18.hdf5: 8
+eg_ind = 0
 datasets = [('20220318', 8),
             ('20220324', 1),
             ('20220324', 7),
@@ -30,7 +29,7 @@ datasets = [('20220318', 8),
             ]
 
 corr_with_running = []
-for ds in datasets:
+for d_ind, ds in enumerate(datasets):
     series_number = ds[1]
     file_name = '{}-{}-{}.hdf5'.format(ds[0][:4], ds[0][4:6], ds[0][6:])
 
@@ -51,12 +50,14 @@ for ds in datasets:
     video_results = dataio.get_ball_movement(video_filepath,
                                              frame_triggers,
                                              sample_rate=voltage_sample_rate)
-    fh, ax = plt.subplots(1, 2, figsize=(6, 3))
-    ax[0].imshow(video_results['frame'], cmap='Greys_r')
-    ax[1].imshow(video_results['cropped_frame'], cmap='Greys_r')
 
-    fh, ax = plt.subplots(1, 1, figsize=(12, 3))
-    ax.plot(video_results['frame_times'], video_results['rmse'], 'k')
+    if d_ind == eg_ind:
+        fh, ax = plt.subplots(1, 2, figsize=(6, 3))
+        ax[0].imshow(video_results['frame'], cmap='Greys_r')
+        ax[1].imshow(video_results['cropped_frame'], cmap='Greys_r')
+
+        fh, ax = plt.subplots(1, 1, figsize=(12, 3))
+        ax.plot(video_results['frame_times'], video_results['rmse'], 'k')
 
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
@@ -73,18 +74,19 @@ for ds in datasets:
     concat_running = np.concatenate([running_response_matrix[:, x, :] for x in range(running_response_matrix.shape[1])], axis=1)
     response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
 
-    fh, ax = plt.subplots(1+len(included_gloms), 1, figsize=(12, 8))
-    [x.set_ylim([-0.15, 1.0]) for x in ax.ravel()]
-    [util.clean_axes(x) for x in ax.ravel()]
-    [x.set_ylim() for x in ax.ravel()]
+    if d_ind == eg_ind:
+        fh, ax = plt.subplots(1+len(included_gloms), 1, figsize=(12, 8))
+        [x.set_ylim([-0.15, 1.0]) for x in ax.ravel()]
+        [util.clean_axes(x) for x in ax.ravel()]
+        [x.set_ylim() for x in ax.ravel()]
 
-    ax[0].plot(concat_running[0, :], color='k')
-    ax[0].set_ylim([err_rmse_ds.min(), 40])
-    ax[0].set_ylabel('Movement', rotation=0)
-    for g_ind, glom in enumerate(included_gloms):
-        ax[1+g_ind].set_ylabel(glom)
-        ax[1+g_ind].plot(concat_response[g_ind, :], color=util.get_color_dict()[glom])
-        ax[1+g_ind].set_ylim([-0.1, 0.8])
+        ax[0].plot(concat_running[0, :], color='k')
+        ax[0].set_ylim([err_rmse_ds.min(), 40])
+        ax[0].set_ylabel('Movement', rotation=0)
+        for g_ind, glom in enumerate(included_gloms):
+            ax[1+g_ind].set_ylabel(glom)
+            ax[1+g_ind].plot(concat_response[g_ind, :], color=util.get_color_dict()[glom])
+            ax[1+g_ind].set_ylim([-0.1, 0.8])
 
     response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
     running_amp = ID.getResponseAmplitude(running_response_matrix, metric='mean')
@@ -95,13 +97,15 @@ for ds in datasets:
 
 corr_with_running = np.vstack(corr_with_running)  # flies x gloms
 # %%
-corr_with_running.shape
 fh, ax = plt.subplots(1, 1, figsize=(4, 2.5))
 ax.axhline(y=0, color='k', alpha=0.5)
-for g_ind, glom in enumerate(included_gloms):
-    t_result = ttest_1samp(corr_with_running[:, g_ind], 0)
+p_vals = []
 
-    if t_result.pvalue < 0.05:
+for g_ind, glom in enumerate(included_gloms):
+    t_result = ttest_1samp(corr_with_running[:, g_ind], 0, nan_policy='omit')
+    p_vals.append(t_result.pvalue)
+
+    if t_result.pvalue < 0.01:
         ax.annotate('*', (g_ind, 0.45), fontsize=12)
 
     y_mean = np.nanmean(corr_with_running[:, g_ind])
@@ -121,6 +125,7 @@ ax.set_xticklabels(included_gloms, rotation=90)
 ax.set_ylabel('Corr. with behavior (r)')
 ax.spines['top'].set_visible(False)
 ax.spines['right'].set_visible(False)
+
 
 
 # %%

@@ -70,8 +70,7 @@ for s_ind, series in enumerate(matching_series):
         all_responses.append(trial_averages)
         response_amplitudes.append(response_amp)
 
-    # if s_ind == eg_ind:
-    if True:
+    if s_ind == eg_ind:
 
         fh0, ax = plt.subplots(len(included_gloms), len(target_coherence), figsize=(3, 6))
         [x.set_ylim([-0.15, 0.5]) for x in ax.ravel()]
@@ -129,14 +128,13 @@ for g_ind, glom in enumerate(included_gloms):
     h, p = ttest_rel(response_amplitudes[g_ind, 0, :], response_amplitudes[g_ind, 4, :])
     p_vals.append(p)
 
-    if p < 0.05:
+    if p < 0.01:
         ax[g_ind].annotate('*', (0.5, 0.18), fontsize=18)
 
     ax[g_ind].axhline(y=0, color='k', alpha=0.50)
     ax[g_ind].set_title(glom, fontsize=9)
     ax[g_ind].plot(target_coherence, response_amplitudes[g_ind, :, :].mean(axis=-1),
                    color=util.get_color_dict()[glom], marker='.', linestyle='-')
-
 
     for coh_ind, coh in enumerate(target_coherence):
         mean_val = response_amplitudes[g_ind, coh_ind, :].mean(axis=-1)
