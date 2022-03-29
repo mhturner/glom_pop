@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import yaml
 import xml.etree.ElementTree as ET
+import pims
+from sewar.full_ref import rmse as sewar_rmse
 
 from glom_pop import util
 from visanalysis.util import h5io
@@ -247,3 +249,41 @@ def filter_epoch_response_matrix(response_data, included_vals, glom_size_thresho
             pass
 
     return epoch_response_matrix
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # #  Interacting with behavior video  # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+def get_ball_movement(filepath,
+                      frame_triggers,
+                      sample_rate=10000,
+                      cropping=((90, 0), (10, 20), (0, 0)),  # Pixels to trim from ((L, R), (T, B), (RGB_start, RGB_end))
+                      ):
+    # Load and crop vid as a pims object
+    whole_vid = pims.as_grey(pims.Video(filepath))
+    cropped_vid = pims.as_grey(pims.process.crop(pims.Video(filepath), cropping))
+
+    # Measure ball movement by computing rmse between successive frames
+    ball_rmse = np.array([sewar_rmse(cropped_vid[f], cropped_vid[f+1]) for f in range(len(cropped_vid)-1)])
+
+    # Use frame trigger voltage output to find frame times in bruker time
+    # shift & normalize so trace lives on [0 1]
+    frame_triggers = frame_triggers - np.min(frame_triggers)
+    frame_triggers = frame_triggers / np.max(frame_triggers)
+
+    # find trigger up times
+    threshold = 0.5
+    V_orig = frame_triggers[0:-2]
+    V_shift = frame_triggers[1:-1]
+    frame_times = np.where(np.logical_and(V_orig < threshold, V_shift >= threshold))[0] + 1
+
+    frame_times = frame_times / sample_rate  # Seconds
+
+    video_results = {'frame': whole_vid[100],
+                     'cropped_frame': cropped_vid[100],
+                     'frame_times': frame_times[:len(ball_rmse)],
+                     'rmse': ball_rmse,
+                     }
+
+    return video_results

@@ -72,6 +72,7 @@ for s_ind, series in enumerate(matching_series):
 
     # if s_ind == eg_ind:
     if True:
+
         fh0, ax = plt.subplots(len(included_gloms), len(target_coherence), figsize=(3, 6))
         [x.set_ylim([-0.15, 0.5]) for x in ax.ravel()]
         [util.clean_axes(x) for x in ax.ravel()]
@@ -95,27 +96,29 @@ mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, param, time)
 sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, param, time)
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
 
-# fh0.savefig(os.path.join(save_directory, 'coherence_eg_fly.svg'), transparent=True)
+fh0.savefig(os.path.join(save_directory, 'coherence_eg_fly.svg'), transparent=True)
 
 # %% Plot resp. vs. dot coherence
-# fh1, ax = plt.subplots(len(included_gloms), len(target_coherence), figsize=(3, 6))
-# [x.set_ylim([-0.15, 0.5]) for x in ax.ravel()]
-# [x.set_axis_off() for x in ax.ravel()]
-# [util.clean_axes(x) for x in ax.ravel()]
+fh1, ax = plt.subplots(len(included_gloms), len(target_coherence), figsize=(2.5, 6))
+[x.set_ylim([-0.05, 0.25]) for x in ax.ravel()]
+[x.set_axis_off() for x in ax.ravel()]
+[util.clean_axes(x) for x in ax.ravel()]
+plot_tools.addScaleBars(ax[0, 0], dT=2, dF=0.25, T_value=0, F_value=-0.04)
 for g_ind, glom in enumerate(included_gloms):
-    # ax[g_ind, 0].set_ylabel(glom)
+    ax[g_ind, 0].set_ylabel(glom)
+
     for u_ind, up in enumerate(target_coherence):
         if g_ind == 0:
-            ax[0, u_ind+4].set_title(up)
-        # ax[g_ind, u_ind].plot(all_responses[g_ind, u_ind, :, :], alpha=0.25, color='k')
-        ax[g_ind, u_ind].plot(mean_responses[g_ind, u_ind, :], color=util.get_color_dict()[glom])
-
-fh0.savefig(os.path.join(save_directory, 'coherence_responses.svg'), transparent=True)
+            ax[0, u_ind].set_title(up)
+        # ax[g_ind, u_ind].plot(response_data['time_vector'], all_responses[g_ind, u_ind, :, :], alpha=0.25, color='k')
+        ax[g_ind, u_ind].plot(response_data['time_vector'], mean_responses[g_ind, u_ind, :], color=util.get_color_dict()[glom])
+mean_responses.shape
+fh1.savefig(os.path.join(save_directory, 'coherence_mean_fly.svg'), transparent=True)
 
 
 # %%
 fh2, ax = plt.subplots(1, len(included_gloms), figsize=(6, 2))
-[x.set_ylim([-0.1, 0.35]) for x in ax.ravel()]
+[x.set_ylim([-0.05, 0.21]) for x in ax.ravel()]
 [util.clean_axes(x) for x in ax.ravel()[1:]]
 ax[0].spines['top'].set_visible(False)
 ax[0].spines['right'].set_visible(False)
@@ -127,7 +130,7 @@ for g_ind, glom in enumerate(included_gloms):
     p_vals.append(p)
 
     if p < 0.05:
-        ax[g_ind].annotate('*', (0.5, 0.25), fontsize=18)
+        ax[g_ind].annotate('*', (0.5, 0.18), fontsize=18)
 
     ax[g_ind].axhline(y=0, color='k', alpha=0.50)
     ax[g_ind].set_title(glom, fontsize=9)
@@ -149,7 +152,6 @@ fh2.savefig(os.path.join(save_directory, 'coherence_tuning_curves.svg'), transpa
 
 
 # %%
-response_amplitudes.shape
 
 
 

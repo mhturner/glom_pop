@@ -25,7 +25,8 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                        'indicator_1': 'Syt1GCaMP6f',
                                                                        'indicator_2': 'TdTomato'},
                                                   target_series_metadata={'protocol_ID': 'PGS_Reduced',
-                                                                          'include_in_analysis': True})
+                                                                          'include_in_analysis': True,
+                                                                          'num_epochs': 180})
 
 leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.get_included_gloms()
@@ -61,15 +62,16 @@ for s_ind, series in enumerate(matching_series):
     # Trial by trial variability
     stim_ind = 2
     trial_response_amp = ID.getResponseAmplitude(trial_response_by_stimulus[stim_ind], metric='max')
+    concat_trial_response = np.concatenate([trial_response_by_stimulus[2][:, x, :] for x in range(trial_response_by_stimulus[2].shape[1])], axis=1)
 
-    fh, ax = plt.subplots(len(included_gloms), 30, figsize=(20, 6))
+    fh, ax = plt.subplots(len(included_gloms), 1, figsize=(12, 6))
     [x.set_ylim([-0.15, 1.0]) for x in ax.ravel()]
     [util.clean_axes(x) for x in ax.ravel()]
     [x.set_ylim() for x in ax.ravel()]
+    ax[0].set_title('{}: {}'.format(os.path.split(file_path)[-1], series_number))
     for g_ind, glom in enumerate(included_gloms):
-        ax[g_ind, 0].set_ylabel(glom)
-        for t in range(30):
-            ax[g_ind, t].plot(trial_response_by_stimulus[stim_ind][g_ind, t, :], color=util.get_color_dict()[glom])
+        ax[g_ind].set_ylabel(glom)
+        ax[g_ind].plot(concat_trial_response[g_ind, :], color=util.get_color_dict()[glom])
 
     print('------------')
 
