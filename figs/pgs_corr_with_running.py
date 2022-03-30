@@ -20,7 +20,7 @@ included_gloms = dataio.get_included_gloms()
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-eg_ind = 0
+eg_ind = 1
 datasets = [('20220318', 6),
             ('20220324', 2),
             ('20220324', 8),
@@ -110,8 +110,7 @@ for d_ind, ds in enumerate(datasets):
 
 corr_with_running_all = np.dstack(corr_with_running_all)
 # %%
-corr_with_running_all.shape
-
+=
 
 for q_ind, query in enumerate(queries):
     corr_with_running = corr_with_running_all[q_ind, :, :].T

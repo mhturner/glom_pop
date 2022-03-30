@@ -45,7 +45,7 @@ n_rows = 3
 start_trial = 40
 split_length = int(ste.eg_traces.shape[1] / len(included_gloms))
 included_gloms
-fh0, ax0 = plt.subplots(n_rows, 1, figsize=(6, 3))
+fh0, ax0 = plt.subplots(n_rows, 1, figsize=(2.5, 2))
 [x.set_ylim([-3.5, 10]) for x in ax0.ravel()]
 [x.set_axis_off() for x in ax0.ravel()]
 for t in range(n_rows):
@@ -55,7 +55,8 @@ for t in range(n_rows):
         peak_point = start_pt + np.argmax(ste.eg_traces[start_trial+t, start_pt:end_pt])
         ax0[t].plot(np.arange(start_pt, end_pt), ste.eg_traces[start_trial+t, start_pt:end_pt], color=ste.colors[g_ind])
         ax0[t].plot(peak_point, ste.eg_traces[start_trial+t, peak_point], 'k.')
-    ax0[t].set_title(str(ste.eg_stim_identity[start_trial+t]))
+    # ax0[t].set_title(str(ste.eg_stim_identity[start_trial+t]))
+    print(str(ste.eg_stim_identity[start_trial+t]))
 
 fh0.savefig(os.path.join(save_directory, 'single_trial_traces.svg'))
 
@@ -86,10 +87,13 @@ ax1.spines['top'].set_visible(False)
 ax1.spines['right'].set_visible(False)
 
 # Confusion matrix
-fh2, ax2 = plt.subplots(1, 1, figsize=(3.5, 2.75))
-sns.heatmap(mean_cmat, ax=ax2, vmin=0, vmax=1.0, cmap='Reds', cbar_kws={'label': 'Probability'})
-ax2.set_xlabel('Predicted')
-ax2.set_ylabel('True')
+fh2, ax2 = plt.subplots(1, 1, figsize=(2., 1.75))
+sns.heatmap(mean_cmat, ax=ax2, vmin=0, vmax=1.0,
+            cmap='Reds',
+            cbar_kws={'label': 'Probability', 'ticks': [0, 0.5, 1.0]})
+
+ax2.set_xlabel('Predicted stim')
+ax2.set_ylabel('True stim')
 ax2.set_xticks([])
 ax2.set_yticks([])
 print(ste.included_parameter_values)
@@ -102,10 +106,10 @@ fh2.savefig(os.path.join(save_directory, 'single_trial_confusion.svg'))
 xx = np.linspace(-20, 20, 100)
 yy = 1 / (1+np.exp(-xx))
 
-fh3, ax3 = plt.subplots(1, 1, figsize=(2, 1.5))
+fh3, ax3 = plt.subplots(1, 1, figsize=(1.0, 0.75))
 ax3.plot(xx, yy, color='k', linewidth=2)
-ax3.set_xlabel('$\hat{y}$', fontsize=14)
-ax3.set_ylabel('p', fontsize=14)
+ax3.set_xlabel('$\hat{y}$', fontsize=11)
+ax3.set_ylabel('p', fontsize=11)
 ax3.set_xticks([])
 ax3.set_yticks([])
 ax3.spines['top'].set_visible(False)
@@ -155,17 +159,15 @@ for clust_ind, included_gloms in enumerate(clusters):
 
 
 # %% Plot
-fh5, ax5 = plt.subplots(1, 1, figsize=(6, 3.5))
-ax5.set_ylabel('Performance')
-ax5.set_xlabel('Stimulus identity')
-ax5.set_xticks([])
-ax5.set_ylim([-0.1, 1.1])
-ax5.spines['top'].set_visible(False)
-ax5.spines['right'].set_visible(False)
+fh5, ax5 = plt.subplots(4, 1, figsize=(4.0, 5.5))
+ax5 = ax5.ravel()
+[x.set_xticks([]) for x in ax5]
+[x.set_ylim([-0.1, 1.1]) for x in ax5]
+[x.spines['top'].set_visible(False) for x in ax5]
+[x.spines['right'].set_visible(False) for x in ax5]
 
 col_names = [str(x) for x in ste.included_parameter_values]
 mean_cmat = pd.DataFrame(data=ste.cmats.mean(axis=-1), index=col_names, columns=col_names)
-
 
 # Plot performance for each cluster:
 colors = ['b',
@@ -174,32 +176,37 @@ colors = ['b',
           'm']
 offset = [-0.2, 0, 0.2]
 for clust_ind in range(4):
+    # Chance line
+    ax5[clust_ind].axhline(y=1/len(ste_clust.classifier_model.classes_), color='k', zorder=10)
 
+    # Overall performance
+    mean_diag = np.mean(ste.performance, axis=0)
+    err_diag = np.std(ste.performance, axis=0) / np.sqrt(ste.performance.shape[0])
+
+    ax5[clust_ind].bar(col_names, mean_diag,
+                       label='All glomeruli' if clust_ind==0 else '_',
+                       color=[0.5, 0.5, 0.5])
+    for d_ind in range(len(col_names)):
+        ax5[clust_ind].plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]],
+                            color=[0.5, 0.5, 0.5])
+
+    # Single group performance
     mean_diag = np.mean(cluster_performance[clust_ind], axis=0)
     err_diag = np.std(cluster_performance[clust_ind], axis=0) / np.sqrt(cluster_performance[clust_ind].shape[0])
 
-    ax5.plot(np.arange(0, len(mean_diag)), mean_diag,
-             marker='o', linestyle='none',
-             color=colors[clust_ind],
-             label='Group {}'.format(clust_ind+1))
+    ax5[clust_ind].bar(np.arange(0, len(mean_diag)), mean_diag,
+                       color=colors[clust_ind],
+                       label='Group {}'.format(clust_ind+1))
     for d_ind in range(len(col_names)):
-        ax5.plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]],
-                 linestyle='-',
-                 color=sns.desaturate(colors[clust_ind], 0.6))
+        ax5[clust_ind].plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]],
+                            linestyle='-',
+                            color=colors[clust_ind])
 
-
-# Plot overall performance
-mean_diag = np.mean(ste.performance, axis=0)
-err_diag = np.std(ste.performance, axis=0) / np.sqrt(ste.performance.shape[0])
-
-ax5.plot(col_names, mean_diag, 'ks', label='All glomeruli')
-for d_ind in range(len(col_names)):
-    ax5.plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]], 'k-')
-
-ax5.plot([0, len(ste_clust.classifier_model.classes_)], [1/len(ste_clust.classifier_model.classes_), 1/len(ste_clust.classifier_model.classes_)], 'k--')
+ax5[3].set_xlabel('Stimulus identity')
+fh5.supylabel('Performance')
 fh5.savefig(os.path.join(save_directory, 'single_trial_cluster_performance.svg'))
 
-fh5.legend()
+
 
 
 

@@ -67,7 +67,7 @@ class SingleTrialEncoding():
             tmp_trials = [classify_data[x, :, :] for x in range(classify_data.shape[0])]
             single_trial_responses = np.concatenate(tmp_trials, axis=-1)
 
-            print('single_trial_responses shape = {}'.format(single_trial_responses.shape))
+            # print('single_trial_responses shape = {}'.format(single_trial_responses.shape))
 
             self.colors = [util.get_color_dict()[x] for x in self.included_gloms]
 
