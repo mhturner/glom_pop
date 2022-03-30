@@ -107,6 +107,10 @@ np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
 np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
 np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
 
+# %%
+unique_parameter_values
+
+
 # %% QC: Number of voxels in each glomerulus. Included vs. excluded gloms sizes
 
 glom_sizes_pd = pd.DataFrame(data=all_glom_sizes.copy(),

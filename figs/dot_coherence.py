@@ -24,10 +24,6 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                        'indicator_2': 'TdTomato'},
                                                   target_series_metadata={'protocol_ID': 'CoherentDots',
                                                                           'include_in_analysis': True,
-                                                                          # 'speed': [80, -80],
-                                                                          # 'speed': 80,
-                                                                          # 'coherence': [0, 0.125, 0.25, 0.5, 0.75, 0.875, 1.0],
-                                                                          # 'coherence': [0, 0.25, 0.5, 0.75, 1.0],
                                                                           })
 
 
@@ -95,7 +91,7 @@ mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, param, time)
 sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, param, time)
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
 
-fh0.savefig(os.path.join(save_directory, 'coherence_eg_fly.svg'), transparent=True)
+fh0.savefig(os.path.join(save_directory, 'coherence_eg_fly_speed_{}.svg'.format(target_speed)), transparent=True)
 
 # %% Plot resp. vs. dot coherence
 fh1, ax = plt.subplots(len(included_gloms), len(target_coherence), figsize=(2.5, 6))
@@ -112,7 +108,7 @@ for g_ind, glom in enumerate(included_gloms):
         # ax[g_ind, u_ind].plot(response_data['time_vector'], all_responses[g_ind, u_ind, :, :], alpha=0.25, color='k')
         ax[g_ind, u_ind].plot(response_data['time_vector'], mean_responses[g_ind, u_ind, :], color=util.get_color_dict()[glom])
 mean_responses.shape
-fh1.savefig(os.path.join(save_directory, 'coherence_mean_fly.svg'), transparent=True)
+fh1.savefig(os.path.join(save_directory, 'coherence_mean_fly_speed_{}.svg'.format(target_speed)), transparent=True)
 
 
 # %%
@@ -146,7 +142,7 @@ for g_ind, glom in enumerate(included_gloms):
 
 ax[0].set_xlabel('Coherence')
 ax[0].set_ylabel('Mean response (dF/F)')
-fh2.savefig(os.path.join(save_directory, 'coherence_tuning_curves.svg'), transparent=True)
+fh2.savefig(os.path.join(save_directory, 'coherence_tuning_curves_speed_{}.svg'.format(target_speed)), transparent=True)
 
 
 # %%
