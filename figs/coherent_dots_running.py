@@ -4,7 +4,6 @@ import glob
 import matplotlib.pyplot as plt
 from visanalysis.analysis import imaging_data, shared_analysis
 from scipy.signal import resample
-import pandas as pd
 from scipy.stats import ttest_1samp
 
 from glom_pop import dataio, util
@@ -20,20 +19,21 @@ included_gloms = dataio.get_included_gloms()
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-eg_ind = 1
-datasets = [('20220318', 6),
-            ('20220324', 2),
-            ('20220324', 8),
-            ('20220324', 13),
-            ('20220324', 17),
+# TODO: response conditioned on : coherence and moving/not moving
+
+eg_ind = 0
+datasets = [
+            ('20220324', 4),
+            ('20220324', 9),
+            ('20220324', 14),
             ]
 
-queries = ({'component_stim_type': 'DriftingSquareGrating'},
-           {'component_stim_type': 'ExpandingMovingSpot', 'current_diameter': 5},
-           {'component_stim_type': 'ExpandingMovingSpot', 'current_diameter': 15},
-           {'component_stim_type': 'ExpandingMovingSpot', 'current_diameter': 50},
-           {'component_stim_type': 'LoomingSpot'},
-           {'component_stim_type': 'MovingRectangle'})
+queries = ({'coherence': 0, 'speed': 80},
+           {'coherence': 0.25, 'speed': 80},
+           {'coherence': 0.5, 'speed': 80},
+           {'coherence': 0.75, 'speed': 80},
+           {'coherence': 1.0, 'speed': 80},
+           )
 
 corr_with_running_all = []
 for d_ind, ds in enumerate(datasets):
@@ -58,13 +58,13 @@ for d_ind, ds in enumerate(datasets):
                                              frame_triggers,
                                              sample_rate=voltage_sample_rate)
 
-    if d_ind == eg_ind:
-        fh, ax = plt.subplots(1, 2, figsize=(6, 3))
-        ax[0].imshow(video_results['frame'], cmap='Greys_r')
-        ax[1].imshow(video_results['cropped_frame'], cmap='Greys_r')
+    # if d_ind == eg_ind:
+    fh, ax = plt.subplots(1, 2, figsize=(6, 3))
+    ax[0].imshow(video_results['frame'], cmap='Greys_r')
+    ax[1].imshow(video_results['cropped_frame'], cmap='Greys_r')
 
-        fh, ax = plt.subplots(1, 1, figsize=(12, 3))
-        ax.plot(video_results['frame_times'], video_results['rmse'], 'k')
+    fh, ax = plt.subplots(1, 1, figsize=(12, 3))
+    ax.plot(video_results['frame_times'], video_results['rmse'], 'k')
 
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
@@ -90,7 +90,8 @@ for d_ind, ds in enumerate(datasets):
         new_beh_corr = np.array([np.corrcoef(running_amp, response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
         corr_with_running.append(new_beh_corr)
 
-        if d_ind == eg_ind:
+        # if d_ind == eg_ind:
+        if True:
             fh, ax = plt.subplots(1+len(included_gloms), 1, figsize=(12, 8))
             [x.set_ylim([-0.15, 1.0]) for x in ax.ravel()]
             [util.clean_axes(x) for x in ax.ravel()]
@@ -110,12 +111,12 @@ for d_ind, ds in enumerate(datasets):
 
 corr_with_running_all = np.dstack(corr_with_running_all)
 # %%
-=
+
 
 for q_ind, query in enumerate(queries):
     corr_with_running = corr_with_running_all[q_ind, :, :].T
     fh, ax = plt.subplots(1, 1, figsize=(4, 2.5))
-    ax.set_title(query['component_stim_type'])
+    ax.set_title(query['coherence'])
     ax.axhline(y=0, color='k', alpha=0.5)
     p_vals = []
 
@@ -185,6 +186,8 @@ behavior_amp = np.array(behavior_amp)
 
 
 # %%
+
+
 
 
 

@@ -280,8 +280,8 @@ def get_ball_movement(filepath,
 
     frame_times = frame_times / sample_rate  # Seconds
 
-    video_results = {'frame': whole_vid[100],
-                     'cropped_frame': cropped_vid[100],
+    video_results = {'frame': whole_vid[1],
+                     'cropped_frame': cropped_vid[1],
                      'frame_times': frame_times[:len(ball_rmse)],
                      'rmse': ball_rmse,
                      }
