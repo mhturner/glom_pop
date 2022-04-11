@@ -36,6 +36,8 @@ queries = ({'component_stim_type': 'DriftingSquareGrating'},
            {'component_stim_type': 'MovingRectangle'})
 
 corr_with_running_all = []
+gains_all = []
+running_all = []
 for d_ind, ds in enumerate(datasets):
     series_number = ds[1]
     file_name = '{}-{}-{}.hdf5'.format(ds[0][:4], ds[0][4:6], ds[0][6:])
@@ -77,6 +79,8 @@ for d_ind, ds in enumerate(datasets):
 
     # Loop over stim types
     corr_with_running = []
+    gain = np.zeros((epoch_response_matrix.shape[0], epoch_response_matrix.shape[1]))
+    running = np.zeros((epoch_response_matrix.shape[0], epoch_response_matrix.shape[1]))
     for query in queries:
         pull_trials, pull_inds = shared_analysis.filterTrials(epoch_response_matrix,
                                                               ID,
@@ -86,6 +90,10 @@ for d_ind, ds in enumerate(datasets):
         concat_running = np.concatenate([running_response_matrix[:, x, :] for x in pull_inds], axis=1)
         response_amp = ID.getResponseAmplitude(pull_trials, metric='max')
         running_amp = ID.getResponseAmplitude(running_response_matrix[:, pull_inds], metric='mean')
+
+        # Gain := trial amplitude normalized by mean amplitude for that stimulus
+        gain[:, pull_inds] = response_amp / np.nanmean(response_amp, axis=1)[:, np.newaxis]
+        running[:, pull_inds] = running_amp
 
         new_beh_corr = np.array([np.corrcoef(running_amp, response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
         corr_with_running.append(new_beh_corr)
@@ -107,10 +115,11 @@ for d_ind, ds in enumerate(datasets):
     corr_with_running = np.vstack(corr_with_running)  # flies x gloms
 
     corr_with_running_all.append(corr_with_running)
+    gains_all.append(gain)
+    running_all.append(running)
 
 corr_with_running_all = np.dstack(corr_with_running_all)
 # %%
-=
 
 for q_ind, query in enumerate(queries):
     corr_with_running = corr_with_running_all[q_ind, :, :].T
@@ -145,6 +154,66 @@ for q_ind, query in enumerate(queries):
     ax.spines['right'].set_visible(False)
 
 # %%
+
+
+def getXcorr(a, b):
+    a = (a - np.mean(a)) / (np.std(a) * len(a))
+    b = (b - np.mean(b)) / (np.std(b))
+    c = np.correlate(a, b, 'same')
+    return c
+
+
+def getPCs(data_matrix):
+    """
+    data_matrix shape = gloms x features (e.g. gloms x time, or gloms x response amplitudes)
+    """
+
+    mean_sub = data_matrix - data_matrix.mean(axis=1)[:, np.newaxis]
+    C = np.cov(mean_sub)
+    evals, evecs = np.linalg.eig(C)
+
+    # For modes where loadings are all negative, swap the sign
+    for m in range(evecs.shape[1]):
+        if np.all(np.sign(evecs[:, m]) < 0):
+            evecs[:, m] = -evecs[:, m]
+
+    frac_var = evals / evals.sum()
+
+    results_dict = {'eigenvalues': evals,
+                    'eigenvectors': evecs,
+                    'frac_var': frac_var}
+
+    return results_dict
+
+# %% GAIN analysis
+
+
+gain.shape
+fh, ax = plt.subplots(len(gains_all), 4, figsize=(12, 4))
+for f_ind, gain in enumerate(gains_all):
+
+    gain[np.isnan(gain)] = 0
+    fly_running = running_all[f_ind]
+
+    pca_results = getPCs(gain)
+    ax[f_ind, 0].plot(pca_results['frac_var'], 'k-o')
+
+    # First mode
+    ax[f_ind, 1].bar(np.arange(len(included_gloms)), pca_results['eigenvectors'][:, 0])
+
+    # Projection of PC onto data:
+    F = pca_results['eigenvectors'] @ gain
+
+    ax[f_ind, 2].plot(fly_running[0, :], 'k')
+    ax2 = ax[f_ind, 2].twinx()
+    ax2.plot(F[0, :], alpha=0.5)
+    ax2.set_yticks([])
+
+    xx = np.arange(0, fly_running.shape[1]) - fly_running.shape[1]/2
+    cc = getXcorr(F[0, :], fly_running[0, :], )
+    ax[f_ind, 3].plot(xx, cc, 'k-o')
+    ax[f_ind, 3].set_xlim([-10, 10])
+    ax[f_ind, 3].set_ylim([-0.5, 0.5])
 
 
 
