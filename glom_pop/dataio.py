@@ -15,6 +15,7 @@ import yaml
 import xml.etree.ElementTree as ET
 import pims
 from sewar.full_ref import rmse as sewar_rmse
+from skimage import filters
 
 from glom_pop import util
 from visanalysis.util import h5io
@@ -267,6 +268,11 @@ def get_ball_movement(filepath,
     # Measure ball movement by computing rmse between successive frames
     ball_rmse = np.array([sewar_rmse(cropped_vid[f], cropped_vid[f+1]) for f in range(len(cropped_vid)-1)])
 
+    # Binarize using Otsu threshold
+    # i.e. minimize within-class variance
+    thresh = filters.threshold_otsu(ball_rmse)
+    binary_behavior = ball_rmse > thresh
+
     # Use frame trigger voltage output to find frame times in bruker time
     # shift & normalize so trace lives on [0 1]
     frame_triggers = frame_triggers - np.min(frame_triggers)
@@ -280,10 +286,15 @@ def get_ball_movement(filepath,
 
     frame_times = frame_times / sample_rate  # Seconds
 
+    print('{} frames in movie'.format(ball_rmse.shape[0]+1))
+    print('{} frame triggers sent'.format(frame_times.shape[0]))
+
     video_results = {'frame': whole_vid[1],
                      'cropped_frame': cropped_vid[1],
                      'frame_times': frame_times[:len(ball_rmse)],
                      'rmse': ball_rmse,
+                     'binary_behavior': binary_behavior,
+                     'binary_thresh': thresh
                      }
 
     return video_results
