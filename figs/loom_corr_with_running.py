@@ -21,11 +21,12 @@ included_gloms = dataio.get_included_gloms()
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-eg_ind = 1
+eg_ind = 2
 # Date, series, cropping for video
 datasets = [
-            ('20220404', 2, ((120, 80), (150, 150), (0, 0))),
-            ('20220404', 7, ((120, 80), (150, 150), (0, 0)))
+            ('20220404', 2, ((120, 60), (120, 120), (0, 0))),
+            ('20220404', 7, ((120, 60), (120, 120), (0, 0))),
+            ('20220407', 1, ((120, 60), (120, 120), (0, 0))),
             ]
 
 
@@ -88,11 +89,11 @@ for d_ind, ds in enumerate(datasets):
     epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
     erms.append(epoch_response_matrix)
 
-    # Resample to imaging rate and plot
-    err_rmse_ds = resample(video_results['rmse'], response_data.get('response').shape[1])  # DO this properly based on response
-
     # Align running responses
-    _, running_response_matrix = ID.getEpochResponseMatrix(err_rmse_ds[np.newaxis, :], dff=False)
+    _, running_response_matrix = ID.getEpochResponseMatrix(resample(video_results['rmse'], response_data.get('response').shape[1])[np.newaxis, :],
+                                                           dff=False)
+    _, behavior_binary_matrix = ID.getEpochResponseMatrix(resample(video_results['binary_behavior'], response_data.get('response').shape[1])[np.newaxis, :],
+                                                          dff=False)
 
     response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
     running_amp = ID.getResponseAmplitude(running_response_matrix, metric='mean')
@@ -108,7 +109,7 @@ for d_ind, ds in enumerate(datasets):
     corr_with_running.append(new_beh_corr)
 
     if d_ind == eg_ind:
-        eg_trials = np.arange(0, 30)
+        eg_trials = np.arange(30, 60)
 
         concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in eg_trials], axis=1)
         concat_running = np.concatenate([running_response_matrix[:, x, :] for x in eg_trials], axis=1)
@@ -161,7 +162,7 @@ for g_ind, glom in enumerate(included_gloms):
     ax2.plot([g_ind, g_ind], [y_mean-y_err, y_mean+y_err],
              color=util.get_color_dict()[glom])
 
-    ax2.set_ylim([-0.6, 0.6])
+    # ax2.set_ylim([-0.6, 0.6])
 ax2.set_xticks(np.arange(0, len(included_gloms)))
 ax2.set_xticklabels(included_gloms, rotation=90)
 ax2.set_ylabel('Corr. with behavior (r)')

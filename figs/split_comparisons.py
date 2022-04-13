@@ -15,7 +15,9 @@ sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
 transform_directory = os.path.join(sync_dir, 'transforms', 'meanbrain_template')
 
-target_gloms = ['LC18', 'LC9', 'LC4']
+# target_gloms = ['LC18', 'LC9', 'LC4']
+
+target_gloms = ['LC9']
 
 chat_response_amplitudes = np.load(os.path.join(save_directory, 'chat_response_amplitudes.npy'))
 all_chat_responses = np.load(os.path.join(save_directory, 'chat_responses.npy'))
@@ -29,6 +31,7 @@ glom_mask_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'glom_
 glom_mask_2_meanbrain = alignment.filter_glom_mask_by_name(mask=glom_mask_2_meanbrain,
                                                            vpn_types=vpn_types,
                                                            included_gloms=included_gloms)
+
 
 for g_ind, target_glom in enumerate(target_gloms):
     chat_glom_ind = np.where(np.array(included_gloms) == target_glom)[0][0]
@@ -62,9 +65,15 @@ for g_ind, target_glom in enumerate(target_gloms):
 
     split_responses = []
     split_response_amplitudes = []
+
+    # TODO: QC
     for s_ind, ser in enumerate(target_series):
         file_path = ser.get('file_name') + '.hdf5'
         series_number = ser.get('series')
+        print('------')
+        print(file_path)
+        print(series_number)
+        print('------')
         ID = imaging_data.ImagingDataObject(file_path,
                                             series_number,
                                             quiet=True)
@@ -145,10 +154,25 @@ for g_ind, target_glom in enumerate(target_gloms):
     mean_split_responses = split_responses.mean(axis=0)
     sem_split_responses = split_responses.std(axis=0) / split_responses.shape[0]
 
-    fh0.savefig(os.path.join(save_directory, 'split_responses_{}.svg'.format(target_glom)), transparent=True)
-    fh1.savefig(os.path.join(save_directory, 'split_amp_scatter_{}.svg'.format(target_glom)), transparent=True)
+    # fh0.savefig(os.path.join(save_directory, 'split_responses_{}.svg'.format(target_glom)), transparent=True)
+    # fh1.savefig(os.path.join(save_directory, 'split_amp_scatter_{}.svg'.format(target_glom)), transparent=True)
 
 
+# %%
 
+
+split_responses.shape
+
+individual_chat_concat.shape
+individual_split_concat.shape
+
+
+fh, ax = plt.subplots(individual_chat_concat.shape[0], 1, figsize=(8, 10))
+for f in range(individual_chat_concat.shape[0]):
+    ax[f].plot(individual_chat_concat[f, :], 'b')
+
+fh, ax = plt.subplots(individual_split_concat.shape[0], 1, figsize=(8, 6))
+for f in range(individual_split_concat.shape[0]):
+    ax[f].plot(individual_split_concat[f, :], 'k')
 
 # %%

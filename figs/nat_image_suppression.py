@@ -31,7 +31,7 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                           })
 
 # %%
-
+glom_ind = 0
 all_responses = []
 for s_ind, series in enumerate(matching_series):
     series_number = series['series']
@@ -91,6 +91,8 @@ for mean_response in all_responses:
                                                   color='r' if image_speed==ID.getRunParameters('spot_speed') else 'k')
 
 # %%
+
+all_responses[0].shape
 
 all_amplitudes = ID.getResponseAmplitude(all_responses, metric='max')
 

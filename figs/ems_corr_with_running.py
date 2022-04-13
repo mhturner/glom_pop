@@ -21,7 +21,7 @@ included_gloms = dataio.get_included_gloms()
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-eg_ind = 0
+eg_ind = 0  # 0
 # Date, series, cropping for video
 datasets = [
             ('20220318', 8, ((90, 0), (10, 20), (0, 0))),
@@ -30,7 +30,8 @@ datasets = [
             ('20220324', 12, ((100, 10), (10, 30), (0, 0))),
             ('20220324', 16, ((100, 10), (10, 30), (0, 0))),
             ('20220404', 1, ((120, 80), (150, 150), (0, 0))),
-            ('20220404', 6, ((120, 80), (150, 150), (0, 0)))
+            ('20220404', 6, ((120, 80), (150, 150), (0, 0))),
+            ('20220407', 2, ((120, 80), (150, 150), (0, 0)))
             ]
 
 
@@ -58,10 +59,9 @@ gain_autocorr = []
 xcorr = []  # xxcorr is running, behavior. i.e. left of zero is behavior leads
 
 erms = []
-concat_responses = []
-concat_runnings = []
-concat_behavings = []
 running_amps = []
+fraction_behaving = []
+
 for d_ind, ds in enumerate(datasets):
     series_number = ds[1]
     file_name = '{}-{}-{}.hdf5'.format(ds[0][:4], ds[0][4:6], ds[0][6:])
@@ -103,19 +103,18 @@ for d_ind, ds in enumerate(datasets):
     epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
     erms.append(epoch_response_matrix)
 
-    # Resample to imaging rate and plot
-    err_rmse_ds = resample(video_results['rmse'], response_data.get('response').shape[1])
-
     # Align running responses
-    _, running_response_matrix = ID.getEpochResponseMatrix(err_rmse_ds[np.newaxis, :], dff=False)
-    _, running_response_matrix = ID.getEpochResponseMatrix(err_rmse_ds[np.newaxis, :], dff=False)
-
-    behavior_binary_matrix = running_response_matrix > video_results['binary_thresh']
+    _, running_response_matrix = ID.getEpochResponseMatrix(resample(video_results['rmse'], response_data.get('response').shape[1])[np.newaxis, :],
+                                                           dff=False)
+    _, behavior_binary_matrix = ID.getEpochResponseMatrix(resample(video_results['binary_behavior'], response_data.get('response').shape[1])[np.newaxis, :],
+                                                          dff=False)
 
     response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
     running_amp = ID.getResponseAmplitude(running_response_matrix, metric='mean')
 
     running_amps.append(running_amp)
+    # Total fraction of all trials where animal behavior > binary threshold
+    fraction_behaving.append(behavior_binary_matrix.sum() / behavior_binary_matrix.size)
 
     # Trial cross correlation between running and response amp (gain)
     running_autocorr.append(getXcorr(running_amp[0, :], running_amp[0, :]))
@@ -133,12 +132,8 @@ for d_ind, ds in enumerate(datasets):
         concat_behaving = np.concatenate([behavior_binary_matrix[:, x, :] for x in eg_trials], axis=1)
         concat_time = np.arange(0, concat_running.shape[1]) * ID.getAcquisitionMetadata('sample_period')
 
-        concat_responses.append(concat_response)
-        concat_runnings.append(concat_running)
-        concat_behavings.append(concat_behaving)
-
         ax0[0].plot(concat_time, concat_running[0, :], color='k')
-        ax0[0].set_ylim([err_rmse_ds.min(), err_rmse_ds.max()])
+        ax0[0].set_ylim([concat_behaving.min(), concat_behaving.max()])
         ax0[0].set_ylabel('Movement', rotation=0)
         for g_ind, glom in enumerate(included_gloms):
             ax0[1+g_ind].set_ylabel(glom, rotation=0)
@@ -172,7 +167,10 @@ corr_with_running = np.vstack(corr_with_running)  # flies x gloms
 
 # %%
 fh2, ax2 = plt.subplots(1, 1, figsize=(4, 2.5))
-ax2.axhline(y=0, color='k', alpha=0.5)
+ax2.axhline(y=0, color='k', alpha=0.50)
+
+fh3, ax3 = plt.subplots(1, 1, figsize=(2.5, 2.0))
+
 p_vals = []
 
 for g_ind, glom in enumerate(included_gloms):
@@ -194,15 +192,44 @@ for g_ind, glom in enumerate(included_gloms):
              color=util.get_color_dict()[glom])
 
     ax2.set_ylim([-0.6, 0.6])
+
+
 ax2.set_xticks(np.arange(0, len(included_gloms)))
 ax2.set_xticklabels(included_gloms, rotation=90)
 ax2.set_ylabel('Corr. with behavior (r)')
 ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 
-fh2.savefig(os.path.join(save_directory, 'ems_running_corr_summary.svg'), transparent=True)
 
-# TODO: corr with running vs. overall running for each animal
+# Plot fraction time spent moving vs. correlation with behavior
+ax3.plot(fraction_behaving, corr_with_running.mean(axis=1), 'ko')
+ax3.set_ylabel('Corr. with behavior')
+ax3.set_xlabel('Fraction of time behaving')
+ax3.spines['top'].set_visible(False)
+ax3.spines['right'].set_visible(False)
+
+
+fh2.savefig(os.path.join(save_directory, 'ems_running_corr_summary.svg'), transparent=True)
+# %%
+fh, ax = plt.subplots(4, 4, figsize=(8, 8))
+ax = ax.ravel()
+[x.set_ylim([-0.6, 0.6]) for x in ax]
+for g_ind, glom in enumerate(included_gloms):
+    r = np.corrcoef(fraction_behaving, corr_with_running[:, g_ind])[0, 1]
+    ax[g_ind].plot(fraction_behaving, corr_with_running[:, g_ind],
+                   color=util.get_color_dict()[glom],
+                   linestyle='none', marker='o')
+    ax[g_ind].set_title('{:.2f}'.format(r))
+
+# %%
+r = np.corrcoef(fraction_behaving, np.nanmean(corr_with_running, axis=1))[0, 1]
+plt.plot(fraction_behaving, corr_with_running.mean(axis=1), 'ko')
+
+
+
+# %%
+
+
 
 # %% xcorr between behavior & responses
 
