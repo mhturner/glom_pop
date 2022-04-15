@@ -108,7 +108,9 @@ meanbrain = ants.image_read(os.path.join(sync_dir, 'mean_brain', meanbrain_fn))
 
 # Register select brains
 file_names = [
-              'TSeries-20220407-004_anatomical.nii',
+              'TSeries-20220412-004_anatomical.nii',
+              'TSeries-20220412-008_anatomical.nii',
+              'TSeries-20220412-011_anatomical.nii',
               ]
 file_paths = [os.path.join(sync_dir, 'anatomical_brains', x) for x in file_names]
 print(file_paths)
@@ -188,7 +190,7 @@ for f_ind, fp in enumerate(file_paths):
 slices = [10, 20, 30, 40]
 
 
-fh, ax = plt.subplots(len(file_paths), len(slices), figsize=(12, 18))
+fh, ax = plt.subplots(len(file_paths), len(slices), figsize=(12, len(file_paths)*2))
 [x.set_axis_off() for x in ax.ravel()]
 for f_ind, fp in enumerate(file_paths):
     series_name = os.path.split(fp)[-1].split('_')[0]
@@ -217,7 +219,7 @@ zs = [10, 39, 39]
 
 for b_ind, box in enumerate(boxes):
     z = zs[b_ind]
-    fh, ax = plt.subplots(3, 6, figsize=(15, 6))
+    fh, ax = plt.subplots(2, 4, figsize=(12, 2*len(file_paths)))
     ax = ax.ravel()
     [x.set_axis_off() for x in ax.ravel()]
     ax[0].imshow(meanbrain_red[box[0]:box[0]+dx, box[1]:box[1]+dy, z].T, cmap=cmap)

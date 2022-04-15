@@ -21,12 +21,15 @@ included_gloms = dataio.get_included_gloms()
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-eg_ind = 2
+eg_ind = 4  # 4 (20220412, 6)
 # Date, series, cropping for video
 datasets = [
             ('20220404', 2, ((120, 60), (120, 120), (0, 0))),
             ('20220404', 7, ((120, 60), (120, 120), (0, 0))),
             ('20220407', 1, ((120, 60), (120, 120), (0, 0))),
+            ('20220412', 2, ((120, 60), (100, 100), (0, 0))),
+            ('20220412', 6, ((120, 60), (100, 100), (0, 0))),
+            ('20220412', 9, ((120, 60), (100, 100), (0, 0))),
             ]
 
 
@@ -119,7 +122,7 @@ for d_ind, ds in enumerate(datasets):
         concat_runnings.append(concat_running)
 
         ax0[0].plot(concat_time, concat_running[0, :], color='k')
-        ax0[0].set_ylim([err_rmse_ds.min(), err_rmse_ds.max()])
+        ax0[0].set_ylim([concat_running.min(), concat_running.max()])
         ax0[0].set_ylabel('Movement', rotation=0)
         for g_ind, glom in enumerate(included_gloms):
             ax0[1+g_ind].set_ylabel(glom, rotation=0)

@@ -27,11 +27,12 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                        'indicator_2': 'TdTomato'},
                                                   target_series_metadata={'protocol_ID': 'NaturalImageSuppression',
                                                                           'include_in_analysis': True,
-                                                                          'image_speed': [-40.,   0.,  40.,  80., 120.],
+                                                                          # 'image_speed': [-40.,   0.,  40.,  80., 120.],
+                                                                          'image_index': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                                                                           })
 
 # %%
-glom_ind = 0
+plot_glom_ind = 0
 all_responses = []
 for s_ind, series in enumerate(matching_series):
     series_number = series['series']
@@ -61,9 +62,11 @@ image_names = np.unique([x[0].replace('whitened_', '') for x in unique_parameter
 filter_codes = np.unique([x[1] for x in unique_parameter_values])
 image_speeds = np.unique([x[2] for x in unique_parameter_values])
 
-
-for mean_response in all_responses:
-    fh, ax = plt.subplots(len(image_names), len(image_speeds)+1, gridspec_kw={'width_ratios': [1, 1, 1, 1, 1, 4]})
+# Shape = gloms, images, speeds, filter, flies
+response_amps = np.zeros((len(included_gloms), len(image_names), len(image_speeds), 2, len(all_responses)))
+for fly_ind, mean_response in enumerate(all_responses):
+    fly_resp_amps = ID.getResponseAmplitude(mean_response, metric='max')
+    fh, ax = plt.subplots(len(image_names), len(image_speeds)+1, gridspec_kw={'width_ratios': [1, 1, 4]})
     [plot_tools.cleanAxes(x) for x in ax.ravel()]
     [x.set_ylim([-0.1, 0.75]) for x in ax[:, :-1].ravel()]
     for im_ind, image_name in enumerate(image_names):
@@ -77,24 +80,62 @@ for mean_response in all_responses:
                 pull_ind = list(set.intersection(set(pull_image_ind),
                                                  set(pull_filter_ind),
                                                  set(pull_speed_ind)))
+
+
                 assert len(pull_ind) == 1
                 pull_ind = pull_ind[0]
+
+                response_amps[:, im_ind, spd_ind, fc_ind, fly_ind] = fly_resp_amps[:, pull_ind]
 
                 if filter_code == 0:
                     alpha = 1.0
                 else:
                     alpha = 0.5
 
-                ax[im_ind, spd_ind].plot(mean_response[glom_ind, pull_ind, :], 'k', alpha=alpha)
+                ax[im_ind, spd_ind].plot(mean_response[plot_glom_ind, pull_ind, :], 'k', alpha=alpha)
                 if im_ind == 0:
                     ax[im_ind, spd_ind].set_title('{:.0f}'.format(image_speed),
                                                   color='r' if image_speed==ID.getRunParameters('spot_speed') else 'k')
 
 # %%
 
-all_responses[0].shape
+# static vs moving background image
+fh, ax = plt.subplots(len(included_gloms), 1, figsize=(1.5, 8))
+ax = ax.ravel()
+[x.set_xlim([0, 1]) for x in ax]
+[x.set_ylim([0, 1]) for x in ax]
+[x.plot([0, 1], [0, 1], 'k-', alpha=0.5) for x in ax]
+for g_ind, glom in enumerate(included_gloms):
+    ax[g_ind].set_title(glom, rotation=0)
+    # Mean +/- sem across flies, for each image
+    across_fly_mean_static = response_amps[g_ind, :, 0, 0, :].mean(axis=-1)
+    across_fly_mean_moving = response_amps[g_ind, :, 1, 0, :].mean(axis=-1)
+    ax[g_ind].plot(across_fly_mean_static,
+                   across_fly_mean_moving, 'o', color=util.get_color_dict()[glom])
 
-all_amplitudes = ID.getResponseAmplitude(all_responses, metric='max')
+fh.supxlabel('Static background')
+fh.supylabel('Moving background')
+
+# Whitened vs original image
+fh, ax = plt.subplots(len(included_gloms), 1, figsize=(1.5, 8))
+ax = ax.ravel()
+[x.set_xlim([0, 1]) for x in ax]
+[x.set_ylim([0, 1]) for x in ax]
+[x.plot([0, 1], [0, 1], 'k-', alpha=0.5) for x in ax]
+for g_ind, glom in enumerate(included_gloms):
+    ax[g_ind].set_title(glom, rotation=0)
+    # Mean +/- sem across flies, for each image
+    across_fly_mean_static = response_amps[g_ind, :, 1, 0, :].mean(axis=-1)
+    across_fly_mean_moving = response_amps[g_ind, :, 1, 1, :].mean(axis=-1)
+    ax[g_ind].plot(across_fly_mean_static,
+                   across_fly_mean_moving, 'o', color=util.get_color_dict()[glom])
+
+fh.supxlabel('Original image')
+fh.supylabel('Whitened image')
+
+        # %%
+
+all_amplitudes = ID.getResponseAmplitude(all_responses[0], metric='max')
 
 fh, ax = plt.subplots(len(included_gloms), 1, figsize=(0.75, 8))
 [x.set_xticks([]) for x in ax]

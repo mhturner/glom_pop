@@ -21,7 +21,7 @@ included_gloms = dataio.get_included_gloms()
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-eg_ind = 0  # 0
+eg_ind = 8  # 8 (20220412, 5) - good, punctuated movement bouts
 # Date, series, cropping for video
 datasets = [
             ('20220318', 8, ((90, 0), (10, 20), (0, 0))),
@@ -31,7 +31,9 @@ datasets = [
             ('20220324', 16, ((100, 10), (10, 30), (0, 0))),
             ('20220404', 1, ((120, 80), (150, 150), (0, 0))),
             ('20220404', 6, ((120, 80), (150, 150), (0, 0))),
-            ('20220407', 2, ((120, 80), (150, 150), (0, 0)))
+            ('20220407', 2, ((120, 80), (150, 150), (0, 0))),
+            ('20220412', 1, ((120, 60), (100, 100), (0, 0))),
+            ('20220412', 5, ((120, 60), (100, 100), (0, 0))),
             ]
 
 
@@ -133,7 +135,7 @@ for d_ind, ds in enumerate(datasets):
         concat_time = np.arange(0, concat_running.shape[1]) * ID.getAcquisitionMetadata('sample_period')
 
         ax0[0].plot(concat_time, concat_running[0, :], color='k')
-        ax0[0].set_ylim([concat_behaving.min(), concat_behaving.max()])
+        ax0[0].set_ylim([concat_running.min(), concat_running.max()])
         ax0[0].set_ylabel('Movement', rotation=0)
         for g_ind, glom in enumerate(included_gloms):
             ax0[1+g_ind].set_ylabel(glom, rotation=0)
@@ -191,7 +193,7 @@ for g_ind, glom in enumerate(included_gloms):
     ax2.plot([g_ind, g_ind], [y_mean-y_err, y_mean+y_err],
              color=util.get_color_dict()[glom])
 
-    ax2.set_ylim([-0.6, 0.6])
+ax2.set_ylim([-0.9, 0.5])
 
 
 ax2.set_xticks(np.arange(0, len(included_gloms)))
@@ -202,30 +204,16 @@ ax2.spines['right'].set_visible(False)
 
 
 # Plot fraction time spent moving vs. correlation with behavior
-ax3.plot(fraction_behaving, corr_with_running.mean(axis=1), 'ko')
+ax3.plot(fraction_behaving, np.nanmean(corr_with_running, axis=1), 'ko')
 ax3.set_ylabel('Corr. with behavior')
 ax3.set_xlabel('Fraction of time behaving')
 ax3.spines['top'].set_visible(False)
 ax3.spines['right'].set_visible(False)
-
+r = np.corrcoef(fraction_behaving, np.nanmean(corr_with_running, axis=1))[0, 1]
+print('r = {}'.format(r))
 
 fh2.savefig(os.path.join(save_directory, 'ems_running_corr_summary.svg'), transparent=True)
 # %%
-fh, ax = plt.subplots(4, 4, figsize=(8, 8))
-ax = ax.ravel()
-[x.set_ylim([-0.6, 0.6]) for x in ax]
-for g_ind, glom in enumerate(included_gloms):
-    r = np.corrcoef(fraction_behaving, corr_with_running[:, g_ind])[0, 1]
-    ax[g_ind].plot(fraction_behaving, corr_with_running[:, g_ind],
-                   color=util.get_color_dict()[glom],
-                   linestyle='none', marker='o')
-    ax[g_ind].set_title('{:.2f}'.format(r))
-
-# %%
-r = np.corrcoef(fraction_behaving, np.nanmean(corr_with_running, axis=1))[0, 1]
-plt.plot(fraction_behaving, corr_with_running.mean(axis=1), 'ko')
-
-
 
 # %%
 
@@ -237,8 +225,8 @@ mean_xcorr = np.nanmean(np.stack(xcorr, axis=-1), axis=-1)
 sem_xcorr = np.nanstd(np.stack(xcorr, axis=-1), axis=-1) / np.sqrt(len(xcorr))
 xx = np.arange(0, mean_xcorr.shape[1]) - mean_xcorr.shape[1]/2
 
-radius = 12
-fh3, ax3 = plt.subplots(4, 4, figsize=(4, 4))
+radius = 3
+fh3, ax3 = plt.subplots(1, 13, figsize=(11, 1.5))
 ax3 = ax3.ravel()
 [x.set_xlim(-radius-0.2, radius+0.2) for x in ax3]
 [x.set_ylim(-0.45, 0.15) for x in ax3]
