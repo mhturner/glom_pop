@@ -167,12 +167,94 @@ individual_chat_concat.shape
 individual_split_concat.shape
 
 
-fh, ax = plt.subplots(individual_chat_concat.shape[0], 1, figsize=(8, 10))
-for f in range(individual_chat_concat.shape[0]):
-    ax[f].plot(individual_chat_concat[f, :], 'b')
+# fh, ax = plt.subplots(individual_chat_concat.shape[0], 1, figsize=(8, 10))
+# for f in range(individual_chat_concat.shape[0]):
+#     ax[f].plot(individual_chat_concat[f, :], 'b')
 
 fh, ax = plt.subplots(individual_split_concat.shape[0], 1, figsize=(8, 6))
 for f in range(individual_split_concat.shape[0]):
     ax[f].plot(individual_split_concat[f, :], 'k')
+
+# %%
+
+ser = target_series[2]
+
+file_path = ser.get('file_name') + '.hdf5'
+series_number = ser.get('series')
+print('------')
+print(file_path)
+print(series_number)
+print('------')
+ID = imaging_data.ImagingDataObject(file_path,
+                                    series_number,
+                                    quiet=True)
+
+
+# %%
+
+roi_data = ID.getRoiResponses('test_z')
+unique_parameter_values, mean_response, _, _ = ID.getTrialAverages(roi_data['epoch_response'])
+tmp_concat = np.concatenate([mean_response[:, x, :] for x in np.arange(len(unique_parameter_values)-2)], axis=1)
+
+roi_data = ID.getRoiResponses('glom')
+unique_parameter_values, mean_response, _, trial_response_by_stimulus = ID.getTrialAverages(roi_data['epoch_response'])
+first_glom = np.concatenate([mean_response[:, x, :] for x in np.arange(len(unique_parameter_values)-2)], axis=1)
+
+
+fh, ax = plt.subplots(6, 6, figsize=(12, 12))
+ax = ax.ravel()
+[x.set_ylim([-0.25, 0.50]) for x in ax]
+for t_ind, trs in enumerate(trial_response_by_stimulus):
+    ax[t_ind].plot(trs[0, :, :].T, alpha=0.5)
+
+# %%
+fh, ax = plt.subplots(tmp_concat.shape[0], 2, figsize=(12, 9))
+[x.set_ylim([-0.25, 0.50]) for x in ax.ravel()]
+for z in range(tmp_concat.shape[0]):
+    ax[z, 0].plot(tmp_concat[z, :], 'k', alpha=1.0)
+    # ax[z, 0].plot(tmp_concat.mean(axis=0), 'r', alpha=1.0)
+    ax[z, 1].plot(first_glom.T, 'b', alpha=1)
+
+
+
+# %%
+
+all_chat_responses.shape
+
+all_chat_amps = [ID.getResponseAmplitude(all_chat_responses[:, :, :, x]) for x in range(10)]
+all_chat_amps[0].shape
+mean_chat_amps = ID.getResponseAmplitude(mean_chat_responses)
+
+mean_chat_amps.shape
+
+# %%
+def getPCs(data_matrix):
+    """
+    data_matrix shape = gloms x features (e.g. gloms x time, or gloms x response amplitudes)
+    """
+
+    mean_sub = data_matrix - data_matrix.mean(axis=1)[:, np.newaxis]
+    C = np.cov(mean_sub)
+    evals, evecs = np.linalg.eig(C)
+
+    # For modes where loadings are all negative, swap the sign
+    for m in range(evecs.shape[1]):
+        if np.all(np.sign(evecs[:, m]) <= 0):
+            evecs[:, m] = -evecs[:, m]
+
+    frac_var = evals / evals.sum()
+
+    results_dict = {'eigenvalues': evals,
+                    'eigenvectors': evecs,
+                    'frac_var': frac_var}
+
+    return results_dict
+
+# %%
+
+results_dict = getPCs(mean_chat_amps)
+
+
+plt.plot(results_dict['frac_var'], 'k-o')
 
 # %%
