@@ -3,7 +3,7 @@
 #SBATCH --job-name=moco
 #SBATCH --time=12:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=3
 #SBATCH --output=/home/users/mhturner/glom_pop/moco/%x.%j.out
 #SBATCH --open-mode=append
 
