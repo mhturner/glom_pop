@@ -1,25 +1,23 @@
 import ants
 import argparse
-import nibabel as nib
-import numpy as np
 import os
+from pathlib import Path
 import shutil
 import time
 
 from glom_pop import pipeline, dataio
-from visanalysis.plugin import bruker
-
 
 t0_overall = time.time()
 
 parser = argparse.ArgumentParser(description='Brain volume pipeline. Post-motion correction.')
 parser.add_argument('file_base_path', type=str,
                     help='Path to file base path with no suffixes. E.g. /path/to/data/TSeries-20210611-001')
+parser.add_argument('--sync_dir', type=str, default='/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync', const=1,
+                    help='Path to sync directory, on Oak')
 args = parser.parse_args()
 
 # GET CONFIG SETTINGS
-sync_dir = dataio.get_config_file()['sync_dir']
-print('sync_dir: {}'.format(sync_dir))
+print('sync_dir: {}'.format(args.sync_dir))
 
 # (1) MAKE ANATOMICAL BRAIN FROM MOTION CORRECTED BRAIN
 save_meanbrain = pipeline.get_anatomical_brain(args.file_base_path)
@@ -52,8 +50,13 @@ path_to_registered_brain = pipeline.register_brain_to_reference(brain_file_path=
                                                                 do_bias_correction=False)
 
 fig_directory = os.path.join(transform_dir, 'alignment_qc')
+Path(fig_directory).mkdir(exist_ok=True) #make new directory for this date
 pipeline.save_alignment_fig(path_to_registered_brain, meanbrain, fig_directory)
 # (3) ALIGN TO FUNCTIONAL AND ATTACH GLOMERULUS RESPONSES
 
 
 # (4) ATTACH BEHAVIOR DATA
+
+
+
+print('DONE WITH PIPELINE FOR {} ({:.0f} SEC)'.format(file_base_path, time.time()-t0_overall))

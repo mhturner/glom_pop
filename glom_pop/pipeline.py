@@ -104,7 +104,7 @@ def get_anatomical_brain(file_base_path):
 
     """
     metadata = bruker.getMetaData(file_base_path)
-    x_dim, y_dim, z_dim, t_dim, c_dim = metadata['image_dims']
+    c_dim = metadata['image_dims'][-1]
 
     spacing = [float(metadata['micronsPerPixel_XAxis']),
                float(metadata['micronsPerPixel_YAxis']),
