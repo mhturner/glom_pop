@@ -1,11 +1,12 @@
 import ants
 import argparse
 import os
-from pathlib import Path
 import shutil
+import sys
 import time
+import datetime
 
-from glom_pop import pipeline
+from glom_pop import pipeline, util
 
 t0_overall = time.time()
 
@@ -20,9 +21,16 @@ parser.add_argument('--sync_dir', type=str, default='/oak/stanford/groups/trc/da
                     const=1, nargs='?',
                     help='Path to sync directory, on Oak')
 args = parser.parse_args()
+pipeline_dir = os.path.join(args.sync_dir, 'pipeline')
 
-# GET CONFIG SETTINGS
+
+# SET UP LOGGING
+logfile = open(os.path.join(pipeline_dir, 'log_{}.txt'.format(args.file_base_path)), 'w')
+sys.stdout = util.Tee(sys.stdout, logfile)
+print(datetime.datetime.now().strftime("%Y%m%d_%H:%M:%S"))
+
 print('sync_dir: {}'.format(args.sync_dir))
+print('pipeline_dir: {}'.format(pipeline_dir))
 
 
 if args.anatomical:
@@ -30,9 +38,11 @@ if args.anatomical:
     # ANATOMICAL BRAIN SERIES: REGISTER TO MEANBRAIN
 
     # MAKE ANATOMICAL BRAIN FROM MOTION CORRECTED BRAIN
+    print('------MAKE ANATOMICAL BRAIN------')
     save_meanbrain = pipeline.get_anatomical_brain(args.file_base_path)
 
     print('Saving meanbrain shape: {}'.format(save_meanbrain.shape))
+    print('Saving meanbrain channels: {}'.format(save_meanbrain.components))
     save_path = '{}_anatomical.nii'.format(args.file_base_path)
     # Note saving as ANTs image here (32 bit)
     ants.image_write(save_meanbrain, save_path)
@@ -41,8 +51,10 @@ if args.anatomical:
     anatomical_brain_path = os.path.join(args.sync_dir, 'anatomical_brains', os.path.split(save_path)[-1])
     shutil.copy(save_path, anatomical_brain_path)
     print('Copied anatomical brain to {}'.format(anatomical_brain_path))
+    print('------/MAKE ANATOMICAL BRAIN/------')
 
     # FOR TWO CHANNEL ChAT DATA: ALIGN ANATOMICAL TO MEANBRAIN
+    print('------REGISTER BRAIN------')
     transform_dir = os.path.join(args.sync_dir, 'transforms', 'meanbrain_anatomical')
 
     # Load meanbrain
@@ -58,10 +70,11 @@ if args.anatomical:
                                                                     initial_transform=None,
                                                                     mask=None,
                                                                     do_bias_correction=False)
+    print('------/REGISTER BRAIN/------')
 
-    fig_directory = os.path.join(transform_dir, 'alignment_qc')
-    Path(fig_directory).mkdir(exist_ok=True)  # make new directory for this date
-    pipeline.save_alignment_fig(path_to_registered_brain, meanbrain, fig_directory)
+    print('------REGISTRATION QC------')
+    pipeline.save_alignment_fig(path_to_registered_brain, meanbrain, pipeline_dir)
+    print('------/REGISTRATION QC/------')
 
 else:
     print('------PROCESSING FUNCTIONAL SCAN------')
@@ -72,5 +85,7 @@ else:
 
     # ATTACH BEHAVIOR DATA
 
-print('DONE WITH PIPELINE FOR {} ({:.0f} SEC)'.format(args.file_base_path, time.time()-t0_overall))
+print('DONE WITH PIPELINE FOR {} ({:.0f} sec)'.format(args.file_base_path, time.time()-t0_overall))
 print('------------------------------------')
+
+logfile.close()

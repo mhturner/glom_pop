@@ -15,6 +15,23 @@ import pandas as pd
 from glom_pop import dataio, alignment
 
 
+class Tee:
+    """
+    Used to overwrite sys.stdout to print to sys.stdout as well as a txt file
+
+    ref: https://stackoverflow.com/questions/17866724/python-logging-print-statements-while-having-them-print-to-stdout
+    """
+    def write(self, *args, **kwargs):
+        self.out1.write(*args, **kwargs)
+        self.out2.write(*args, **kwargs)
+
+    def __init__(self, out1, out2):
+        self.out1 = out1
+        self.out2 = out2
+
+    def flush(self):
+        pass
+
 def config_matplotlib():
     plt.rcParams['svg.fonttype'] = 'none'
     plt.rcParams.update({'font.family': 'sans-serif'})

@@ -1,10 +1,8 @@
 import ants
 import datetime
-import glob
 import nibabel as nib
 import numpy as np
 import os
-from pathlib import Path
 import shutil
 import time
 import matplotlib.pyplot as plt
@@ -14,7 +12,7 @@ from visanalysis.plugin import bruker
 from visanalysis.util import h5io
 
 
-def register_brain_to_reference(brain_file_path,
+def register_brain_to_reference(brain_filepath,
                                 reference_brain,
                                 transform_dir,
                                 type_of_transform='SyN',
@@ -33,11 +31,9 @@ def register_brain_to_reference(brain_file_path,
         Will make a subdirectory based on series name within this directory.
     :type_of_transform: for ants.registration()
     """
-
-    print('--------------------')
-    print('Registering brain {}'.format(brain_file_path))
+    print('Registering brain {}'.format(brain_filepath))
     t0 = time.time()
-    series_name = os.path.split(brain_file_path)[-1].split('_')[0]
+    series_name = os.path.split(brain_filepath)[-1].split('_')[0]
 
     # Make save paths for transforms
     image_transform_dir = os.path.join(transform_dir, series_name)
@@ -45,7 +41,7 @@ def register_brain_to_reference(brain_file_path,
     os.makedirs(os.path.join(image_transform_dir, 'forward'), exist_ok=True)
     os.makedirs(os.path.join(image_transform_dir, 'inverse'), exist_ok=True)
 
-    individual_brain = ants.image_read(brain_file_path)
+    individual_brain = ants.image_read(brain_filepath)
 
     if do_bias_correction:
         fixed_red = ants.n4_bias_field_correction(ants.split_channels(reference_brain)[0])
@@ -91,58 +87,21 @@ def register_brain_to_reference(brain_file_path,
     save_path = os.path.join(image_transform_dir,  'overlay_reg.nii')
     ants.image_write(overlay, save_path)
 
+    print('Computed and saved transforms to {} ({} sec)'.format(image_transform_dir, time.time()-t0))
+
     return path_to_registered_brain
 
-    print('Computed and saved transforms to {} ({} sec)'.format(image_transform_dir, time.time()-t0))
-    print('--------------------')
 
-
-def get_anatomical_brain(file_base_path):
-    """
-    Return anatomical (xyzc) brain from motion-corrected time series brain
-
-    file_base_path: Path to file base path with no suffixes. E.g. /path/to/data/TSeries-20210611-001
-
-    """
-    metadata = bruker.getMetaData(file_base_path)
-    c_dim = metadata['image_dims'][-1]
-
-    spacing = [float(metadata['micronsPerPixel_XAxis']),
-               float(metadata['micronsPerPixel_YAxis']),
-               float(metadata['micronsPerPixel_ZAxis'])]
-    print('Loaded metadata from {}'.format(file_base_path))
-    print('Spacing (um/pix): {}'.format(spacing))
-    print('Shape (xyztc) = {}'.format(metadata['image_dims']))
-
-    meanbrain = np.asarray(nib.load(file_base_path+'_reg.nii').dataobj, dtype='uint16').mean(axis=3)
-    print('Made meanbrain from {}'.format(file_base_path+'_reg.nii'))
-    print('Meanbrain shape: {}'.format(meanbrain.shape))
-
-    if c_dim == 1:
-        print('One channel data...')
-        save_meanbrain = ants.from_numpy(meanbrain[:, :, :], spacing=spacing)
-    elif c_dim == 2:
-        print('Two channel data...')
-        ch1 = ants.from_numpy(meanbrain[:, :, :, 0], spacing=spacing)
-        ch2 = ants.from_numpy(meanbrain[:, :, :, 1], spacing=spacing)
-        save_meanbrain = ants.merge_channels([ch1, ch2])
-        print('!!save_meanbrain shape = {}!!'.format(save_meanbrain.shape))
-    else:
-        raise Exception('{}: Unrecognized c_dim.'.formt(file_base_path))
-
-    return save_meanbrain
-
-
-def save_alignment_fig(brain_filepath, meanbrain, fig_directory):
+def save_alignment_fig(brain_filepath, meanbrain, pipeline_dir):
     """
 
     :brain_filepath: path/to/aligned/brain.nii
     :meanbrain: 2 channel chat meanbrain (ants image)
-    :fig_directory: dir to save figs to
 
     """
+    fig_directory = os.path.join(pipeline_dir, 'alignment_qc')
     # (1) ANTS OVERLAY
-    series_name = os.path.split(brain_filepath)[-2]
+    series_name = os.path.split(brain_filepath)[-1].split('_')[0]
     ind_red = ants.split_channels(ants.image_read(brain_filepath))[0]
     ants.plot(ants.split_channels(meanbrain)[0], ind_red,
               cmap='Reds', overlay_cmap='Greens', axis=2, reorient=False,
@@ -178,6 +137,43 @@ def save_alignment_fig(brain_filepath, meanbrain, fig_directory):
     fig_fp = os.path.join(fig_directory, '{}_regions.png'.format(series_name))
     regions_fig.savefig(fig_fp)
     print('Saved reg fig to {}'.format(fig_fp))
+
+
+
+def get_anatomical_brain(file_base_path):
+    """
+    Return anatomical (xyzc) brain from motion-corrected time series brain
+
+    file_base_path: Path to file base path with no suffixes. E.g. /path/to/data/TSeries-20210611-001
+
+    """
+    metadata = bruker.getMetaData(file_base_path)
+    c_dim = metadata['image_dims'][-1]
+
+    spacing = [float(metadata['micronsPerPixel_XAxis']),
+               float(metadata['micronsPerPixel_YAxis']),
+               float(metadata['micronsPerPixel_ZAxis'])]
+    print('Loaded metadata from {}'.format(file_base_path))
+    print('Spacing (um/pix): {}'.format(spacing))
+    print('Shape (xyztc) = {}'.format(metadata['image_dims']))
+
+    meanbrain = np.asarray(nib.load(file_base_path+'_reg.nii').dataobj, dtype='uint16').mean(axis=3)
+    print('Made meanbrain from {}'.format(file_base_path+'_reg.nii'))
+    print('Meanbrain shape: {}'.format(meanbrain.shape))
+
+    if c_dim == 1:
+        print('One channel data...')
+        save_meanbrain = ants.from_numpy(meanbrain[:, :, :], spacing=spacing)
+    elif c_dim == 2:
+        print('Two channel data...')
+        ch1 = ants.from_numpy(meanbrain[:, :, :, 0], spacing=spacing)
+        ch2 = ants.from_numpy(meanbrain[:, :, :, 1], spacing=spacing)
+        save_meanbrain = ants.merge_channels([ch1, ch2])
+    else:
+        raise Exception('{}: Unrecognized c_dim.'.formt(file_base_path))
+
+    return save_meanbrain
+
 
 
 # def process_imports(path_to_import_folder,
