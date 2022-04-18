@@ -128,16 +128,17 @@ def save_alignment_fig(brain_filepath, meanbrain, pipeline_dir):
         z = zs[b_ind]
 
         ax[0, b_ind].imshow(ants.split_channels(meanbrain)[0][box[0]:box[0]+dx, box[1]:box[1]+dy, z].T, cmap='binary_r')
-        ax[0, b_ind].set_title('Mean', fontsize=11, fontweight='bold')
 
         ind_red = ants.split_channels(ants.image_read(brain_filepath))[0]
         ax[1, b_ind].imshow(ind_red[box[0]:box[0]+dx, box[1]:box[1]+dy, z].T, cmap='binary_r')
-        ax[1, b_ind].set_title(series_name, fontsize=11)
+
+        if b_ind == 0:
+            ax[0, b_ind].set_ylabel('Mean', fontsize=11)
+            ax[1, b_ind].set_ylabel(series_name, fontsize=11)
 
     fig_fp = os.path.join(fig_directory, '{}_regions.png'.format(series_name))
     regions_fig.savefig(fig_fp)
     print('Saved reg fig to {}'.format(fig_fp))
-
 
 
 def get_anatomical_brain(file_base_path):
