@@ -118,9 +118,10 @@ def get_anatomical_brain(file_base_path):
     print('Meanbrain shape: {}'.format(meanbrain.shape))
 
     if c_dim == 1:
+        print('One channel data...')
         save_meanbrain = ants.from_numpy(meanbrain[:, :, :], spacing=spacing)
     elif c_dim == 2:
-        # ANTs images:
+        print('Two channel data...')
         ch1 = ants.from_numpy(meanbrain[:, :, :, 0], spacing=spacing)
         ch2 = ants.from_numpy(meanbrain[:, :, :, 1], spacing=spacing)
         save_meanbrain = ants.merge_channels([ch1, ch2])
