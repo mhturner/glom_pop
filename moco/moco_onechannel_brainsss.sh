@@ -16,11 +16,9 @@ directory=$1
 series_base=$2
 
 brain_master="${series_base}_channel_1.nii"
-brain_mirror="${series_base}_channel_2.nii"
 
 echo $directory
 echo $brain_master
-echo $brain_mirror
 
 # Optional params
 type_of_transform="${3:-"Rigid"}"
@@ -35,8 +33,7 @@ moco_directory="${directory}/moco/"
 
 ml python/3.6 antspy/0.2.2
 
-args="{\"directory\":\"$directory\",\"brain_master\":\"$brain_master\",\"brain_mirror\":\"$brain_mirror\","\
+args="{\"directory\":\"$directory\",\"brain_master\":\"$brain_master\","\
 "\"type_of_transform\":\"$type_of_transform\",\"output_format\":\"$output_format\",\"meanbrain_n_frames\":\"$meanbrain_n_frames\"}"
 
 python3 -u /home/users/mhturner/brainsss/scripts/motion_correction.py $args
-python3 -u /home/users/mhturner/glom_pop/moco/merge_channels.py ${moco_directory}${series_base}

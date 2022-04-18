@@ -118,7 +118,7 @@ def save_alignment_fig(brain_filepath, meanbrain, pipeline_dir):
     boxes = [(55, 10), (30, 110), (120, 5)]
     zs = [10, 39, 39]
 
-    regions_fig, ax = plt.subplots(2, len(boxes)+1, figsize=(6, 2))
+    regions_fig, ax = plt.subplots(len(boxes), 2, figsize=(4, 4))
     [x.set_axis_off() for x in ax.ravel()]
     [x.set_xticks([]) for x in ax.ravel()]
     [x.set_yticks([]) for x in ax.ravel()]
@@ -127,14 +127,14 @@ def save_alignment_fig(brain_filepath, meanbrain, pipeline_dir):
     for b_ind, box in enumerate(boxes):
         z = zs[b_ind]
 
-        ax[0, b_ind].imshow(ants.split_channels(meanbrain)[0][box[0]:box[0]+dx, box[1]:box[1]+dy, z].T, cmap='binary_r')
+        ax[b_ind, 0].imshow(ants.split_channels(meanbrain)[0][box[0]:box[0]+dx, box[1]:box[1]+dy, z].T, cmap='binary_r')
 
         ind_red = ants.split_channels(ants.image_read(brain_filepath))[0]
-        ax[1, b_ind].imshow(ind_red[box[0]:box[0]+dx, box[1]:box[1]+dy, z].T, cmap='binary_r')
+        ax[b_ind, 1].imshow(ind_red[box[0]:box[0]+dx, box[1]:box[1]+dy, z].T, cmap='binary_r')
 
         if b_ind == 0:
-            ax[0, b_ind].set_ylabel('Mean', fontsize=11)
-            ax[1, b_ind].set_ylabel(series_name, fontsize=11)
+            ax[b_ind, 0].set_title('Mean', fontsize=11)
+            ax[b_ind, 1].set_title(series_name, fontsize=11)
 
     fig_fp = os.path.join(fig_directory, '{}_regions.png'.format(series_name))
     regions_fig.savefig(fig_fp)
