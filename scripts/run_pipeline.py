@@ -25,7 +25,7 @@ pipeline_dir = os.path.join(args.sync_dir, 'pipeline')
 series_name = os.path.split(args.file_base_path)[-1]
 
 # SET UP LOGGING
-logfile = open(os.path.join(pipeline_dir, 'log_{}.txt'.format(series_name)), 'w')
+logfile = open(os.path.join(pipeline_dir, 'logs', '{}.txt'.format(series_name)), 'w')
 sys.stdout = util.Tee(sys.stdout, logfile)
 print(datetime.datetime.now().strftime("%Y%m%d_%H:%M:%S"))
 
@@ -35,7 +35,7 @@ print('pipeline_dir: {}'.format(pipeline_dir))
 
 
 if args.anatomical:
-    print('------PROCESSING ANATOMICAL SCAN------')
+    print('**** ANATOMICAL SCAN ****')
     # ANATOMICAL BRAIN SERIES: REGISTER TO MEANBRAIN
 
     # MAKE ANATOMICAL BRAIN FROM MOTION CORRECTED BRAIN
@@ -62,7 +62,7 @@ if args.anatomical:
     meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
     meanbrain = ants.image_read(os.path.join(args.sync_dir, 'mean_brain', meanbrain_fn))
 
-    path_to_registered_brain = pipeline.register_brain_to_reference(brain_file_path=anatomical_brain_path,
+    path_to_registered_brain = pipeline.register_brain_to_reference(brain_filepath=anatomical_brain_path,
                                                                     reference_brain=meanbrain,
                                                                     transform_dir=transform_dir,
                                                                     type_of_transform='SyN',

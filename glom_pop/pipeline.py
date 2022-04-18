@@ -25,7 +25,7 @@ def register_brain_to_reference(brain_filepath,
     Register brain to reference_brain.
         Saves registered brain image and transform file
 
-    :brain_file_path: .nii filepath to brain to register (MOVING)
+    :brain_filepath: .nii filepath to brain to register (MOVING)
     :reference_brain: two-channel ANTs image to register each brain to (FIXED)
     :transform_dir: path to transform directory (i.e. where to save transforms and results).
         Will make a subdirectory based on series name within this directory.
