@@ -25,7 +25,7 @@ pipeline_dir = os.path.join(args.sync_dir, 'pipeline')
 series_name = os.path.split(args.file_base_path)[-1]
 
 # SET UP LOGGING
-logfile = open(os.path.join(pipeline_dir, 'log_{}.txt'.format(series_name), 'w'))
+logfile = open(os.path.join(pipeline_dir, 'log_{}.txt'.format(series_name)), 'w')
 sys.stdout = util.Tee(sys.stdout, logfile)
 print(datetime.datetime.now().strftime("%Y%m%d_%H:%M:%S"))
 
