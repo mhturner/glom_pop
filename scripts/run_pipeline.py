@@ -22,13 +22,14 @@ parser.add_argument('--sync_dir', type=str, default='/oak/stanford/groups/trc/da
                     help='Path to sync directory, on Oak')
 args = parser.parse_args()
 pipeline_dir = os.path.join(args.sync_dir, 'pipeline')
-
+series_name = os.path.split(args.file_base_path)[-1]
 
 # SET UP LOGGING
-logfile = open(os.path.join(pipeline_dir, 'log_{}.txt'.format(args.file_base_path)), 'w')
+logfile = open(os.path.join(pipeline_dir, 'log_{}.txt'.format(series_name), 'w'))
 sys.stdout = util.Tee(sys.stdout, logfile)
 print(datetime.datetime.now().strftime("%Y%m%d_%H:%M:%S"))
 
+print('series_name: {}'.format(series_name))
 print('sync_dir: {}'.format(args.sync_dir))
 print('pipeline_dir: {}'.format(pipeline_dir))
 
