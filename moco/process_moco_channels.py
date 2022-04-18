@@ -33,5 +33,8 @@ else:  # Nifti1 is OK
 print('Saved registered brain to {}'.format(save_path))
 
 # Delete individual channels
-os.remove(ch1_path)
-os.remove(ch2_path)
+if args.one_channel:
+    os.remove(ch1_path)
+else:
+    os.remove(ch1_path)
+    os.remove(ch2_path)
