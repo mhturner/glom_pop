@@ -1,5 +1,9 @@
-import datetime
+import os
 
 
 
-datetime.datetime.now().strftime("%Y%m%d%H%M")
+
+aa = '/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync/tests1.dppd'
+
+os.path.split(os.path.split(aa)[1])
+os.path.dirname(aa)

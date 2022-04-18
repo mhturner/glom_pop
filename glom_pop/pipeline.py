@@ -101,7 +101,7 @@ def save_alignment_fig(brain_filepath, meanbrain, pipeline_dir):
     """
     fig_directory = os.path.join(pipeline_dir, 'alignment_qc')
     # (1) ANTS OVERLAY
-    series_name = os.path.split(brain_filepath)[-2]
+    series_name = os.path.dirname(brain_filepath)
     ind_red = ants.split_channels(ants.image_read(brain_filepath))[0]
     ants.plot(ants.split_channels(meanbrain)[0], ind_red,
               cmap='Reds', overlay_cmap='Greens', axis=2, reorient=False,
