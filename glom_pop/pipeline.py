@@ -34,7 +34,8 @@ def register_brain_to_reference(brain_file_path,
     :type_of_transform: for ants.registration()
     """
 
-    print('Starting brain {}'.format(brain_file_path))
+    print('--------------------')
+    print('Registering brain {}'.format(brain_file_path))
     t0 = time.time()
     series_name = os.path.split(brain_file_path)[-1].split('_')[0]
 
@@ -125,6 +126,7 @@ def get_anatomical_brain(file_base_path):
         ch1 = ants.from_numpy(meanbrain[:, :, :, 0], spacing=spacing)
         ch2 = ants.from_numpy(meanbrain[:, :, :, 1], spacing=spacing)
         save_meanbrain = ants.merge_channels([ch1, ch2])
+        print('!!save_meanbrain shape = {}!!'.format(save_meanbrain.shape))
     else:
         raise Exception('{}: Unrecognized c_dim.'.formt(file_base_path))
 
@@ -136,10 +138,11 @@ def save_alignment_fig(brain_filepath, meanbrain, fig_directory):
 
     :brain_filepath: path/to/aligned/brain.nii
     :meanbrain: 2 channel chat meanbrain (ants image)
+    :fig_directory: dir to save figs to
 
     """
     # (1) ANTS OVERLAY
-    series_name = os.path.split(brain_filepath)[-1]
+    series_name = os.path.split(brain_filepath)[-2]
     ind_red = ants.split_channels(ants.image_read(brain_filepath))[0]
     ants.plot(ants.split_channels(meanbrain)[0], ind_red,
               cmap='Reds', overlay_cmap='Greens', axis=2, reorient=False,
@@ -157,12 +160,11 @@ def save_alignment_fig(brain_filepath, meanbrain, fig_directory):
     zs = [10, 39, 39]
 
     regions_fig, ax = plt.subplots(2, len(boxes)+1, figsize=(6, 2))
-    [x.set_axis_off() for x in ax]
-    [x.set_xticks([]) for x in ax]
-    [x.set_yticks([]) for x in ax]
-    [x.axhline(dy/2, color='w') for x in ax]
-    [x.axvline(dx/2, color='w') for x in ax]
-    [s.set_linewidth(2) for s in ax[0].spines.values()]
+    [x.set_axis_off() for x in ax.ravel()]
+    [x.set_xticks([]) for x in ax.ravel()]
+    [x.set_yticks([]) for x in ax.ravel()]
+    [x.axhline(dy/2, color='w') for x in ax.ravel()]
+    [x.axvline(dx/2, color='w') for x in ax.ravel()]
     for b_ind, box in enumerate(boxes):
         z = zs[b_ind]
 

@@ -24,7 +24,9 @@ args = parser.parse_args()
 # GET CONFIG SETTINGS
 print('sync_dir: {}'.format(args.sync_dir))
 
+
 if args.anatomical:
+    print('------PROCESSING ANATOMICAL SCAN------')
     # ANATOMICAL BRAIN SERIES: REGISTER TO MEANBRAIN
 
     # MAKE ANATOMICAL BRAIN FROM MOTION CORRECTED BRAIN
@@ -62,6 +64,7 @@ if args.anatomical:
     pipeline.save_alignment_fig(path_to_registered_brain, meanbrain, fig_directory)
 
 else:
+    print('------PROCESSING FUNCTIONAL SCAN------')
     pass
     # FUNCTIONAL BRAIN SERIES: GET GLOM RESPONSES & BEHAVIOR AND ATTACH TO H5 FILE
 
@@ -70,3 +73,4 @@ else:
     # ATTACH BEHAVIOR DATA
 
 print('DONE WITH PIPELINE FOR {} ({:.0f} SEC)'.format(args.file_base_path, time.time()-t0_overall))
+print('------------------------------------')
