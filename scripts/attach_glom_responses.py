@@ -25,7 +25,7 @@ from visanalysis.analysis import imaging_data
 
 from glom_pop import dataio, alignment
 
-target_datafiles = ['2022-04-12.hdf5']
+target_datafiles = ['2022-04-13.hdf5']
 
 meanbrain_fn = 'chat_meanbrain_{}.nii'.format('20211217')
 

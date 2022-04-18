@@ -298,3 +298,14 @@ def get_ball_movement(filepath,
                      }
 
     return video_results
+
+
+def attach_behavior_data(file_path, series_number,
+                         video_results):
+    with h5py.File(file_path, 'r+') as experiment_file:
+        find_partial = functools.partial(h5io.find_series, sn=series_number)
+        epoch_run_group = experiment_file.visititems(find_partial)
+        behavior_group = epoch_run_group.require_group('behavior')
+
+        for key in video_results:
+            overwrite_dataset(behavior_group, key, video_results[key])
