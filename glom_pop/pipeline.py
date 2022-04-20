@@ -109,7 +109,7 @@ def save_alignment_fig(brain_filepath, meanbrain, pipeline_dir):
     :meanbrain: 2 channel chat meanbrain (ants image)
 
     """
-    fig_directory = os.path.join(pipeline_dir, 'alignment_qc')
+    fig_directory = os.path.join(pipeline_dir, 'anatomical_qc')
     # (1) ANTS OVERLAY
     series_name = os.path.split(os.path.dirname(brain_filepath))[-1]
     ind_red = ants.split_channels(ants.image_read(brain_filepath))[0]
@@ -309,7 +309,7 @@ def align_glom_responses(experiment_filepath,
 
 
 def save_glom_response_fig(glom_responses, merged, series_name, pipeline_dir):
-    fig_directory = os.path.join(pipeline_dir, 'response_qc')
+    fig_directory = os.path.join(pipeline_dir, 'functional_qc')
 
     ants.plot(ants.split_channels(merged)[0], ants.split_channels(merged)[2],
               cmap='Reds', overlay_cmap='Blues', overlay_alpha=0.5,
@@ -338,17 +338,6 @@ def process_behavior(video_filepath,
                      series_number,
                      crop_window_size=[100, 100]  # rows x cols
                      ):
-
-
-    # # Add behavior video trim attr to series
-    # with h5py.File(file_path, 'r+') as experiment_file:
-    #     find_partial = functools.partial(h5io.find_series, sn=series_number)
-    #     epoch_run_group = experiment_file.visititems(find_partial)
-    #     behavior_group = epoch_run_group.require_group('behavior')
-    # h5io.deleteSeriesAttribute(file_path=experiment_filepath,
-    #                            series_number=series_number,
-    #                            attr_key='video_trim',
-    #                            )
 
     print('Attached tags to {}'.format(experiment_filepath))
 
@@ -390,7 +379,7 @@ def save_behavior_fig(video_results, series_name, pipeline_dir):
     :pipeline_dir: str
 
     """
-    fig_directory = os.path.join(pipeline_dir, 'behavior_qc')
+    fig_directory = os.path.join(pipeline_dir, 'functional_qc')
 
     fh, ax = plt.subplots(1, 2, figsize=(8, 4), gridspec_kw={'width_ratios': [1, 4]})
     ax[0].imshow(video_results['cropped_frame'], cmap='Greys_r')
