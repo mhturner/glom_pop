@@ -125,11 +125,13 @@ else:  # Not anatomical - functional scan
         experiment_filepath = os.path.join(datafile_dir, experiment_file_name)
 
         if h5io.seriesExists(experiment_filepath, series_number):
-            glom_responses = pipeline.align_glom_responses(experiment_filepath,
-                                                           series_number,
-                                                           args.sync_dir,
-                                                           meanbrain_datestr='20211217')
+            glom_responses, merged_overlay = pipeline.align_glom_responses(experiment_filepath,
+                                                                           series_number,
+                                                                           args.sync_dir,
+                                                                           meanbrain_datestr='20211217')
             pipeline.save_glom_response_fig(glom_responses,
+                                            merged_overlay,
+                                            series_name,
                                             pipeline_dir)
         else:
             print('No existing series {} found in {}'.format(series_number, experiment_filepath))

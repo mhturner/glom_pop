@@ -306,11 +306,27 @@ def align_glom_responses(experiment_filepath,
     print('Done. Attached responses to {} (total: {:.1f} sec)'.format(experiment_filepath, time.time()-t0))
     print('-----------------------')
 
-    return glom_responses
+    return glom_responses, merged
 
 
-def save_glom_response_fig(glom_responses, pipeline_dir):
-    pass
+def save_glom_response_fig(glom_responses, merged, series_name, pipeline_dir):
+    fig_directory = os.path.join(pipeline_dir, 'response_qc')
+
+    ants.plot(ants.split_channels(merged)[1], ants.split_channels(merged)[2],
+              cmap='Greens', overlay_cmap='Blues', axis=2, reorient=False,
+              title=series_name)
+    ants_fig = plt.gcf()
+    fig_fp = os.path.join(fig_directory, '{}_overlay.png'.format(series_name))
+    ants_fig.savefig(fig_fp)
+    print('Saved overlay fig to {}'.format(fig_fp))
+
+    fh, ax = plt.subplots(len(glom_responses), 1, figsize=(6, 12))
+    for gr_ind, gr in enumerate(glom_responses):
+        ax[gr_ind].plot(gr, 'k-')
+
+    fig_fp = os.path.join(fig_directory, '{}_resp.png'.format(series_name))
+    fh.savefig(fig_fp)
+    print('Saved response fig to {}'.format(fig_fp))
 
 # # # # # # # # # # # #  # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # BEHAVIOR DATA  # # # # # # # # # # # # # # # # # # # # # # # # # # #
