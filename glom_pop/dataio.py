@@ -173,6 +173,23 @@ def overwrite_dataset(group, name, data):
     group.create_dataset(name, data=data)
 
 
+def load_behavior(ID):
+    behavior_data = {}
+    with h5py.File(ID.file_path, 'r+') as experiment_file:
+        find_partial = functools.partial(h5io.find_series, sn=ID.series_number)
+        epoch_run_group = experiment_file.visititems(find_partial)
+        behavior_group = epoch_run_group.require_group('behavior')
+
+        behavior_data['binary_behavior'] = behavior_group.get('binary_behavior')[:]
+        behavior_data['binary_thresh'] = np.asarray(behavior_group.get('binary_thresh'))
+        behavior_data['cropped_frame'] = behavior_group.get('cropped_frame')[:]
+        behavior_data['frame'] = behavior_group.get('frame')[:]
+        behavior_data['frame_times'] = behavior_group.get('frame_times')[:]
+        behavior_data['rmse'] = behavior_group.get('rmse')[:]
+
+    return behavior_data
+
+
 def load_responses(ID, response_set_name='glom', get_voxel_responses=False):
 
     response_data = {}

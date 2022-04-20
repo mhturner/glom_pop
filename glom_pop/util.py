@@ -32,6 +32,14 @@ class Tee:
     def flush(self):
         pass
 
+
+def getXcorr(a, b):
+    a = (a - np.mean(a)) / (np.std(a) * len(a))
+    b = (b - np.mean(b)) / (np.std(b))
+    c = np.correlate(a, b, 'same')
+    return c
+
+
 def config_matplotlib():
     plt.rcParams['svg.fonttype'] = 'none'
     plt.rcParams.update({'font.family': 'sans-serif'})

@@ -346,8 +346,8 @@ def process_behavior(video_filepath,
     # crop = np.array(frame_size) - np.array(crop_window_size)
     crop_L = frame_size[1]/5
     crop_R = frame_size[1]/5
-    crop_T = 2*frame_size[0] / 3
-    crop_B = 0
+    crop_T = frame_size[0] / 2
+    crop_B = frame_size[0] / 5
 
     # cropping: Pixels to trim from ((T, B), (L, R), (RGB_start, RGB_end))
     video_results = dataio.get_ball_movement(video_filepath,
