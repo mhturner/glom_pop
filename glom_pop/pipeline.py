@@ -340,17 +340,16 @@ def process_behavior(video_filepath,
                      ):
 
     frame_size = dataio.get_frame_size(video_filepath)
-    crop = (np.array(frame_size) - np.array(crop_window_size)) / 2
-    trim = {'T': crop[0],
-            'B': crop[0],
-            'L': crop[1],
-            'R': crop[1],
-            }
+    crop = np.array(frame_size) - np.array(crop_window_size)
+    crop_L = crop[1]/2
+    crop_R = crop[1]/2
+    crop_T = crop[0]
+    crop_B = 0
 
     # cropping: Pixels to trim from ((T, B), (L, R), (RGB_start, RGB_end))
     video_results = dataio.get_ball_movement(video_filepath,
-                                             cropping=((trim['T'], trim['B']),
-                                                       (trim['L'], trim['R']),
+                                             cropping=((crop_T, crop_B),
+                                                       (crop_L, crop_R),
                                                        (0, 0)),
                                              )
 
@@ -383,13 +382,12 @@ def save_behavior_fig(video_results, series_name, pipeline_dir):
     ax[0].imshow(video_results['cropped_frame'], cmap='Greys_r')
     # Show cropped ball and overall movement trace for QC
     tw_ax = ax[1].twinx()
-    print(video_results['frame_times'].shape[0])
-    tw_ax.fill_between(video_results['frame_times'][:200],
-                       video_results['binary_behavior'][:200],
+    tw_ax.fill_between(video_results['frame_times'][:video_results['binary_behavior'].shape[0]],
+                       video_results['binary_behavior'],
                        color='k', alpha=0.5)
     ax[1].axhline(video_results['binary_thresh'], color='r')
-    ax[1].plot(video_results['frame_times'][:200],
-               video_results['rmse'][:200],
+    ax[1].plot(video_results['frame_times'][:video_results['rmse'].shape[0]],
+               video_results['rmse'],
                'b')
     ax[1].set_title(series_name)
 
