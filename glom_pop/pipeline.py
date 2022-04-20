@@ -304,7 +304,6 @@ def align_glom_responses(experiment_filepath,
                             voxel_responses=voxel_responses)
 
     print('Done. Attached responses to {} (total: {:.1f} sec)'.format(experiment_filepath, time.time()-t0))
-    print('-----------------------')
 
     return glom_responses, merged
 
@@ -384,11 +383,11 @@ def save_behavior_fig(video_results, series_name, pipeline_dir):
     # Show cropped ball and overall movement trace for QC
     tw_ax = ax[1].twinx()
     tw_ax.fill_between(video_results['frame_times'],
-                       video_results['binary_behavior'][:len(video_results['frame_times'])],
+                       video_results['binary_behavior'][:video_results['frame_times'].shape[0]],
                        color='k', alpha=0.5)
     ax[1].axhline(video_results['binary_thresh'], color='r')
     ax[1].plot(video_results['frame_times'],
-               video_results['rmse'][:len(video_results['frame_times'])],
+               video_results['rmse'][:video_results['frame_times'].shape[0])],
                'b')
     ax[1].set_title(series_name)
 
