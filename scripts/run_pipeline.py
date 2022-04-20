@@ -137,7 +137,6 @@ else:  # Not anatomical - functional scan
            # h5io.createEpochRunGroup(experiment_filepath, fly_id, series_number)
 
     # ATTACH BEHAVIOR DATA
-    # TODO: check if behavior data exists. If so, process and attach to h5
     series_dir = 'series' + str(series_number).zfill(3)
     video_filepaths = glob.glob(os.path.join(args.behavior_dir, date_str, series_dir) + "/*.avi")
     if len(video_filepaths) == 0:
