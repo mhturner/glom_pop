@@ -23,20 +23,20 @@ for experiment_filepath in fps:
     # print('Attached tags to {}'.format(experiment_filepath))
 
 # %%
-import h5py
-import functools
+import ants
+import numpy as np
 
-experiment_filepath
-series_number = 3
+sync_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/sync'
 
-h5io.seriesExists(experiment_filepath, 8)
+functional_fn = 'TSeries-20220318-008'
+fp = os.path.join(sync_dir, 'overlays', '{}_masked.nii'.format(functional_fn))
 
-with h5py.File(experiment_filepath, 'r+') as experiment_file:
-    find_partial = functools.partial(h5io.find_series, sn=series_number)
-    epoch_run_group = experiment_file.visititems(find_partial)
-    print(epoch_run_group)
-    \
+merged = ants.image_read(fp)
+ants.plot(ants.split_channels(merged)[0], ants.split_channels(merged)[2],
+          cmap='Reds', overlay_cmap='Blues', overlay_alpha=0.5,
+          axis=2, reorient=False,
+          title=functional_fn, slices=np.arange(0, 12))
 
- #%%
 
- glob.glob(os.path.join(datafile_dir, 'asdgfas'))
+
+# %%

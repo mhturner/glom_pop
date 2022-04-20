@@ -311,9 +311,10 @@ def align_glom_responses(experiment_filepath,
 def save_glom_response_fig(glom_responses, merged, series_name, pipeline_dir):
     fig_directory = os.path.join(pipeline_dir, 'response_qc')
 
-    ants.plot(ants.split_channels(merged)[1], ants.split_channels(merged)[2],
-              cmap='Greens', overlay_cmap='Blues', axis=2, reorient=False,
-              title=series_name, nslices=12)
+    ants.plot(ants.split_channels(merged)[0], ants.split_channels(merged)[2],
+              cmap='Reds', overlay_cmap='Blues', overlay_alpha=0.5,
+              axis=2, reorient=False,
+              title=series_name, slices=np.arange(0, 12))
     ants_fig = plt.gcf()
     fig_fp = os.path.join(fig_directory, '{}_overlay.png'.format(series_name))
     ants_fig.savefig(fig_fp)
