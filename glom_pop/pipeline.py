@@ -320,7 +320,7 @@ def save_glom_response_fig(glom_responses, merged, series_name, pipeline_dir):
     ants_fig.savefig(fig_fp)
     print('Saved overlay fig to {}'.format(fig_fp))
 
-    fh, ax = plt.subplots(len(glom_responses), 1, figsize=(6, 12))
+    fh, ax = plt.subplots(len(glom_responses), 1, figsize=(12, 12))
     for gr_ind, gr in enumerate(glom_responses):
         ax[gr_ind].plot(gr, 'k-')
 
@@ -383,12 +383,13 @@ def save_behavior_fig(video_results, series_name, pipeline_dir):
     ax[0].imshow(video_results['cropped_frame'], cmap='Greys_r')
     # Show cropped ball and overall movement trace for QC
     tw_ax = ax[1].twinx()
-    tw_ax.fill_between(video_results['frame_times'],
-                       video_results['binary_behavior'][:video_results['frame_times'].shape[0]],
+    print(video_results['frame_times'].shape[0])
+    tw_ax.fill_between(video_results['frame_times'][:200],
+                       video_results['binary_behavior'][:200],
                        color='k', alpha=0.5)
     ax[1].axhline(video_results['binary_thresh'], color='r')
-    ax[1].plot(video_results['frame_times'],
-               video_results['rmse'][:video_results['frame_times'].shape[0]],
+    ax[1].plot(video_results['frame_times'][:200],
+               video_results['rmse'][[:200],
                'b')
     ax[1].set_title(series_name)
 
