@@ -389,7 +389,7 @@ def save_behavior_fig(video_results, series_name, pipeline_dir):
                        color='k', alpha=0.5)
     ax[1].axhline(video_results['binary_thresh'], color='r')
     ax[1].plot(video_results['frame_times'][:200],
-               video_results['rmse'][[:200],
+               video_results['rmse'][:200],
                'b')
     ax[1].set_title(series_name)
 
