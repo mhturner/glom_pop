@@ -1,15 +1,25 @@
+"""
+Data pipeline functions.
+
+maxwellholteturner@gmail.com
+https://github.com/mhturner/glom_pop
+"""
+
 import ants
-import datetime
 import nibabel as nib
 import numpy as np
 import os
-import shutil
 import time
 import matplotlib.pyplot as plt
 
-from glom_pop import dataio
+from glom_pop import dataio, alignment
 from visanalysis.plugin import bruker
+from visanalysis.analysis import imaging_data
 from visanalysis.util import h5io
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # ANATOMICAL BRAIN & MEANBRAIN ALIGNMENT  # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 
 def register_brain_to_reference(brain_filepath,
@@ -176,63 +186,196 @@ def get_anatomical_brain(file_base_path):
     return save_meanbrain
 
 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # GLOM ALIGNMENT / RESPONSES  # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# def process_imports(path_to_import_folder,
-#                     data_directory='/oak/stanford/groups/trc/data/Max/ImagingData/',
-#                     datafile_dir='/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync/datafiles'):
-#     """
-#
-#     args:
-#     path_to_import_folder: path to imported data folder
-#     data_directory: path to data, i.e. where to move new date dir
-#     datafile_dir: path to directory where h5 datafiles should be copied
-#
-#     """
-#
-#     # (1) COPY TO NEW DATE DIRECTORY
-#     output_subdir = os.path.split(path_to_import_folder)[-1]
-#     # folder should be format YYYYMMDD
-#     assert len(output_subdir) == 8
-#     assert datetime.datetime.strptime(output_subdir, '%Y%m%d')
-#
-#     new_imaging_directory = os.path.join(data_directory, 'Bruker', output_subdir)
-#     Path(new_imaging_directory).mkdir(exist_ok=True)  # make new directory for this date
-#     print('Made directory {}'.format(new_imaging_directory))
-#
-#     for subdir in os.listdir(path_to_import_folder):  # one subdirectory per series
-#         current_timeseries_directory = os.path.join(path_to_import_folder, subdir)
-#         for fn in glob.glob(os.path.join(current_timeseries_directory, 'T*')):  # T series
-#             dest = os.path.join(new_imaging_directory, os.path.split(fn)[-1])
-#             shutil.copyfile(fn, dest)
-#
-#         for fn in glob.glob(os.path.join(current_timeseries_directory, 'Z*')):  # Z series
-#             dest = os.path.join(new_imaging_directory, os.path.split(fn)[-1])
-#             shutil.copyfile(fn, dest)
-#
-#     # (2) ATTACH VISPROTOCOL DATA
-#     # Make a backup of raw visprotocol datafile before attaching data to it
-#     experiment_file_name = '{}-{}-{}.hdf5'.format(output_subdir[0:4], output_subdir[4:6], output_subdir[6:8])
-#     experiment_filepath = os.path.join(datafile_dir, experiment_file_name)
-#     shutil.copy(experiment_filepath, os.path.join(data_directory, 'RawDataFiles', experiment_file_name))
-#
-#     plug = bruker.BrukerPlugin()
-#     plug.attachData(experiment_file_name.split('.')[0], experiment_filepath, new_imaging_directory)
-#
-#     # Add analysis flags to each series
-#     for sn in plug.getSeriesNumbers(file_path=experiment_filepath):
-#         h5io.updateSeriesAttribute(file_path=experiment_filepath,
-#                                    series_number=sn,
-#                                    attr_key='include_in_analysis',
-#                                    attr_val=True)
-#
-#         h5io.updateSeriesAttribute(file_path=experiment_filepath,
-#                                    series_number=sn,
-#                                    attr_key='anatomical_brain',
-#                                    attr_val='')
-#
-#         h5io.updateSeriesAttribute(file_path=experiment_filepath,
-#                                    series_number=sn,
-#                                    attr_key='series_notes',
-#                                    attr_val='')
-#
-#     print('Attached data to {}'.format(experiment_filepath))
+def align_glom_responses(experiment_filepath,
+                         series_number,
+                         sync_dir,
+                         meanbrain_datestr='20211217',
+                         data_dir='/oak/stanford/groups/trc/data/Max/ImagingData/Bruker'):
+
+    t0 = time.time()
+    transform_directory = os.path.join(sync_dir, 'transforms')
+
+    # Load master meanbrain
+    meanbrain_fn = 'chat_meanbrain_{}.nii'.format(meanbrain_datestr)
+    meanbrain = ants.image_read(os.path.join(sync_dir, 'mean_brain', meanbrain_fn))
+    [meanbrain_red, meanbrain_green] = ants.split_channels(meanbrain)
+
+    # load transformed mask, in meanbrain space
+    fp_mask = os.path.join(transform_directory, 'meanbrain_template', 'glom_mask_reg2meanbrain.nii')
+    glom_mask_2_meanbrain = ants.image_read(fp_mask).numpy()
+
+    # mask vals
+    vals = np.unique(glom_mask_2_meanbrain.numpy())[1:].astype('int')  # exclude first val (=0, not a glom)
+
+    ID = imaging_data.ImagingDataObject(file_path=experiment_filepath,
+                                        series_number=series_number,
+                                        quiet=True)
+
+    print('Starting series {}:{}'.format(ID.file_path, ID.series_number))
+    functional_fn = 'TSeries-' + os.path.split(ID.file_path)[-1].split('.')[0].replace('-', '') + '-' + str(ID.series_number).zfill(3)
+    anatomical_fn = 'TSeries-' + ID.getRunParameters('anatomical_brain')
+
+    date_str = functional_fn.split('-')[1]
+    series_number = ID.series_number
+
+    # # # Load anatomical scan # # #
+    anat_filepath = os.path.join(sync_dir, 'anatomical_brains', anatomical_fn + '_anatomical.nii')
+    red_brain = ants.split_channels(ants.image_read(anat_filepath))[0]
+
+    # # # (1) Transform map from MEANBRAIN -> ANAT # # #
+    t0 = time.time()
+    # Pre-computed is anat->meanbrain, so we want the inverse transform
+    transform_dir = os.path.join(transform_directory, 'meanbrain_anatomical', anatomical_fn)
+    transform_list = dataio.get_transform_list(transform_dir, direction='inverse')
+
+    # Apply inverse transform to glom mask
+    glom_mask_2_anat = ants.apply_transforms(fixed=red_brain,
+                                             moving=glom_mask_2_meanbrain,
+                                             transformlist=transform_list,
+                                             interpolator='genericLabel',
+                                             defaultvalue=0)
+
+    print('Applied inverse transform from ANAT -> MEANBRAIN to glom mask ({:.1f} sec)'.format(time.time()-t0))
+
+    # # # (2) Transform from ANAT -> FXN (within fly) # # #
+    t0 = time.time()
+    fxn_filepath = os.path.join(data_dir, date_str, functional_fn)
+    metadata_fxn = dataio.get_bruker_metadata(fxn_filepath + '.xml')
+
+    spacing = [float(metadata_fxn.get('micronsPerPixel_XAxis', 0)),
+               float(metadata_fxn.get('micronsPerPixel_YAxis', 0)),
+               float(metadata_fxn.get('micronsPerPixel_ZAxis', 0))]
+    # load brain, average over all frames
+    nib_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj).mean(axis=3)
+    fxn_red = ants.from_numpy(nib_brain[:, :, :, 0], spacing=spacing)  # xyz
+    fxn_green = ants.from_numpy(nib_brain[:, :, :, 1], spacing=spacing)  # xyz
+
+    print('Loaded fxnal meanbrains ({:.1f} sec)'.format(time.time()-t0))
+    t0 = time.time()
+    reg_FA = ants.registration(fxn_red,
+                               red_brain,
+                               type_of_transform='Rigid',  # Within-animal, rigid reg is OK
+                               flow_sigma=3,
+                               total_sigma=0)
+
+    # # # Apply inverse transform to glom mask # # #
+    glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_red,
+                                            moving=glom_mask_2_anat,
+                                            transformlist=reg_FA['fwdtransforms'],
+                                            interpolator='genericLabel',
+                                            defaultvalue=0)
+
+    print('Computed transform from ANAT -> FXN & applied to glom mask ({:.1f} sec)'.format(time.time()-t0))
+
+    # Save multichannel overlay image in fxn space: red, green, mask
+    merged = ants.merge_channels([fxn_red, fxn_green, glom_mask_2_fxn])
+    save_path = os.path.join(sync_dir, 'overlays', '{}_masked.nii'.format(functional_fn))
+    ants.image_write(merged, save_path)
+
+    # Load functional (green) brain series
+    green_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj)[..., 1]
+
+    # yank out glom responses
+    # glom_responses: mean response across all voxels in each glom
+    # shape = glom ID x Time
+    glom_responses = alignment.get_glom_responses(green_brain,
+                                                  glom_mask_2_fxn.numpy(),
+                                                  mask_values=vals)
+
+    # voxel_responses: list of arrays, each is all individual voxel responses for that glom
+    # list of len=gloms, each with array nvoxels x time
+    voxel_responses = alignment.get_glom_voxel_responses(green_brain,
+                                                         glom_mask_2_fxn.numpy(),
+                                                         mask_values=vals)
+
+    # attach all this to the hdf5 file
+    meanbrain = dataio.merge_channels(fxn_red.numpy(), fxn_green.numpy())
+    dataio.attach_responses(file_path=experiment_filepath,
+                            series_number=series_number,
+                            mask=glom_mask_2_fxn.numpy(),
+                            meanbrain=meanbrain,
+                            responses=glom_responses,
+                            mask_vals=vals,
+                            response_set_name='glom',
+                            voxel_responses=voxel_responses)
+
+    print('Done. Attached responses to {} (total: {:.1f} sec)'.format(experiment_filepath, time.time()-t0))
+    print('-----------------------')
+
+    return glom_responses
+
+
+def save_glom_response_fig(glom_responses, pipeline_dir):
+    pass
+
+# # # # # # # # # # # #  # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # BEHAVIOR DATA  # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # #  # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+
+def process_behavior(video_filepath,
+                     experiment_filepath,
+                     series_number,
+                     crop_window_size=[100, 100]  # rows x cols
+                     ):
+
+    frame_size = dataio.get_frame_size(video_filepath)
+    crop = (np.array(frame_size) - np.array(crop_window_size)) / 2
+    trim = {'T': crop[0],
+            'B': crop[0],
+            'L': crop[1],
+            'R': crop[1],
+            }
+
+    # cropping: Pixels to trim from ((T, B), (L, R), (RGB_start, RGB_end))
+    video_results = dataio.get_ball_movement(video_filepath,
+                                             cropping=((trim['T'], trim['B']),
+                                                       (trim['L'], trim['R']),
+                                                       (0, 0)),
+                                             )
+
+    # Get frame timing from trigger signal
+    voltage_trace, sample_rate = h5io.readDataSet(experiment_filepath, series_number,
+                                                  group_name='stimulus_timing',
+                                                  dataset_name='frame_monitor')
+    frame_triggers = voltage_trace[0, :]  # First voltage trace is trigger readout
+    video_results['frame_times'] = dataio.get_video_timing(frame_triggers, sample_rate)
+
+    dataio.attach_behavior_data(experiment_filepath,
+                                series_number,
+                                video_results)
+
+    return video_results
+
+
+def save_behavior_fig(video_results, series_name, pipeline_dir):
+    """
+
+    :video_results: dict output from dataio.get_ball_movement
+    :frame_times: from dataio.get_video_timing
+    :series_name: str
+    :pipeline_dir: str
+
+    """
+    fig_directory = os.path.join(pipeline_dir, 'behavior_qc')
+
+    fh, ax = plt.subplots(1, 2, figsize=(8, 4), gridspec_kw={'width_ratios': [1, 4]})
+    ax[0].imshow(video_results['cropped_frame'], cmap='Greys_r')
+    # Show cropped ball and overall movement trace for QC
+    tw_ax = ax[1].twinx()
+    tw_ax.fill_between(video_results['frame_times'],
+                       video_results['binary_behavior'][:len(video_results['frame_times'])],
+                       color='k', alpha=0.5)
+    ax[1].axhline(video_results['binary_thresh'], color='r')
+    ax[1].plot(video_results['frame_times'],
+               video_results['rmse'][:len(video_results['frame_times'])],
+               'b')
+    ax[1].set_title(series_name)
+
+    fig_fp = os.path.join(fig_directory, '{}_beh.png'.format(series_name))
+    fh.savefig(fig_fp)
+    print('Saved behavior fig to {}'.format(fig_fp))

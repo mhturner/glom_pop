@@ -256,9 +256,31 @@ def filter_epoch_response_matrix(response_data, included_vals, glom_size_thresho
 # # #  Interacting with behavior video  # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+def get_frame_size(filepath):
+    frame = pims.as_grey(pims.Video(filepath))[0]
+    return frame.shape
+
+
+def get_video_timing(frame_triggers, sample_rate=10000):
+    # Use frame trigger voltage output to find frame times in bruker time
+    # shift & normalize so trace lives on [0 1]
+    frame_triggers = frame_triggers - np.min(frame_triggers)
+    frame_triggers = frame_triggers / np.max(frame_triggers)
+
+    # find trigger up times
+    threshold = 0.5
+    V_orig = frame_triggers[0:-2]
+    V_shift = frame_triggers[1:-1]
+    frame_times = np.where(np.logical_and(V_orig < threshold, V_shift >= threshold))[0] + 1
+
+    frame_times = frame_times / sample_rate  # Seconds
+
+    print('{} frame triggers sent'.format(frame_times.shape[0]))
+
+    return frame_times
+
+
 def get_ball_movement(filepath,
-                      frame_triggers,
-                      sample_rate=10000,
                       cropping=((90, 0), (10, 20), (0, 0)),  # Pixels to trim from ((L, R), (T, B), (RGB_start, RGB_end))
                       ):
     # Load and crop vid as a pims object
@@ -273,25 +295,10 @@ def get_ball_movement(filepath,
     thresh = filters.threshold_otsu(ball_rmse)
     binary_behavior = ball_rmse > thresh
 
-    # Use frame trigger voltage output to find frame times in bruker time
-    # shift & normalize so trace lives on [0 1]
-    frame_triggers = frame_triggers - np.min(frame_triggers)
-    frame_triggers = frame_triggers / np.max(frame_triggers)
-
-    # find trigger up times
-    threshold = 0.5
-    V_orig = frame_triggers[0:-2]
-    V_shift = frame_triggers[1:-1]
-    frame_times = np.where(np.logical_and(V_orig < threshold, V_shift >= threshold))[0] + 1
-
-    frame_times = frame_times / sample_rate  # Seconds
-
     print('{} frames in movie'.format(ball_rmse.shape[0]+1))
-    print('{} frame triggers sent'.format(frame_times.shape[0]))
 
     video_results = {'frame': whole_vid[1],
                      'cropped_frame': cropped_vid[1],
-                     'frame_times': frame_times[:len(ball_rmse)],
                      'rmse': ball_rmse,
                      'binary_behavior': binary_behavior,
                      'binary_thresh': thresh
@@ -300,7 +307,8 @@ def get_ball_movement(filepath,
     return video_results
 
 
-def attach_behavior_data(file_path, series_number,
+def attach_behavior_data(file_path,
+                         series_number,
                          video_results):
     with h5py.File(file_path, 'r+') as experiment_file:
         find_partial = functools.partial(h5io.find_series, sn=series_number)

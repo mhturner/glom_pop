@@ -21,19 +21,19 @@ included_gloms = dataio.get_included_gloms()
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-eg_ind = 8  # 8 (20220412, 5) - good, punctuated movement bouts
+eg_ind = 0  # 8 (20220412, 5) - good, punctuated movement bouts
 # Date, series, cropping for video
 datasets = [
-            ('20220318', 8, ((90, 0), (10, 20), (0, 0))),
-            ('20220324', 1, ((100, 10), (10, 30), (0, 0))),
-            ('20220324', 7, ((100, 10), (10, 30), (0, 0))),
-            ('20220324', 12, ((100, 10), (10, 30), (0, 0))),
-            ('20220324', 16, ((100, 10), (10, 30), (0, 0))),
-            ('20220404', 1, ((120, 80), (150, 150), (0, 0))),
-            ('20220404', 6, ((120, 80), (150, 150), (0, 0))),
-            ('20220407', 2, ((120, 80), (150, 150), (0, 0))),
+            # ('20220318', 8, ((90, 0), (10, 20), (0, 0))),
+            # ('20220324', 1, ((100, 10), (10, 30), (0, 0))),
+            # ('20220324', 7, ((100, 10), (10, 30), (0, 0))),
+            # ('20220324', 12, ((100, 10), (10, 30), (0, 0))),
+            # ('20220324', 16, ((100, 10), (10, 30), (0, 0))),
+            # ('20220404', 1, ((120, 80), (150, 150), (0, 0))),
+            # ('20220404', 6, ((120, 80), (150, 150), (0, 0))),
+            # ('20220407', 2, ((120, 80), (150, 150), (0, 0))),
             ('20220412', 1, ((120, 60), (100, 100), (0, 0))),
-            ('20220412', 5, ((120, 60), (100, 100), (0, 0))),
+            # ('20220412', 5, ((120, 60), (100, 100), (0, 0))),
             ]
 
 
@@ -83,9 +83,9 @@ for d_ind, ds in enumerate(datasets):
 
     video_filepath = glob.glob(os.path.join(video_dir, date_dir, series_dir) + "/*.avi")[0]  # should be just one .avi in there
     video_results = dataio.get_ball_movement(video_filepath,
-                                             frame_triggers,
-                                             sample_rate=voltage_sample_rate,
                                              cropping=ds[2])
+
+    frame_times = dataio.get_video_timing(frame_triggers, sample_rate=voltage_sample_rate)
 
     # Show cropped ball and overall movement trace for QC
     fh_tmp, ax_tmp = plt.subplots(1, 2, figsize=(12, 3))
@@ -94,7 +94,7 @@ for d_ind, ds in enumerate(datasets):
                        video_results['binary_behavior'],
                        color='k', alpha=0.5)
     ax_tmp[0].axhline(video_results['binary_thresh'], color='r')
-    ax_tmp[0].plot(video_results['frame_times'],
+    ax_tmp[0].plot(frame_times,
                    video_results['rmse'],
                    'b')
     ax_tmp[1].imshow(video_results['cropped_frame'], cmap='Greys_r')
@@ -151,11 +151,11 @@ for d_ind, ds in enumerate(datasets):
 
         # Fly movement traj with thresh and binary shading
         tw_ax = ax2.twinx()
-        tw_ax.fill_between(video_results['frame_times'],
+        tw_ax.fill_between(frame_times,
                            video_results['binary_behavior'],
                            color=[0.5, 0.5, 0.5], alpha=0.5)
         ax2.axhline(video_results['binary_thresh'], color='r')
-        ax2.plot(video_results['frame_times'],
+        ax2.plot(frame_times
                  video_results['rmse'],
                  'k')
         tw_ax.set_yticks([])
@@ -167,6 +167,23 @@ fh1.savefig(os.path.join(save_directory, 'ems_running_flyonball.svg'), transpare
 fh2.savefig(os.path.join(save_directory, 'ems_running_traj_eg.svg'), transparent=True)
 corr_with_running = np.vstack(corr_with_running)  # flies x gloms
 
+# %%
+
+
+frame_size = dataio.get_frame_size(video_filepath)
+frame_size
+
+frame_size[0]
+crop_window_size=[100, 100]
+frame_size
+
+(np.array(frame_size) - np.array(crop_window_size)) / 2
+
+
+
+ds[2]
+video_results['cropped_frame'].shape
+video_results['frame'].shape
 # %%
 fh2, ax2 = plt.subplots(1, 1, figsize=(4, 2.5))
 ax2.axhline(y=0, color='k', alpha=0.50)

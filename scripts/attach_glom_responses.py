@@ -48,7 +48,6 @@ glom_mask_2_meanbrain = ants.image_read(fp_mask).numpy()
 # Load mask key for VPN types
 vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'))
 vals = np.unique(glom_mask_2_meanbrain)[1:].astype('int')  # exclude first val (=0, not a glom)
-names = vpn_types.loc[vpn_types.get('Unnamed: 0').isin(vals), 'vpn_types']
 
 # convert mask back to ANTs image
 glom_mask_2_meanbrain = ants.from_numpy(glom_mask_2_meanbrain, spacing=meanbrain_red.spacing)
