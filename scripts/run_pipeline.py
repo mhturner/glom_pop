@@ -24,13 +24,15 @@ https://github.com/mhturner/glom_pop
 
 import ants
 import argparse
+import datetime
+import glob
 import os
 import shutil
 import sys
 import time
-import datetime
 
 from glom_pop import pipeline, util
+from visanalysis.util import h5io
 
 
 t0_overall = time.time()
@@ -129,12 +131,12 @@ else:  # Not anatomical - functional scan
                                                            meanbrain_datestr='20211217')
             pipeline.save_glom_response_fig(glom_responses,
                                             pipeline_dir)
-       else:
-           print('No existing series {} found in {}'.format(series_number, experiment_filepath))
-           print('No glomeruli responses attached')
-           # TODO: Make a new series group for series with no visual stimuli
-           # How to figure out fly id?
-           # h5io.createEpochRunGroup(experiment_filepath, fly_id, series_number)
+        else:
+            print('No existing series {} found in {}'.format(series_number, experiment_filepath))
+            print('No glomeruli responses attached')
+            # TODO: Make a new series group for series with no visual stimuli
+            # How to figure out fly id?
+            # h5io.createEpochRunGroup(experiment_filepath, fly_id, series_number)
 
     # ATTACH BEHAVIOR DATA
     series_dir = 'series' + str(series_number).zfill(3)
@@ -144,12 +146,11 @@ else:  # Not anatomical - functional scan
     elif len(video_filepaths) == 1:  # should be just one .avi in there
         print('------PROCESSING BEHAVIOR DATA------')
         # Process rms image difference on ball. Attach results to h5 file
-        pipeline.process_behavior(video_filepath[0],
-                                  experiment_filepath,
-                                  series_number,
-                                  crop_window_size=[100, 100])
+        video_results = pipeline.process_behavior(video_filepaths[0],
+                                                  experiment_filepath,
+                                                  series_number,
+                                                  crop_window_size=[100, 100])
         pipeline.save_behavior_fig(video_results,
-                                   frame_times,
                                    series_name,
                                    pipeline_dir)
         print('------/PROCESSING BEHAVIOR DATA/------')
