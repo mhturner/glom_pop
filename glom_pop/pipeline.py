@@ -339,11 +339,25 @@ def process_behavior(video_filepath,
                      crop_window_size=[100, 100]  # rows x cols
                      ):
 
+
+    # # Add behavior video trim attr to series
+    # with h5py.File(file_path, 'r+') as experiment_file:
+    #     find_partial = functools.partial(h5io.find_series, sn=series_number)
+    #     epoch_run_group = experiment_file.visititems(find_partial)
+    #     behavior_group = epoch_run_group.require_group('behavior')
+    # h5io.deleteSeriesAttribute(file_path=experiment_filepath,
+    #                            series_number=series_number,
+    #                            attr_key='video_trim',
+    #                            )
+
+    print('Attached tags to {}'.format(experiment_filepath))
+
     frame_size = dataio.get_frame_size(video_filepath)
-    crop = np.array(frame_size) - np.array(crop_window_size)
-    crop_L = crop[1]/2
-    crop_R = crop[1]/2
-    crop_T = crop[0]
+    print('Behavior frame size = {}'.format(frame_size))
+    # crop = np.array(frame_size) - np.array(crop_window_size)
+    crop_L = frame_size[1]/5
+    crop_R = frame_size[1]/5
+    crop_T = 2*frame_size[0] / 3
     crop_B = 0
 
     # cropping: Pixels to trim from ((T, B), (L, R), (RGB_start, RGB_end))
