@@ -206,7 +206,7 @@ def align_glom_responses(experiment_filepath,
 
     # load transformed mask, in meanbrain space
     fp_mask = os.path.join(transform_directory, 'meanbrain_template', 'glom_mask_reg2meanbrain.nii')
-    glom_mask_2_meanbrain = ants.image_read(fp_mask).numpy()
+    glom_mask_2_meanbrain = ants.image_read(fp_mask)
 
     # mask vals
     vals = np.unique(glom_mask_2_meanbrain.numpy())[1:].astype('int')  # exclude first val (=0, not a glom)
