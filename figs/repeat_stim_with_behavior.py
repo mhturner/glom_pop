@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 from visanalysis.analysis import imaging_data, shared_analysis
 from scipy.signal import resample, savgol_filter
-from scipy.stats import ttest_1samp, pearsonr
+from scipy.stats import ttest_1samp, pearsonr, ttest_rel
 import matplotlib.patches as patches
 from visanalysis.util import plot_tools
 from skimage import filters
@@ -41,7 +41,6 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                           key_value[0]: key_value[1],
                                                                           },
                                                   target_groups=['aligned_response', 'behavior'])
-# matching_series
 
 # %%
 
@@ -63,6 +62,8 @@ gain_autocorr = []
 
 response_amps = []
 running_amps = []
+all_behaving = []
+
 for s_ind, series in enumerate(matching_series):
     series_number = series['series']
     file_path = series['file_name'] + '.hdf5'
@@ -101,6 +102,11 @@ for s_ind, series in enumerate(matching_series):
 
     running_amps.append(running_amp)
     response_amps.append(response_amp)
+
+    # Categorize trial as behaving or nonbehaving
+    beh_per_trial = np.mean(behavior_binary_matrix[0, :, :], axis=1)
+    behaving = beh_per_trial > 0.5  # bool array: n trials
+    all_behaving.append(behaving)
 
     new_beh_corr = np.array([np.corrcoef(running_amp, response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
     corr_with_running.append(new_beh_corr)
@@ -185,94 +191,74 @@ for g_ind, glom in enumerate(included_gloms):
 
 ax2.set_ylim([-0.9, 0.5])
 
-
 ax2.set_xticks(np.arange(0, len(included_gloms)))
 ax2.set_xticklabels(included_gloms, rotation=90)
 ax2.set_ylabel('Corr. with behavior (r)')
 ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 
-
 # Plot behavior corr vs: (1) fraction time spent moving and (2) glom response amplitude
-fh3, ax3 = plt.subplots(1, 2, figsize=(4.5, 2.0))
-[x.set_ylim([-0.55, 0.05]) for x in ax3]
-
+fh3, ax3 = plt.subplots(1, 2, figsize=(4.5, 2.5), tight_layout=True)
+[x.spines['top'].set_visible(False) for x in ax3.ravel()]
+[x.spines['right'].set_visible(False) for x in ax3.ravel()]
+ax3[0].axhline(0, color='k', alpha=0.5)
 mean_glom_response_amplitude = np.nanmean(response_amps, axis=(1, 2))
 mean_glom_corr_with_behavior = np.nanmean(corr_with_running, axis=0)
-r = np.corrcoef(mean_glom_response_amplitude, mean_glom_corr_with_behavior)[0, 1]
-print(r)
+r = pearsonr(mean_glom_response_amplitude, mean_glom_corr_with_behavior)
+
+coef = np.polyfit(mean_glom_response_amplitude, mean_glom_corr_with_behavior, 1)
+linfit = np.poly1d(coef)
+xx = [mean_glom_response_amplitude.min(), mean_glom_response_amplitude.max()]
+yy = linfit(xx)
+
+ax3[0].plot(xx, yy, color='k', linestyle='--')
+ax3[0].annotate('r={:.2f}'.format(r[0]), (0.02, -0.45))
 ax3[0].scatter(mean_glom_response_amplitude,
                mean_glom_corr_with_behavior,
                marker='o',
                c=list(util.get_color_dict().values()))
 
-ax3[0].set_ylabel('Corr. with behavior')
-ax3[0].set_xlabel('Mean response amplitude')
-#
-# ax3[1].plot(fraction_behaving, np.nanmean(corr_with_running, axis=1), 'ko')
-# ax3[1].set_ylabel('Corr. with behavior')
-# ax3[1].set_xlabel('Fraction of time behaving')
-# ax3[1].spines['top'].set_visible(False)
-# ax3[1].spines['right'].set_visible(False)
-# r = np.corrcoef(fraction_behaving, np.nanmean(corr_with_running, axis=1))[0, 1]
-# print('r = {}'.format(r))
+ax3[0].set_ylabel('Corr. with \nbehavior (r)')
+ax3[0].set_xlabel('Mean response \n amp. (dF/F)')
+ax3[0].set_ylim([-0.55, 0.05])
+ax3[0].set_xlim([0, 0.5])
+
+p_vals = []
+ax3[1].plot([0, 0.45], [0, 0.45], 'k-', alpha=0.5)
+for g_ind, glom in enumerate(included_gloms):
+    beh = [np.nanmean(response_amps[g_ind, all_behaving[x], x]) for x in range(response_amps.shape[2])]
+    nonbeh = [np.nanmean(response_amps[g_ind, np.logical_not(all_behaving[x]), x]) for x in range(response_amps.shape[2])]
+
+    h, p = ttest_rel(beh, nonbeh, nan_policy='omit')
+    p_vals.append(p)
+
+    mean_beh = np.mean(beh)
+    err_beh = np.std(beh) / np.sqrt(len(beh))
+
+    mean_nonbeh = np.mean(nonbeh)
+    err_nonbeh = np.std(nonbeh) / np.sqrt(len(nonbeh))
+
+    ax3[1].plot(mean_beh,
+                mean_nonbeh, color=util.get_color_dict()[glom], marker='o')
+    ax3[1].plot([mean_beh-err_beh, mean_beh+err_beh],
+                [mean_nonbeh, mean_nonbeh], color=util.get_color_dict()[glom], linestyle='-')
+    ax3[1].plot([mean_beh, mean_beh],
+                [mean_nonbeh-err_nonbeh, mean_nonbeh+err_nonbeh], color=util.get_color_dict()[glom], linestyle='-')
+
+ax3[1].set_title('Trial response (dF/F)')
+ax3[1].set_xlabel('Behaving')
+ax3[1].set_ylabel('Not behaving')
 
 
 fh2.savefig(os.path.join(save_directory, 'repeat_beh_summary_{}.svg'.format(PROTOCOL_ID)), transparent=True)
-fh3.savefig(os.path.join(save_directory, 'repeat_beh_totalrunning_{}.svg'.format(PROTOCOL_ID)), transparent=True)
+fh3.savefig(os.path.join(save_directory, 'repeat_beh_corr_{}.svg'.format(PROTOCOL_ID)), transparent=True)
+
+
+
+# %% TODO: temporal relationship between onset/offset and gain?
 
 
 # %%
-
-epoch_response_matrix.shape
-running_response_matrix.shape
-behavior_binary_matrix.shape
-
-pre_frames = int(ID.getRunParameters('pre_time') / ID.getAcquisitionMetadata('sample_period'))
-stim_frames = int(ID.getRunParameters('stim_time') / ID.getAcquisitionMetadata('sample_period'))
-
-running_amp
-fh, ax = plt.subplots(len(included_gloms), 1, figsize=(1, 12))
-for g_ind, glom in enumerate(included_gloms):
-    running_amp = running_response_matrix[0, ...].mean(axis=1)
-
-    pre_running = running_response_matrix[0, :, 0:pre_frames].mean(axis=1)
-    stim_running = running_response_matrix[0, :, pre_frames:(pre_frames+stim_frames)].mean(axis=1)
-
-    response_amp = ID.getResponseAmplitude(epoch_response_matrix[g_ind, ...], metric='max')
-    r, p = pearsonr(stim_running, response_amp)
-    ax[g_ind].plot(stim_running, response_amp, 'k.')
-    ax[g_ind].set_title(r)
-
-epoch_response_matrix.shape
-epoch_response_matrix.mean(axis=1).shape
-
-peak_inds = np.argmax(epoch_response_matrix.mean(axis=1), axis=1)
-peak_inds.shape
-peak_inds
-# %%
-# Temporal relationship:
-pre_running
-stim_running
-plt.plot(stim_running, pre_running, 'k.')
-
-# %%
-
-
-# %%
-
-a = np.zeros(100)
-a[42:45] = 1
-
-b = np.zeros(100)
-b[47:50] = 1
-
-xc = util.getXcorr(a, b)
-
-fh, ax = plt.subplots(1, 1, figsize=(6, 3))
-xx = np.arange(len(a)) - len(a) / 2
-ax.plot(xx, xc, 'k-o')
-ax.set_xlim([-10, 10])
 
 
 
