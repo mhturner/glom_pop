@@ -1,8 +1,7 @@
 import numpy as np
 import os
-import glob
 import matplotlib.pyplot as plt
-from visanalysis.analysis import imaging_data
+from visanalysis.analysis import imaging_data, shared_analysis
 from scipy.signal import resample
 from scipy.stats import ttest_1samp
 import matplotlib.patches as patches
@@ -12,33 +11,26 @@ from glom_pop import dataio, util
 
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
-transform_directory = os.path.join(sync_dir, 'transforms', 'meanbrain_template')
 data_directory = os.path.join(sync_dir, 'datafiles')
-video_dir = os.path.join(sync_dir, 'behavior_videos')
+
 leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.get_included_gloms()
 # sort by dendrogram leaves ordering
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-eg_ind = 4  # 4 (20220412, 6)
-# Date, series, cropping for video
-datasets = [
-            ('20220404', 2, ((120, 60), (120, 120), (0, 0))),
-            ('20220404', 7, ((120, 60), (120, 120), (0, 0))),
-            ('20220407', 1, ((120, 60), (120, 120), (0, 0))),
-            ('20220412', 2, ((120, 60), (100, 100), (0, 0))),
-            ('20220412', 6, ((120, 60), (100, 100), (0, 0))),
-            ('20220412', 9, ((120, 60), (100, 100), (0, 0))),
-            ]
+matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
+                                                  target_fly_metadata={'driver_1': 'ChAT-T2A',
+                                                                       'indicator_1': 'Syt1GCaMP6f',
+                                                                       'indicator_2': 'TdTomato'},
+                                                  target_series_metadata={'protocol_ID': 'LoomingSpot',
+                                                                          'include_in_analysis': True,
+                                                                          },
+                                                  target_groups=['aligned_response', 'behavior'])
 
 
-def getXcorr(a, b):
-    a = (a - np.mean(a)) / (np.std(a) * len(a))
-    b = (b - np.mean(b)) / (np.std(b))
-    c = np.correlate(a, b, 'same')
-    return c
-
+# %%
+eg_ind = 0
 
 fh0, ax0 = plt.subplots(1+len(included_gloms), 1, figsize=(6, 4))
 [x.set_ylim([-0.15, 0.8]) for x in ax0.ravel()]

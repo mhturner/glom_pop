@@ -1,8 +1,7 @@
 import numpy as np
 import os
-import glob
 import matplotlib.pyplot as plt
-from visanalysis.analysis import imaging_data
+from visanalysis.analysis import imaging_data, shared_analysis
 from scipy.signal import resample
 from scipy.stats import ttest_1samp
 import matplotlib.patches as patches
@@ -12,36 +11,25 @@ from glom_pop import dataio, util
 
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
-transform_directory = os.path.join(sync_dir, 'transforms', 'meanbrain_template')
 data_directory = os.path.join(sync_dir, 'datafiles')
-video_dir = os.path.join(sync_dir, 'behavior_videos')
+
 leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.get_included_gloms()
 # sort by dendrogram leaves ordering
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-eg_ind = 0  # 8 (20220412, 5) - good, punctuated movement bouts
-# Date, series, cropping for video
-datasets = [
-            # ('20220318', 8, ((90, 0), (10, 20), (0, 0))),
-            # ('20220324', 1, ((100, 10), (10, 30), (0, 0))),
-            # ('20220324', 7, ((100, 10), (10, 30), (0, 0))),
-            # ('20220324', 12, ((100, 10), (10, 30), (0, 0))),
-            # ('20220324', 16, ((100, 10), (10, 30), (0, 0))),
-            # ('20220404', 1, ((120, 80), (150, 150), (0, 0))),
-            # ('20220404', 6, ((120, 80), (150, 150), (0, 0))),
-            # ('20220407', 2, ((120, 80), (150, 150), (0, 0))),
-            ('20220412', 1, ((120, 60), (100, 100), (0, 0))),
-            # ('20220412', 5, ((120, 60), (100, 100), (0, 0))),
-            ]
+matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
+                                                  target_fly_metadata={'driver_1': 'ChAT-T2A',
+                                                                       'indicator_1': 'Syt1GCaMP6f',
+                                                                       'indicator_2': 'TdTomato'},
+                                                  target_series_metadata={'protocol_ID': 'ExpandingMovingSpot',
+                                                                          'include_in_analysis': True,
+                                                                          },
+                                                  target_groups=['aligned_response', 'behavior'])
 
-
-def getXcorr(a, b):
-    a = (a - np.mean(a)) / (np.std(a) * len(a))
-    b = (b - np.mean(b)) / (np.std(b))
-    c = np.correlate(a, b, 'same')
-    return c
+# %%
+eg_ind = 2  # 8 (20220412, 5) - good, punctuated movement bouts
 
 
 fh0, ax0 = plt.subplots(1+len(included_gloms), 1, figsize=(6, 4))
@@ -64,51 +52,23 @@ erms = []
 running_amps = []
 fraction_behaving = []
 
-for d_ind, ds in enumerate(datasets):
-    series_number = ds[1]
-    file_name = '{}-{}-{}.hdf5'.format(ds[0][:4], ds[0][4:6], ds[0][6:])
-
-    # For video:
-    series_dir = 'series' + str(series_number).zfill(3)
-    date_dir = ds[0]
-    file_path = os.path.join(data_directory, file_name)
+for s_ind, series in enumerate(matching_series):
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
     ID = imaging_data.ImagingDataObject(file_path,
                                         series_number,
                                         quiet=True)
 
-    # Get video data:
-    # Timing command from voltage trace
-    voltage_trace, _, voltage_sample_rate = ID.getVoltageData()
-    frame_triggers = voltage_trace[0, :]  # First voltage trace is trigger out
-
-    video_filepath = glob.glob(os.path.join(video_dir, date_dir, series_dir) + "/*.avi")[0]  # should be just one .avi in there
-    video_results = dataio.get_ball_movement(video_filepath,
-                                             cropping=ds[2])
-
-    frame_times = dataio.get_video_timing(frame_triggers, sample_rate=voltage_sample_rate)
-
-    # Show cropped ball and overall movement trace for QC
-    fh_tmp, ax_tmp = plt.subplots(1, 2, figsize=(12, 3))
-    tw_ax = ax_tmp[0].twinx()
-    tw_ax.fill_between(video_results['frame_times'],
-                       video_results['binary_behavior'],
-                       color='k', alpha=0.5)
-    ax_tmp[0].axhline(video_results['binary_thresh'], color='r')
-    ax_tmp[0].plot(frame_times,
-                   video_results['rmse'],
-                   'b')
-    ax_tmp[1].imshow(video_results['cropped_frame'], cmap='Greys_r')
-    ax_tmp[0].set_title(ds)
-
-    # Load response data
+    # Load response and behavior data
+    behavior_data = dataio.load_behavior(ID)
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
     epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
     erms.append(epoch_response_matrix)
 
     # Align running responses
-    _, running_response_matrix = ID.getEpochResponseMatrix(resample(video_results['rmse'], response_data.get('response').shape[1])[np.newaxis, :],
+    _, running_response_matrix = ID.getEpochResponseMatrix(resample(behavior_data['rmse'], response_data.get('response').shape[1])[np.newaxis, :],
                                                            dff=False)
-    _, behavior_binary_matrix = ID.getEpochResponseMatrix(resample(video_results['binary_behavior'], response_data.get('response').shape[1])[np.newaxis, :],
+    _, behavior_binary_matrix = ID.getEpochResponseMatrix(resample(behavior_data['binary_behavior'], response_data.get('response').shape[1])[np.newaxis, :],
                                                           dff=False)
 
     response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
@@ -119,14 +79,14 @@ for d_ind, ds in enumerate(datasets):
     fraction_behaving.append(behavior_binary_matrix.sum() / behavior_binary_matrix.size)
 
     # Trial cross correlation between running and response amp (gain)
-    running_autocorr.append(getXcorr(running_amp[0, :], running_amp[0, :]))
-    gain_autocorr.append(np.vstack([getXcorr(response_amp[g_ind, :], response_amp[g_ind, :]) for g_ind in np.arange(len(included_gloms))]))
-    xcorr.append(np.vstack([getXcorr(running_amp[0, :], response_amp[g_ind, :]) for g_ind in np.arange(len(included_gloms))]))
+    running_autocorr.append(util.getXcorr(running_amp[0, :], running_amp[0, :]))
+    gain_autocorr.append(np.vstack([util.getXcorr(response_amp[g_ind, :], response_amp[g_ind, :]) for g_ind in np.arange(len(included_gloms))]))
+    xcorr.append(np.vstack([util.getXcorr(running_amp[0, :], response_amp[g_ind, :]) for g_ind in np.arange(len(included_gloms))]))
 
     new_beh_corr = np.array([np.corrcoef(running_amp, response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
     corr_with_running.append(new_beh_corr)
 
-    if d_ind == eg_ind:
+    if s_ind == eg_ind:
         eg_trials = np.arange(0, 30)
 
         concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in eg_trials], axis=1)
@@ -145,18 +105,18 @@ for d_ind, ds in enumerate(datasets):
                 plot_tools.addScaleBars(ax0[1+g_ind], dT=4, dF=0.25, T_value=0, F_value=-0.1)
 
         # Image of fly on ball:
-        ax1.imshow(video_results['frame'], cmap='Greys_r')
-        rect = patches.Rectangle((10, 90), video_results['frame'].shape[1]-30, video_results['frame'].shape[0]-90,
+        ax1.imshow(behavior_data['frame'], cmap='Greys_r')
+        rect = patches.Rectangle((10, 90), behavior_data['frame'].shape[1]-30, behavior_data['frame'].shape[0]-90,
                                  linewidth=1, edgecolor='r', facecolor='none')
 
         # Fly movement traj with thresh and binary shading
         tw_ax = ax2.twinx()
-        tw_ax.fill_between(frame_times,
-                           video_results['binary_behavior'],
+        tw_ax.fill_between(behavior_data['frame_times'][:len(behavior_data['binary_behavior'])],
+                           behavior_data['binary_behavior'],
                            color=[0.5, 0.5, 0.5], alpha=0.5)
-        ax2.axhline(video_results['binary_thresh'], color='r')
-        ax2.plot(frame_times
-                 video_results['rmse'],
+        ax2.axhline(behavior_data['binary_thresh'], color='r')
+        ax2.plot(behavior_data['frame_times'][:len(behavior_data['binary_behavior'])],
+                 behavior_data['rmse'],
                  'k')
         tw_ax.set_yticks([])
 
@@ -168,30 +128,12 @@ fh2.savefig(os.path.join(save_directory, 'ems_running_traj_eg.svg'), transparent
 corr_with_running = np.vstack(corr_with_running)  # flies x gloms
 
 # %%
-
-
-frame_size = dataio.get_frame_size(video_filepath)
-frame_size
-
-frame_size[0]
-crop_window_size=[100, 100]
-frame_size
-
-(np.array(frame_size) - np.array(crop_window_size)) / 2
-
-
-
-ds[2]
-video_results['cropped_frame'].shape
-video_results['frame'].shape
-# %%
 fh2, ax2 = plt.subplots(1, 1, figsize=(4, 2.5))
 ax2.axhline(y=0, color='k', alpha=0.50)
 
 fh3, ax3 = plt.subplots(1, 1, figsize=(2.5, 2.0))
 
 p_vals = []
-
 for g_ind, glom in enumerate(included_gloms):
     t_result = ttest_1samp(corr_with_running[:, g_ind], 0, nan_policy='omit')
     p_vals.append(t_result.pvalue)
@@ -321,7 +263,7 @@ ax[1].set_xlabel('Trial')
 
 fh, ax = plt.subplots(1, 1, figsize=(2, 2))
 xx = np.arange(0, all_running.shape[1]) - all_running.shape[1]/2  # For xcorr
-cc = getXcorr(all_running[0, :], F[0, :])
+cc = util.getXcorr(all_running[0, :], F[0, :])
 ax.plot(xx, cc, 'k-o')
 ax.set_xlim([-15, 15])
 ax.set_ylim([-0.4, 0.25])
@@ -369,7 +311,7 @@ for f_ind, erm in enumerate(erms):
     ax2 = ax[f_ind, 2].twinx()
     ax2.plot(F[0, :], color='b', alpha=1.0)
     ax2.set_yticks([])
-    cc = getXcorr(fly_running[0, :], F[0, :])
+    cc = util.getXcorr(fly_running[0, :], F[0, :])
     xcorrs.append(cc)
 
     r = np.corrcoef(fly_running[0, :], F[0, :], )[0, 1]
