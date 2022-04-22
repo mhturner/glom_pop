@@ -15,9 +15,9 @@ sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
 transform_directory = os.path.join(sync_dir, 'transforms', 'meanbrain_template')
 
-# target_gloms = ['LC18', 'LC9', 'LC4']
+target_gloms = ['LC18', 'LC9', 'LC4']
 
-target_gloms = ['LC9']
+# target_gloms = ['LC9']
 
 chat_response_amplitudes = np.load(os.path.join(save_directory, 'chat_response_amplitudes.npy'))
 all_chat_responses = np.load(os.path.join(save_directory, 'chat_responses.npy'))
@@ -154,8 +154,8 @@ for g_ind, target_glom in enumerate(target_gloms):
     mean_split_responses = split_responses.mean(axis=0)
     sem_split_responses = split_responses.std(axis=0) / split_responses.shape[0]
 
-    # fh0.savefig(os.path.join(save_directory, 'split_responses_{}.svg'.format(target_glom)), transparent=True)
-    # fh1.savefig(os.path.join(save_directory, 'split_amp_scatter_{}.svg'.format(target_glom)), transparent=True)
+    fh0.savefig(os.path.join(save_directory, 'split_responses_{}.svg'.format(target_glom)), transparent=True)
+    fh1.savefig(os.path.join(save_directory, 'split_amp_scatter_{}.svg'.format(target_glom)), transparent=True)
 
 
 # %%

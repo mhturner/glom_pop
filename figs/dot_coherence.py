@@ -69,19 +69,21 @@ for s_ind, series in enumerate(matching_series):
         response_amplitudes.append(response_amp)
 
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
-
-        fh0, ax = plt.subplots(len(included_gloms), len(target_coherence), figsize=(3, 6))
-        [x.set_ylim([-0.15, 0.5]) for x in ax.ravel()]
+        # eg fly: show responses to 0 and 1 coherence
+        fh0, ax = plt.subplots(2, len(included_gloms), figsize=(4, 1.5), gridspec_kw={'hspace': 0})
+        [x.set_ylim([-0.15, 0.35]) for x in ax.ravel()]
+        [x.set_xlim([-0.25, response_data['time_vector'].max()]) for x in ax.ravel()]
         [util.clean_axes(x) for x in ax.ravel()]
-        # ax[0, 0].set_title('{}: {}'.format(os.path.split(file_path)[-1], series_number))
         for g_ind, glom in enumerate(included_gloms):
-            ax[g_ind, 0].set_ylabel(glom, fontsize=9)
-            for u_ind, up in enumerate(target_coherence):
-                if g_ind == 0:
-                    ax[0, u_ind].set_title(up)
-                    if u_ind == 0:
-                        plot_tools.addScaleBars(ax[0, 0], dT=4, dF=0.25, T_value=0, F_value=-0.1)
-                ax[g_ind, u_ind].plot(trial_averages[g_ind, u_ind, :], color=util.get_color_dict()[glom])
+            ax[0, g_ind].set_title(glom, fontsize=9, rotation=45)
+            for u_ind, up in enumerate([0, 1]):
+                pull_ind = np.where(np.array(target_coherence) == up)[0]
+                if u_ind == 0:
+                    plot_tools.addScaleBars(ax[0, 0], dT=4, dF=0.25, T_value=-0.1, F_value=-0.1)
+                ax[u_ind, g_ind].plot(response_data['time_vector'],
+                                      trial_averages[g_ind, pull_ind, :][0],
+                                      color=util.get_color_dict()[glom])
+
 
 # Stack accumulated responses
 # The glom order here is included_gloms
@@ -94,28 +96,9 @@ sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
 
 # Are responses (across all flies) significantly different than zero?
-p_sig_responses = np.array([ttest_1samp(all_responses.mean(axis=(1,2))[g_ind, :], 0)[1] for g_ind in range(len(included_gloms))])
+p_sig_responses = np.array([ttest_1samp(all_responses.mean(axis=(1, 2))[g_ind, :], 0)[1] for g_ind in range(len(included_gloms))])
 
-fh0.suptitle('Motion coherence')
 fh0.savefig(os.path.join(save_directory, 'coherence_eg_fly.svg'), transparent=True)
-
-# %% MEAN across all flies - sort of obscured by variance in absolute response amplitudes
-#
-# fh1, ax = plt.subplots(len(included_gloms), len(target_coherence), figsize=(2.5, 4))
-# [x.set_ylim([-0.1, 0.40]) for x in ax.ravel()]
-# [x.set_axis_off() for x in ax.ravel()]
-# [util.clean_axes(x) for x in ax.ravel()]
-# plot_tools.addScaleBars(ax[0, 0], dT=2, dF=0.25, T_value=0, F_value=-0.04)
-# for g_ind, glom in enumerate(included_gloms):
-#     ax[g_ind, 0].set_ylabel(glom)
-#
-#     for u_ind, up in enumerate(target_coherence):
-#         if g_ind == 0:
-#             ax[0, u_ind].set_title(up)
-#         # ax[g_ind, u_ind].plot(response_data['time_vector'], all_responses[g_ind, u_ind, :, :], alpha=0.25, color='k')
-#         ax[g_ind, u_ind].plot(response_data['time_vector'], mean_responses[g_ind, u_ind, :], color=util.get_color_dict()[glom])
-# fh1.suptitle('Motion coherence')
-# fh1.savefig(os.path.join(save_directory, 'coherence_mean_fly.svg'), transparent=True)
 
 
 # %% Normalized response amplitudes. Norm by peak response to any coherence condition
@@ -152,9 +135,48 @@ for g_ind, glom in enumerate(sig_gloms):
         err_val = normalized_response_amplitudes[g_ind, coh_ind, :].std(axis=-1) / np.sqrt(response_amplitudes.shape[-1])
         ax[g_ind].plot([coh, coh], [mean_val-err_val, mean_val+err_val],
                        color=util.get_color_dict()[glom], linestyle='-')
-    # ax[g_ind].plot(target_coherence, normalized_response_amplitudes[g_ind, :, :],
-    #                color=util.get_color_dict()[glom], marker='.', linestyle='none', alpha=0.25)
 
 ax[0].set_xlabel('Coherence')
 ax[0].set_ylabel('Response (norm.)')
 fh2.savefig(os.path.join(save_directory, 'coherence_tuning_curves.svg'), transparent=True)
+
+# %% stim images
+npoints = 100
+w = 100
+h = 100
+steps = 8
+
+# starting locations
+x = np.random.uniform(low=steps, high=w-steps, size=npoints).astype(int)
+y = np.random.uniform(low=steps, high=h-steps, size=npoints).astype(int)
+
+mat_init = np.zeros((w, h))
+mat_init[y, x] = 1
+rand_step = mat_init.copy()
+coh_step = mat_init.copy()
+
+vel_x = np.ones(npoints).astype('int')
+vel_y = 0
+for step in range(1, steps):
+    coh_step[y+step*vel_y, x+step*vel_x] = 1 - step/steps
+
+direction = np.random.uniform(low=-np.pi, high=+np.pi, size=npoints)
+vel_x = np.cos(direction)
+vel_y = np.sin(direction)
+for step in range(1, steps):
+    rand_step[(y+step*vel_y).astype(int), (x+step*vel_x).astype(int)] = 1 - step/steps
+
+
+fh3, ax3 = plt.subplots(2, 1, figsize=(1.5, 3), tight_layout=True)
+[x.set_axis_off() for x in ax3.ravel()]
+ax3[0].imshow(rand_step, cmap='Greys', vmin=-0.5, vmax=1.0)
+ax3[0].set_title('Coherence = 0', fontsize=12)
+
+ax3[1].imshow(coh_step, cmap='Greys', vmin=-0.5, vmax=1.0)
+ax3[1].set_title('Coherence = 1', fontsize=12)
+
+fh3.savefig(os.path.join(save_directory, 'coherence_stim_images.svg'), transparent=True)
+
+
+
+ #%%
