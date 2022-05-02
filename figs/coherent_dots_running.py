@@ -1,192 +1,163 @@
+from visanalysis.analysis import imaging_data, shared_analysis
+from visanalysis.util import plot_tools
+import matplotlib.pyplot as plt
+from scipy.signal import resample, savgol_filter
+from skimage import filters
 import numpy as np
 import os
-import glob
-import matplotlib.pyplot as plt
-from visanalysis.analysis import imaging_data, shared_analysis
-from scipy.signal import resample
-from scipy.stats import ttest_1samp
-
 from glom_pop import dataio, util
+from scipy.stats import ttest_rel, ttest_1samp
+
+util.config_matplotlib()
 
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
 transform_directory = os.path.join(sync_dir, 'transforms', 'meanbrain_template')
-data_directory = os.path.join(sync_dir, 'datafiles')
-video_dir = os.path.join(sync_dir, 'behavior_videos')
+
 leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.get_included_gloms()
 # sort by dendrogram leaves ordering
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
+eg_series = ('2022-03-24', 14)
 
-# TODO: response conditioned on : coherence and moving/not moving
+matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
+                                                  target_fly_metadata={'driver_1': 'ChAT-T2A',
+                                                                       'indicator_1': 'Syt1GCaMP6f',
+                                                                       'indicator_2': 'TdTomato'},
+                                                  target_series_metadata={'protocol_ID': 'CoherentDots',
+                                                                          'include_in_analysis': True,
+                                                                          },
+                                                  target_groups=['aligned_response', 'behavior'],
+                                                  )
+# %%
+target_coherence = [0, 0.25, 0.5, 0.75, 1.0]
+target_speed = 80
+eg_ind = 2
 
-eg_ind = 0
-datasets = [
-            ('20220324', 4),
-            ('20220324', 9),
-            ('20220324', 14),
-            ]
-
-queries = ({'coherence': 0, 'speed': 80},
-           {'coherence': 0.25, 'speed': 80},
-           {'coherence': 0.5, 'speed': 80},
-           {'coherence': 0.75, 'speed': 80},
-           {'coherence': 1.0, 'speed': 80},
-           )
-
-corr_with_running_all = []
-for d_ind, ds in enumerate(datasets):
-    series_number = ds[1]
-    file_name = '{}-{}-{}.hdf5'.format(ds[0][:4], ds[0][4:6], ds[0][6:])
-
-    # For video:
-    series_dir = 'series' + str(series_number).zfill(3)
-    date_dir = ds[0]
-    file_path = os.path.join(data_directory, file_name)
+all_responses = []
+response_amplitudes = []
+for s_ind, series in enumerate(matching_series):
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
     ID = imaging_data.ImagingDataObject(file_path,
                                         series_number,
                                         quiet=True)
 
-    # Get video data:
-    # Timing command from voltage trace
-    voltage_trace, _, voltage_sample_rate = ID.getVoltageData()
-    frame_triggers = voltage_trace[0, :]  # First voltage trace is trigger out
-
-    video_filepath = glob.glob(os.path.join(video_dir, date_dir, series_dir) + "/*.avi")[0]  # should be just one .avi in there
-    video_results = dataio.get_ball_movement(video_filepath,
-                                             frame_triggers,
-                                             sample_rate=voltage_sample_rate)
-
-    # if d_ind == eg_ind:
-    fh, ax = plt.subplots(1, 2, figsize=(6, 3))
-    ax[0].imshow(video_results['frame'], cmap='Greys_r')
-    ax[1].imshow(video_results['cropped_frame'], cmap='Greys_r')
-
-    fh, ax = plt.subplots(1, 1, figsize=(12, 3))
-    ax.plot(video_results['frame_times'], video_results['rmse'], 'k')
-
-    # Load response data
+    # Load response and behavior data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+    behavior_data = dataio.load_behavior(ID)
+    # downsample behavior from video rate (50 Hz) to imaging rate (~8 Hz)
+    rmse_ds = resample(behavior_data['rmse'], response_data.get('response').shape[1])
+    # smooth behavior trace.
+    #   Window size about 200 msec, 1st order polynomial
+    #   Keeps rapid onsets/offsets pretty well but makes bouts more obvious and continuous
+    rmse_ds = savgol_filter(rmse_ds, 9, 1)
+
+    thresh = filters.threshold_li(rmse_ds)
+    binary_behavior_ds = (rmse_ds > thresh).astype('int')
+
+    # Align running responses
+    _, running_response_matrix = ID.getEpochResponseMatrix(rmse_ds[np.newaxis, :],
+                                                           dff=False)
+    _, behavior_binary_matrix = ID.getEpochResponseMatrix(binary_behavior_ds[np.newaxis, :],
+                                                          dff=False)
+
+    # Categorize trial as behaving or nonbehaving
+    beh_per_trial = np.mean(behavior_binary_matrix[0, :, :], axis=1)
+    behaving = beh_per_trial > 0.5  # bool array: n trials
+    behaving_trials = np.where(behaving)[0]
+    nonbehaving_trials = np.where(~behaving)[0]
+    fh, ax = plt.subplots(2, 1, figsize=(6, 3))
+    ax[0].plot(rmse_ds, 'k')
+    ax[1].plot(binary_behavior_ds, 'r')
+
+    # Align and sort response data
     epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
-    # Resample to imaging rate
-    err_rmse_ds = resample(video_results['rmse'], response_data.get('response').shape[1])  # DO this properly based on response
 
-    # Align responses
-    _, running_response_matrix = ID.getEpochResponseMatrix(err_rmse_ds[np.newaxis, :], dff=False)
+    # Select only trials with target params:
+    # Shape =  (gloms x param conditions x behaving x time)
+    trial_averages = np.zeros((len(included_gloms), len(target_coherence), 2, epoch_response_matrix.shape[-1]))
+    trial_averages[:] = np.nan
+    num_matching_trials = []
 
-    # Loop over stim types
-    corr_with_running = []
-    for query in queries:
-        pull_trials, pull_inds = shared_analysis.filterTrials(epoch_response_matrix,
-                                                              ID,
-                                                              query,
-                                                              return_inds=True)
-        concat_response = np.concatenate([pull_trials[:, x, :] for x in range(pull_trials.shape[1])], axis=1)
-        concat_running = np.concatenate([running_response_matrix[:, x, :] for x in pull_inds], axis=1)
-        response_amp = ID.getResponseAmplitude(pull_trials, metric='max')
-        running_amp = ID.getResponseAmplitude(running_response_matrix[:, pull_inds], metric='mean')
+    for coh_ind, coh in enumerate(target_coherence):
+        _, inds = shared_analysis.filterTrials(epoch_response_matrix,
+                                               ID,
+                                               query={'coherence': coh,
+                                                      'speed': target_speed},
+                                               return_inds=True)
+        behaving_inds = np.array([x for x in inds if x in behaving_trials])
+        if len(behaving_inds) >= 1:
+            trial_averages[:, coh_ind, 0, :] = np.nanmean(epoch_response_matrix[:, behaving_inds, :], axis=1)  # each trial average: gloms x time
 
-        new_beh_corr = np.array([np.corrcoef(running_amp, response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
-        corr_with_running.append(new_beh_corr)
+        nonbehaving_inds = np.array([x for x in inds if x in nonbehaving_trials])
+        if len(nonbehaving_inds) >= 1:
+            trial_averages[:, coh_ind, 1, :] = np.nanmean(epoch_response_matrix[:, nonbehaving_inds, :], axis=1)  # each trial average: gloms x time
 
-        # if d_ind == eg_ind:
-        if True:
-            fh, ax = plt.subplots(1+len(included_gloms), 1, figsize=(12, 8))
-            [x.set_ylim([-0.15, 1.0]) for x in ax.ravel()]
-            [util.clean_axes(x) for x in ax.ravel()]
-            [x.set_ylim() for x in ax.ravel()]
+    if np.all(np.array(num_matching_trials) > 0):
+        print('Adding fly from {}: {}'.format(os.path.split(file_path)[-1], series_number))
+        response_amp = ID.getResponseAmplitude(trial_averages, metric='mean')  # shape = gloms x param condition
 
-            ax[0].plot(concat_running[0, :], color='k')
-            ax[0].set_ylim([err_rmse_ds.min(), 40])
-            ax[0].set_ylabel('Movement', rotation=0)
-            for g_ind, glom in enumerate(included_gloms):
-                ax[1+g_ind].set_ylabel(glom)
-                ax[1+g_ind].plot(concat_response[g_ind, :], color=util.get_color_dict()[glom])
-                ax[1+g_ind].set_ylim([-0.1, 0.8])
+        all_responses.append(trial_averages)
+        response_amplitudes.append(response_amp)
 
-    corr_with_running = np.vstack(corr_with_running)  # flies x gloms
+    if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
+        # eg fly: show responses to 0 and 1 coherence
+        fh0, ax = plt.subplots(2, len(included_gloms), figsize=(8, 3), gridspec_kw={'hspace': 0})
+        [x.set_ylim([-0.15, 0.35]) for x in ax.ravel()]
+        [x.set_xlim([-0.25, response_data['time_vector'].max()]) for x in ax.ravel()]
+        [util.clean_axes(x) for x in ax.ravel()]
+        for g_ind, glom in enumerate(included_gloms):
+            ax[0, g_ind].set_title(glom, fontsize=9, rotation=45)
+            for u_ind, up in enumerate([0.0, 1.0]):
+                pull_ind = np.where(np.array(target_coherence) == up)[0][0]
+                if u_ind == 0:
+                    plot_tools.addScaleBars(ax[0, 0], dT=4, dF=0.25, T_value=-0.1, F_value=-0.1)
 
-    corr_with_running_all.append(corr_with_running)
+                ax[u_ind, g_ind].plot(response_data['time_vector'],
+                                      trial_averages[g_ind, pull_ind, 1, :],
+                                      color='k', alpha=0.75)
+                ax[u_ind, g_ind].plot(response_data['time_vector'],
+                                      trial_averages[g_ind, pull_ind, 0, :],
+                                      color=util.get_color_dict()[glom])
 
-corr_with_running_all = np.dstack(corr_with_running_all)
-# %%
 
 
-for q_ind, query in enumerate(queries):
-    corr_with_running = corr_with_running_all[q_ind, :, :].T
-    fh, ax = plt.subplots(1, 1, figsize=(4, 2.5))
-    ax.set_title(query['coherence'])
-    ax.axhline(y=0, color='k', alpha=0.5)
-    p_vals = []
+# Stack accumulated responses
+# The glom order here is included_gloms
+all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, param, time, behaving, fly)
+response_amplitudes = np.stack(response_amplitudes, axis=-1)  # dims = (gloms, param, behaving, fly)
 
-    for g_ind, glom in enumerate(included_gloms):
-        t_result = ttest_1samp(corr_with_running[:, g_ind], 0, nan_policy='omit')
-        p_vals.append(t_result.pvalue)
+# stats across animals
+mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, param, time)
+sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, param, time)
+std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
 
-        if t_result.pvalue < 0.01:
-            ax.annotate('*', (g_ind, 0.45), fontsize=12)
-
-        y_mean = np.nanmean(corr_with_running[:, g_ind])
-        y_err = np.nanstd(corr_with_running[:, g_ind]) / np.sqrt(corr_with_running.shape[0])
-        ax.plot(g_ind * np.ones(corr_with_running.shape[0]), corr_with_running[:, g_ind],
-                marker='.', color='k', linestyle='none', alpha=0.5)
-
-        ax.plot(g_ind, y_mean,
-                marker='o', color=util.get_color_dict()[glom])
-
-        ax.plot([g_ind, g_ind], [y_mean-y_err, y_mean+y_err],
-                color=util.get_color_dict()[glom])
-
-        ax.set_ylim([-0.6, 0.6])
-    ax.set_xticks(np.arange(0, len(included_gloms)))
-    ax.set_xticklabels(included_gloms, rotation=90)
-    ax.set_ylabel('Corr. with behavior (r)')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+# Are responses (across all flies) significantly different than zero?
+p_sig_responses = np.array([ttest_1samp(all_responses.mean(axis=(1, 2, 3))[g_ind, :], 0)[1] for g_ind in range(len(included_gloms))])
 
 # %%
+response_amplitudes.shape
 
+response_amplitudes.shape
+norm_ra = response_amplitudes / response_amplitudes[:, 0, 0, :][:, np.newaxis, np.newaxis, ...]
+norm_ra.shape
+
+mean_norm_ra = np.nanmean(norm_ra, axis=-1)
+
+sns.heatmap(mean_norm_ra[1, :, :], cmap='viridis')
 
 
 
 # %%
 
-# Gain of each trial as a function of window average past movement
-behavior_amp = []
-past_behaviors = []
-window_width = 1.0  # sec
-stim_timing = ID.getStimulusTiming()
-stim_starts = stim_timing['stimulus_start_times']
-stim_ends = stim_timing['stimulus_end_times']
-stim_middle_times = stim_starts + (stim_ends-stim_starts)/2
-stim_middle_times
-fh, ax = plt.subplots(10, 10, figsize=(12, 8))
+fh, ax = plt.subplots(4, 4, figsize=(4, 4))
 ax = ax.ravel()
-[x.set_axis_off() for x in ax]
-[x.set_ylim([-0.1, 0.75]) for x in ax]
-for t, stim_start in enumerate(stim_middle_times):
-    st = np.where(video_results['frame_times'] > (stim_start-window_width))[0][0]
-    ed = np.where(video_results['frame_times'] < (stim_start))[0][-1]
-    past_behavior = video_results['rmse'][st:ed]
-    past_behaviors.append(past_behavior)
-    # weighed_average_behavior = np.average(past_behavior,
-    #                                       weights=np.linspace(0, 1, len(past_behavior)))
-    weighed_average_behavior = np.average(past_behavior)
-    behavior_amp.append(weighed_average_behavior)
-
-    for g_ind, glom in enumerate(included_gloms):
-        ax[t].plot(epoch_response_matrix[g_ind, t, :], color=util.get_color_dict()[glom], alpha=0.5)
-    ax_inset = ax[t].inset_axes([0.1, 0.4, 0.25, 0.50])
-    ax_inset.set_axis_off()
-    ax_inset.set_ylim([0, 60])
-    ax_inset.plot(past_behavior, 'k')
-
-behavior_amp = np.array(behavior_amp)
-
-
-# %%
-
+for g_ind, glom in enumerate(included_gloms):
+    ax[g_ind].plot(mean_norm_ra[g_ind, :, 0].T, 'k')
+    ax[g_ind].plot(mean_norm_ra[g_ind, :, 1].T, 'b')
 
 
 

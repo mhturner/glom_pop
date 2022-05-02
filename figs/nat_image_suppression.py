@@ -27,8 +27,9 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                        'indicator_2': 'TdTomato'},
                                                   target_series_metadata={'protocol_ID': 'NaturalImageSuppression',
                                                                           'include_in_analysis': True,
-                                                                          # 'image_speed': [-40.,   0.,  40.,  80., 120.],
-                                                                          'image_index': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                                                                          'image_speed': [0, 40, 160, 320],
+                                                                          # 'image_index': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                                                                          'image_index': [0, 5, 15],
                                                                           })
 
 # %%
@@ -61,12 +62,18 @@ def get_vh_image(image_name):
 image_names = np.unique([x[0].replace('whitened_', '') for x in unique_parameter_values])
 filter_codes = np.unique([x[1] for x in unique_parameter_values])
 image_speeds = np.unique([x[2] for x in unique_parameter_values])
+filter_codes
+# Black,: 0, raw
+# Blue: 1, whitened
+# Magenta: 3, highpass
+# Yellow: 4, lowpass
 
+colors = 'kbxmy'
 # Shape = gloms, images, speeds, filter, flies
-response_amps = np.zeros((len(included_gloms), len(image_names), len(image_speeds), 2, len(all_responses)))
+response_amps = np.zeros((len(included_gloms), len(image_names), len(image_speeds), len(filter_codes), len(all_responses)))
 for fly_ind, mean_response in enumerate(all_responses):
     fly_resp_amps = ID.getResponseAmplitude(mean_response, metric='max')
-    fh, ax = plt.subplots(len(image_names), len(image_speeds)+1, gridspec_kw={'width_ratios': [1, 1, 4]})
+    fh, ax = plt.subplots(len(image_names), len(image_speeds)+1, gridspec_kw={'width_ratios': [1, 1, 1, 1, 4]})
     [plot_tools.cleanAxes(x) for x in ax.ravel()]
     [x.set_ylim([-0.1, 0.75]) for x in ax[:, :-1].ravel()]
     for im_ind, image_name in enumerate(image_names):
@@ -81,26 +88,47 @@ for fly_ind, mean_response in enumerate(all_responses):
                                                  set(pull_filter_ind),
                                                  set(pull_speed_ind)))
 
-
                 assert len(pull_ind) == 1
                 pull_ind = pull_ind[0]
 
                 response_amps[:, im_ind, spd_ind, fc_ind, fly_ind] = fly_resp_amps[:, pull_ind]
 
-                if filter_code == 0:
-                    alpha = 1.0
-                else:
-                    alpha = 0.5
+                ax[im_ind, spd_ind].plot(mean_response[plot_glom_ind, pull_ind, :], color=colors[int(filter_code)])
 
-                ax[im_ind, spd_ind].plot(mean_response[plot_glom_ind, pull_ind, :], 'k', alpha=alpha)
                 if im_ind == 0:
                     ax[im_ind, spd_ind].set_title('{:.0f}'.format(image_speed),
                                                   color='r' if image_speed==ID.getRunParameters('spot_speed') else 'k')
 
+# %% TODO: summary plots for nat image suppression
+# response_amps shape = (gloms, images, speeds, filters flies)
+#mod_index shape = (gloms, images, filters flies)
+mod_index = response_amps[:, :, 1, :, :] / response_amps[:, :, 0, :, :]
+
+fh, ax = plt.subplots(len(included_gloms), 1, figsize=(6, 8))
+for g_ind, glom in enumerate(included_gloms):
+
+    ct, bn = np.histogram(mod_index[g_ind, :, 0, :].ravel(),
+                          # bins=np.linspace(0, np.nanmax(mod_index), 40),
+                          bins=30,
+                          density=False)
+    bn_ctr = bn[:-1] + np.diff(bn)[0]
+    bn_prob = ct / np.sum(ct)
+    ax[g_ind].fill_between(bn_ctr, bn_prob, color=util.get_color_dict()[glom])
+
+    ct, bn = np.histogram(mod_index[g_ind, :, 1, :].ravel(),
+                          # bins=np.linspace(0, np.nanmax(mod_index), 40),
+                          bins=30,
+                          density=False)
+    bn_ctr = bn[:-1] + np.diff(bn)[0]
+    bn_prob = ct / np.sum(ct)
+    ax[g_ind].fill_between(bn_ctr, bn_prob, color=util.get_color_dict()[glom], alpha=0.5)
+
+    ax[g_ind].axvline(x=1)
+
 # %%
 
 # static vs moving background image
-fh, ax = plt.subplots(len(included_gloms), 1, figsize=(1.5, 8))
+fh, ax = plt.subplots(4, 4, figsize=(4, 4))
 ax = ax.ravel()
 [x.set_xlim([0, 1]) for x in ax]
 [x.set_ylim([0, 1]) for x in ax]
@@ -117,7 +145,7 @@ fh.supxlabel('Static background')
 fh.supylabel('Moving background')
 
 # Whitened vs original image
-fh, ax = plt.subplots(len(included_gloms), 1, figsize=(1.5, 8))
+fh, ax = plt.subplots(4, 4, figsize=(4, 4))
 ax = ax.ravel()
 [x.set_xlim([0, 1]) for x in ax]
 [x.set_ylim([0, 1]) for x in ax]

@@ -10,16 +10,29 @@ from skimage import filters
 from glom_pop import dataio, util
 
 
-PROTOCOL_ID = 'ExpandingMovingSpot'
-# PROTOCOL_ID = 'LoomingSpot'
+# PROTOCOL_ID = 'ExpandingMovingSpot'
+PROTOCOL_ID = 'LoomingSpot'
 
 if PROTOCOL_ID == 'ExpandingMovingSpot':
     eg_series = ('2022-04-12', 1)  # ('2022-04-12', 1): good, punctuated movement bouts
-    key_value = ('diameter', 15.0)
+    target_series_metadata = {'protocol_ID': PROTOCOL_ID,
+                              'include_in_analysis': True,
+                              'diameter': 15.0,
+                              }
+    y_min = -0.15
+    y_max = 0.80
+    eg_trials = np.arange(30, 50)
 elif PROTOCOL_ID == 'LoomingSpot':
-    eg_series = ('2022-04-12', 2)  # ('2022-04-12', 2)
-    key_value = ('rv_ratio', 100.0)
-
+    # eg_series = ('2022-04-12', 6)  # ('2022-04-12', 2)
+    eg_series = ('2022-04-26', 5)  # ('2022-04-12', 2)
+    target_series_metadata = {'protocol_ID': PROTOCOL_ID,
+                              'include_in_analysis': True,
+                              'rv_ratio': 100.0,
+                              'center': [0, 0],
+                              }
+    y_min = -0.05
+    y_max = 0.35
+    eg_trials = np.arange(25, 45)
 
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
@@ -35,17 +48,14 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                   target_fly_metadata={'driver_1': 'ChAT-T2A',
                                                                        'indicator_1': 'Syt1GCaMP6f',
                                                                        'indicator_2': 'TdTomato'},
-                                                  target_series_metadata={'protocol_ID': PROTOCOL_ID,
-                                                                          'include_in_analysis': True,
-                                                                          key_value[0]: key_value[1],
-                                                                          },
+                                                  target_series_metadata=target_series_metadata,
                                                   target_groups=['aligned_response', 'behavior'])
 
 # %%
 # eg fly figs...
 # fh0: snippet of movement and glom response traces
 fh0, ax0 = plt.subplots(2+len(included_gloms), 1, figsize=(5.5, 5))
-[x.set_ylim([-0.15, 0.8]) for x in ax0.ravel()]
+[x.set_ylim([y_min, y_max]) for x in ax0.ravel()]
 [util.clean_axes(x) for x in ax0.ravel()]
 [x.set_ylim() for x in ax0.ravel()]
 
@@ -80,7 +90,10 @@ for s_ind, series in enumerate(matching_series):
     epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
 
     # downsample behavior from video rate (50 Hz) to imaging rate (~8 Hz)
+    behavior_data['rmse'].shape[0] / response_data.get('response').shape[1]
     rmse_ds = resample(behavior_data['rmse'], response_data.get('response').shape[1])
+    rmse_ds.shape
+    response_data.get('response').shape[1]
     # smooth behavior trace.
     #   Window size about 200 msec, 1st order polynomial
     #   Keeps rapid onsets/offsets pretty well but makes bouts more obvious and continuous
@@ -122,7 +135,6 @@ for s_ind, series in enumerate(matching_series):
     # ax[0].set_title('{}: {}'.format(file_name, series_number))
 
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
-        eg_trials = np.arange(30, 50)
 
         concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in eg_trials], axis=1)
         concat_running = np.concatenate([running_response_matrix[:, x, :] for x in eg_trials], axis=1)
@@ -216,32 +228,6 @@ ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 ax2.spines['left'].set_visible(False)
 
-# Plot behavior corr vs glom response amplitude
-fh3, ax3 = plt.subplots(1, 1, figsize=(2.5, 2.25))
-ax3.spines['top'].set_visible(False)
-ax3.spines['right'].set_visible(False)
-ax3.axhline(0, color='k', alpha=0.5)
-mean_glom_response_amplitude = np.nanmean(response_amps, axis=(1, 2))
-mean_glom_corr_with_behavior = np.nanmean(corr_with_running, axis=0)
-r = pearsonr(mean_glom_response_amplitude, mean_glom_corr_with_behavior)
-
-coef = np.polyfit(mean_glom_response_amplitude, mean_glom_corr_with_behavior, 1)
-linfit = np.poly1d(coef)
-xx = [mean_glom_response_amplitude.min(), mean_glom_response_amplitude.max()]
-yy = linfit(xx)
-
-ax3.plot(xx, yy, color='k', linestyle='--')
-ax3.annotate('r={:.2f}'.format(r[0]), (0.02, -0.45))
-ax3.scatter(mean_glom_response_amplitude,
-            mean_glom_corr_with_behavior,
-            marker='o',
-            c=list(util.get_color_dict().values()))
-
-ax3.set_ylabel('Corr. with \nbehavior (r)')
-ax3.set_xlabel('Mean response \n amp. (dF/F)')
-ax3.set_ylim([-0.55, 0.05])
-ax3.set_xlim([0, 0.5])
-
 # put diff clusters in rows...
 rows = [0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3]
 cols = [0, 1, 2, 0, 1, 2, 3, 0, 1, 2, 0, 1, 2]
@@ -282,9 +268,8 @@ for g_ind, glom in enumerate(included_gloms):
     ax4[rows[g_ind], cols[g_ind]].set_xticks([])
     ax4[rows[g_ind], cols[g_ind]].set_yticks([])
 
-    sig = '*' if p < 0.05 else ''
-    ax4[rows[g_ind], cols[g_ind]].annotate('{}{}'.format(glom, sig), (0, 0.55), fontsize=8)
-
+    if p < (0.05 / len(included_gloms)):
+        ax4[rows[g_ind], cols[g_ind]].annotate('*', (0, 0.55), fontsize=12)
 
 fh4.suptitle('Mean response amplitude (dF/F)')
 fh4.supxlabel('Behaving')
@@ -293,7 +278,6 @@ ax4[3, 0].set_xticks([0, 0.5])
 ax4[3, 0].set_yticks([0, 0.5])
 
 fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
-fh3.savefig(os.path.join(save_directory, 'repeat_beh_{}_corr.svg'.format(PROTOCOL_ID)), transparent=True)
 fh4.savefig(os.path.join(save_directory, 'repeat_beh_{}_binary.svg'.format(PROTOCOL_ID)), transparent=True)
 
 # %% TODO: temporal relationship between onset/offset and gain?

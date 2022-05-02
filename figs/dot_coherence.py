@@ -26,7 +26,9 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                        'indicator_2': 'TdTomato'},
                                                   target_series_metadata={'protocol_ID': 'CoherentDots',
                                                                           'include_in_analysis': True,
-                                                                          })
+                                                                          },
+                                                  target_groups=['aligned_response', 'behavior'],
+                                                  )
 
 # %%
 target_coherence = [0, 0.25, 0.5, 0.75, 1.0]
@@ -98,8 +100,7 @@ std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
 # Are responses (across all flies) significantly different than zero?
 p_sig_responses = np.array([ttest_1samp(all_responses.mean(axis=(1, 2))[g_ind, :], 0)[1] for g_ind in range(len(included_gloms))])
 
-fh0.savefig(os.path.join(save_directory, 'coherence_eg_fly.svg'), transparent=True)
-
+# fh0.savefig(os.path.join(save_directory, 'coherence_eg_fly.svg'), transparent=True)
 
 # %% Normalized response amplitudes. Norm by peak response to any coherence condition
 # For gloms with a response significantly different than 0
@@ -138,7 +139,7 @@ for g_ind, glom in enumerate(sig_gloms):
 
 ax[0].set_xlabel('Coherence')
 ax[0].set_ylabel('Response (norm.)')
-fh2.savefig(os.path.join(save_directory, 'coherence_tuning_curves.svg'), transparent=True)
+# fh2.savefig(os.path.join(save_directory, 'coherence_tuning_curves.svg'), transparent=True)
 
 # %% stim images
 npoints = 100
