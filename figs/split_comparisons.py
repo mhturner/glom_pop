@@ -15,7 +15,8 @@ sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
 transform_directory = os.path.join(sync_dir, 'transforms', 'meanbrain_template')
 
-target_gloms = ['LC18', 'LC9', 'LC4']
+# target_gloms = ['LC18', 'LC9', 'LC4']
+target_gloms = ['LC9']
 
 chat_response_amplitudes = np.load(os.path.join(save_directory, 'chat_response_amplitudes.npy'))
 all_chat_responses = np.load(os.path.join(save_directory, 'chat_responses.npy'))
@@ -91,7 +92,10 @@ for g_ind, target_glom in enumerate(target_gloms):
         split_responses.append(mean_response)
 
     split_responses = np.vstack(split_responses)  # flies x stim x time
-    split_response_amplitudes = np.vstack(split_response_amplitudes)  # flies x stim
+    split_response_amplitudes = np.vstack(split_response_amplitudes)[:, :30]  # flies x stim
+
+    chat_response_amplitudes = np.vstack([ID.getResponseAmplitude(all_chat_responses[chat_glom_ind, :, :, x],
+                                                                  metric='max') for x in range(all_chat_responses.shape[-1])])
 
     # shape = (n flies, concatenated time)
     individual_split_concat = np.concatenate([split_responses[:, x, :] for x in np.arange(len(unique_parameter_values)-2)], axis=1)
@@ -107,7 +111,7 @@ for g_ind, target_glom in enumerate(target_gloms):
                            mean_chat - err_chat,
                            mean_chat + err_chat,
                            color=util.get_color_dict().get(target_glom), alpha=0.5, linewidth=0)
-    if False:  # QC
+    if True:  # QC
         fh, ax = plt.subplots(10, 2, figsize=(8, 8))
         for i in range(individual_split_concat.shape[0]):
             ax[i, 0].plot(individual_split_concat[i, :], 'k')
@@ -126,11 +130,11 @@ for g_ind, target_glom in enumerate(target_gloms):
     plot_tools.addScaleBars(ax0[0, 1], dT=5, dF=0.10, T_value=0, F_value=-0.045)
 
     # Compare mean response amplitudes
-    split_amp = split_response_amplitudes[:, :30]  # shape = (flies, stims)
+    split_amp = split_response_amplitudes  # shape = (flies, stims)
     mean_split_amp = np.mean(split_amp, axis=0)
     sem_split_amp = (np.std(split_amp, axis=0) / np.sqrt(split_amp.shape[0]))
 
-    chat_amp = chat_response_amplitudes[chat_glom_ind, :, :].T  # shape = (flies, stims)
+    chat_amp = chat_response_amplitudes  # shape = (flies, stims)
     mean_chat_amp = np.mean(chat_amp, axis=0)
     sem_chat_amp = np.std(chat_amp, axis=0) / np.sqrt(chat_amp.shape[0])
 

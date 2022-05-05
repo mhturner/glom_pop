@@ -15,6 +15,7 @@ import yaml
 import xml.etree.ElementTree as ET
 import pims
 from sewar.full_ref import rmse as sewar_rmse
+from scipy.signal import resample, savgol_filter
 from skimage import filters
 
 from glom_pop import util
@@ -173,9 +174,23 @@ def overwrite_dataset(group, name, data):
     group.create_dataset(name, data=data)
 
 
-def load_behavior(ID):
+def has_behavior_data(ID):
+    with h5py.File(ID.file_path, 'r') as experiment_file:
+        find_partial = functools.partial(h5io.find_series, sn=ID.series_number)
+        epoch_run_group = experiment_file.visititems(find_partial)
+        has_behavior = 'behavior' in list(epoch_run_group.keys())
+    return has_behavior
+
+
+def load_behavior(ID, process_behavior=True):
+    """
+    Load behavior data from h5 file. If process_behavior, also return
+    processed behavior data, for each trial.
+
+
+    """
     behavior_data = {}
-    with h5py.File(ID.file_path, 'r+') as experiment_file:
+    with h5py.File(ID.file_path, 'r') as experiment_file:
         find_partial = functools.partial(h5io.find_series, sn=ID.series_number)
         epoch_run_group = experiment_file.visititems(find_partial)
         behavior_group = epoch_run_group.require_group('behavior')
@@ -186,6 +201,38 @@ def load_behavior(ID):
         behavior_data['frame'] = behavior_group.get('frame')[:]
         behavior_data['frame_times'] = behavior_group.get('frame_times')[:]
         behavior_data['rmse'] = behavior_group.get('rmse')[:]
+
+    if process_behavior:
+        response_data = load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+
+        # downsample behavior from video rate (50 Hz) to imaging rate
+        behavior_data['rmse'].shape[0] / response_data.get('response').shape[1]
+        rmse_ds = resample(behavior_data['rmse'], response_data.get('response').shape[1])
+
+        # smooth behavior trace.
+        #   Window size about 200 msec, 1st order polynomial
+        #   Keeps rapid onsets/offsets pretty well but makes bouts more obvious and continuous
+        rmse_ds = savgol_filter(rmse_ds, 9, 1)
+
+        # (1) RMS difference, mean per trial
+        _, running_response_matrix = ID.getEpochResponseMatrix(rmse_ds[np.newaxis, :],
+                                                               dff=False)
+        # shape = 1 x trials
+        running_amp = ID.getResponseAmplitude(running_response_matrix, metric='mean')
+
+        # (2) classify each trial as behaving / not behaving
+        thresh = filters.threshold_li(rmse_ds)
+        binary_behavior_ds = (rmse_ds > thresh).astype('int')
+        _, behavior_binary_matrix = ID.getEpochResponseMatrix(binary_behavior_ds[np.newaxis, :],
+                                                              dff=False)
+        # Categorize trial as behaving or nonbehaving
+        beh_per_trial = np.mean(behavior_binary_matrix[0, :, :], axis=1)
+        behaving = beh_per_trial > 0.5
+
+        behavior_data['behaving'] = behaving  # bool array: n trials
+        behavior_data['running_amp'] = running_amp  # time-averaged RMS difference for each trial
+        behavior_data['behavior_binary_matrix'] = behavior_binary_matrix  # is_behaving binary at each time point, for each trial
+        behavior_data['running_response_matrix'] = running_response_matrix  # RMS difference over time, for each trial
 
     return behavior_data
 

@@ -4,15 +4,12 @@ maxwellholteturner@gmail.com
 https://github.com/mhturner/glom_pop
 """
 
-import os
 import matplotlib.pyplot as plt
 import numpy as np
 import colorcet as cc
 from scipy import ndimage
-import seaborn as sns
-import pandas as pd
 
-from glom_pop import dataio, alignment
+from glom_pop import dataio
 
 
 class Tee:

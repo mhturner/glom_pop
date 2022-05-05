@@ -2,16 +2,16 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from visanalysis.analysis import imaging_data, shared_analysis
-from scipy.signal import resample, savgol_filter
-from scipy.stats import ttest_1samp, pearsonr, ttest_rel
+# from scipy.signal import resample, savgol_filter
+from scipy.stats import ttest_1samp, ttest_rel
 from visanalysis.util import plot_tools
-from skimage import filters
+# from skimage import filters
 
 from glom_pop import dataio, util
 
 
-# PROTOCOL_ID = 'ExpandingMovingSpot'
-PROTOCOL_ID = 'LoomingSpot'
+PROTOCOL_ID = 'ExpandingMovingSpot'
+# PROTOCOL_ID = 'LoomingSpot'
 
 if PROTOCOL_ID == 'ExpandingMovingSpot':
     eg_series = ('2022-04-12', 1)  # ('2022-04-12', 1): good, punctuated movement bouts
@@ -84,46 +84,19 @@ for s_ind, series in enumerate(matching_series):
                                         series_number,
                                         quiet=True)
 
-    # Load response and behavior data
-    behavior_data = dataio.load_behavior(ID)
+    # Get behavior data
+    behavior_data = dataio.load_behavior(ID, process_behavior=True)
+
+    # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
     epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
-
-    # downsample behavior from video rate (50 Hz) to imaging rate (~8 Hz)
-    behavior_data['rmse'].shape[0] / response_data.get('response').shape[1]
-    rmse_ds = resample(behavior_data['rmse'], response_data.get('response').shape[1])
-    rmse_ds.shape
-    response_data.get('response').shape[1]
-    # smooth behavior trace.
-    #   Window size about 200 msec, 1st order polynomial
-    #   Keeps rapid onsets/offsets pretty well but makes bouts more obvious and continuous
-    rmse_ds = savgol_filter(rmse_ds, 9, 1)
-
-    thresh = filters.threshold_li(rmse_ds)
-    binary_behavior_ds = (rmse_ds > thresh).astype('int')
-
-    # Align running responses
-    _, running_response_matrix = ID.getEpochResponseMatrix(rmse_ds[np.newaxis, :],
-                                                           dff=False)
-    _, behavior_binary_matrix = ID.getEpochResponseMatrix(binary_behavior_ds[np.newaxis, :],
-                                                          dff=False)
-
-    # For running amplitude, take mean rms from start of trial to end of stim time
-    pre_frames = int(ID.getRunParameters('pre_time') / ID.getAcquisitionMetadata('sample_period'))
-    stim_frames = int(ID.getRunParameters('stim_time') / ID.getAcquisitionMetadata('sample_period'))
-
     response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
-    running_amp = ID.getResponseAmplitude(running_response_matrix, metric='mean')
 
-    running_amps.append(running_amp)
+    running_amps.append(behavior_data.get('running_amp'))
     response_amps.append(response_amp)
+    all_behaving.append(behavior_data.get('behaving'))
 
-    # Categorize trial as behaving or nonbehaving
-    beh_per_trial = np.mean(behavior_binary_matrix[0, :, :], axis=1)
-    behaving = beh_per_trial > 0.5  # bool array: n trials
-    all_behaving.append(behaving)
-
-    new_beh_corr = np.array([np.corrcoef(running_amp, response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
+    new_beh_corr = np.array([np.corrcoef(behavior_data.get('running_amp'), response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
     corr_with_running.append(new_beh_corr)
 
     # QC: check thresholding
@@ -137,8 +110,8 @@ for s_ind, series in enumerate(matching_series):
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
 
         concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in eg_trials], axis=1)
-        concat_running = np.concatenate([running_response_matrix[:, x, :] for x in eg_trials], axis=1)
-        concat_behaving = np.concatenate([behavior_binary_matrix[:, x, :] for x in eg_trials], axis=1)
+        concat_running = np.concatenate([behavior_data.get('running_response_matrix')[:, x, :] for x in eg_trials], axis=1)
+        concat_behaving = np.concatenate([behavior_data.get('behavior_binary_matrix')[:, x, :] for x in eg_trials], axis=1)
         concat_time = np.arange(0, concat_running.shape[1]) * ID.getAcquisitionMetadata('sample_period')
 
         # Red triangles when stim hits center of screen (middle of trial)
