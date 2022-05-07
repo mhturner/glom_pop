@@ -180,53 +180,6 @@ def getPCs(data_matrix):
 # %%
 
 
-df = pd.DataFrame(data=np.array(parameter_values, dtype='object'), columns=['params'])
-df['encoded'] = df['params'].apply(lambda x: list(unique_parameter_values).index(x))
-stim_inds = df['encoded'].values
-
-K = 3
-n_gloms = response_amplitude.shape[0]
-n_trials = response_amplitude.shape[1]
-response_amplitude.shape
-
-mean_tuning = np.vstack([np.nanmean(response_amplitude[:, pi], axis=-1) for pi in pull_inds]).T
-# def f(stim_inds, mean_tuning):
-#     # return gloms x trials
-#     return np.vstack([mean_tuning[:, stim_ind] for stim_ind in stim_inds]).T
-#
-#
-# def get_err(X, stim_inds, y):
-#     W = np.reshape(X[:(n_gloms * K)], (n_gloms, K))
-#     M = np.reshape(X[(n_gloms * K):], (K, n_trials))
-#     y_hat = predict_trial_responses(stim_inds, W, M, mean_tuning)
-#     return np.reshape(y, -1) - np.reshape(y_hat, -1)
-#
-#
-# def predict_trial_responses(stim_inds, W, M, mean_tuning):
-#     """
-#
-#     :stim_ind: stim_inds (1 x trials)
-#     :W: gloms x modulators
-#     :M: modulators x trials
-#     :mean_tuning: gloms x stim IDs
-#
-#     """
-#     # f(stim_inds, mean_tuning): n_gloms x n_trials. Mean tuning response
-#     r = f(stim_inds, mean_tuning) * np.exp(W @ M)
-#
-#     # r, shape = (gloms x trials)
-#     return r
-
-
-W0 = np.random.normal(size=(n_gloms, K))
-M0 = np.random.normal(size=(K, n_trials))
-X0 = np.hstack([np.reshape(W0, -1), np.reshape(M0, -1)])
-
-res_lsq = least_squares(get_err, X0,
-                        args=(stim_inds, response_amplitude))
-W_fit = np.reshape(res_lsq.x[:(n_gloms * K)], (n_gloms, K))
-M_fit = np.reshape(res_lsq.x[(n_gloms * K):], (K, n_trials))
-
 # %%
 sns.heatmap(W_fit)
 

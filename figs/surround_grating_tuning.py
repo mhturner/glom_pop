@@ -29,10 +29,11 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                           'include_in_analysis': True,
                                                                           'grate_period': [5, 10, 20, 40],
                                                                           'grate_rate': [20, 40, 80, 160, 320],
-                                                                          'spot_speed': [-100, 100]
+                                                                          # 'spot_speed': [-100, 100]
                                                                           })
 
 # %%
+
 plot_glom_ind = 0
 all_responses = []
 for s_ind, series in enumerate(matching_series):
