@@ -62,7 +62,7 @@ pull_speed_ind = np.where([target_spot_speed == x[0] for x in unique_parameter_v
 grate_rates = np.unique([x[1] for x in unique_parameter_values])
 grate_periods = np.unique([x[2] for x in unique_parameter_values])
 
-plot_glom_ind = 0
+plot_glom_ind = 1
 response_amps = np.zeros((len(included_gloms), len(grate_rates), len(grate_periods), len(all_responses)))
 for fly_ind, mean_response in enumerate(all_responses):
     fly_resp_amps = ID.getResponseAmplitude(mean_response, metric='max')
@@ -91,6 +91,7 @@ for fly_ind, mean_response in enumerate(all_responses):
                 ax[gr_ind, gp_ind].set_ylabel('{:.0f}'.format(gr))
 
 # %%
+import seaborn as sns
 
 # Normalize by response to slowest grating rate and lowest period (20 deg/sec and 5 deg)
 norm = response_amps / response_amps[:, 0, 0, :][:, np.newaxis, np.newaxis, :]
@@ -98,7 +99,7 @@ norm = response_amps / response_amps[:, 0, 0, :][:, np.newaxis, np.newaxis, :]
 fh, ax = plt.subplots(4, 4, figsize=(10, 10))
 ax = ax.ravel()
 for g_ind, glom in enumerate(included_gloms):
-    sns.heatmap(norm[g_ind, :, :, :].mean(axis=-1), cmap='Reds', vmin=0, vmax=1.5, ax=ax[g_ind])
+    sns.heatmap(np.nanmean(norm[g_ind, :, :, :], axis=-1), cmap='Reds', vmin=0, vmax=1.5, ax=ax[g_ind])
 
 
 # %%

@@ -117,146 +117,132 @@ r_gain_behavior = np.stack(r_gain_behavior, axis=-1)  # (gloms x stim x fly)
 fh0.savefig(os.path.join(save_directory, 'pgs_variance_eg_fly.svg'), transparent=True)
 
 
-# %% test model
+# %%
+
+eg_ind = 13
+
+series = matching_series[eg_ind]
+series_number = series['series']
+file_path = series['file_name'] + '.hdf5'
+file_name = os.path.split(series['file_name'])[-1]
+ID = imaging_data.ImagingDataObject(file_path,
+                                    series_number,
+                                    quiet=True)
+response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
+
+# %% cvxpy
+import cvxpy as cp
+
+K = 3
+n_trials = epoch_response_matrix.shape[1]
+# param val for each trial:
+parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
+pull_inds = [np.where([pv == up for pv in parameter_values])[0] for up in unique_parameter_values]
+df = pd.DataFrame(data=np.array(parameter_values, dtype='object'), columns=['params'])
+df['encoded'] = df['params'].apply(lambda x: list(unique_parameter_values).index(x))
+stim_inds = df['encoded'].values
+
+y_measured = ID.getResponseAmplitude(epoch_response_matrix, metric='max')  # gloms x trials
+mean_tuning = np.vstack([np.nanmean(y_measured[:, pi], axis=-1) for pi in pull_inds]).T  # gloms x stim ID
+deterministic_resp = np.vstack([mean_tuning[:, stim_ind] for stim_ind in stim_inds]).T  # gloms x trials
+
+# %%
+fh, ax = plt.subplots(4, 4, figsize=(8, 8))
+ax = ax.ravel()
+for g_ind, glom in enumerate(included_gloms):
+    r = np.corrcoef(deterministic_resp[g_ind, :], y_measured[g_ind, :])[0, 1]
+    ax[g_ind].plot([0, 0.8], [0, 0.8], 'k-')
+    ax[g_ind].plot(deterministic_resp[g_ind, :], y_measured[g_ind, :],
+                   linestyle='none', marker='o', color=util.get_color_dict()[glom], alpha=0.5)
+    ax[g_ind].set_title('r = {:.2f}'.format(r))
+    ax[g_ind].set_xticks([])
 
 
+# %%
+G = cp.Variable((len(included_gloms), n_trials))
+
+W = cp.Variable((len(included_gloms), K))
+M = cp.Variable((K, n_trials))
+
+
+# objective = cp.Minimize(cp.sum(cp.multiply(deterministic_resp, cp.exp(W @ M)) - y_measured))
+# objective = cp.Minimize(cp.sum(cp.exp(W @ M) - y_measured))
+
+
+
+# THIS WORKS...
+objective = cp.Minimize(cp.sum_squares(cp.multiply(deterministic_resp, G ) - y_measured))
+
+
+# BUT THESE DON'T...
+objective = cp.Minimize(cp.sum_squares(cp.multiply(deterministic_resp, cp.exp(W @ M)) - y_measured))
+objective = cp.Minimize(cp.sum_squares(cp.multiply(deterministic_resp, cp.exp(G) ) - y_measured))
+objective = cp.Minimize(cp.sum_squares(cp.multiply(deterministic_resp, W @ M ) - y_measured))
+
+constraints = [0 >= W]
+prob = cp.Problem(objective, constraints)
+
+
+prob = cp.Problem(objective)
+
+
+prob.solve(verbose=True)
+
+
+
+
+# %% shared gain model
+
+eg_ind = 12
+
+series = matching_series[eg_ind]
+series_number = series['series']
+file_path = series['file_name'] + '.hdf5'
+file_name = os.path.split(series['file_name'])[-1]
+ID = imaging_data.ImagingDataObject(file_path,
+                                    series_number,
+                                    quiet=True)
+response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
+behavior_data = dataio.load_behavior(ID, process_behavior=True)
+K = 3
+
+# TODO: throws an error with nans. If nans, toss that glom and do the rest...
+mod = model.SharedGainModel(ID, epoch_response_matrix)
+mod.fit_model(K=K)
+res = mod.evaluate_performance()
+mod.M_fit.shape
+# %% plot model results...
+sns.heatmap(mod.W_fit, cmap='RdBu_r', vmin=-0.6, vmax=0.6)
+
+fh, ax = plt.subplots(K, 1, figsize=(8, 4))
+for k in range(K):
+    ax[k].plot(mod.M_fit[k, :])
+    twax = ax[k].twinx()
+    r = np.corrcoef(mod.M_fit[k, :], behavior_data['running_amp'][0, :])[0, 1]
+    twax.plot(behavior_data['running_amp'][0, :], 'k')
+    twax.set_title('r = {:.2f}'.format(r))
+
+
+# %% TODO: cycle thru K
+# TODO: cross-validation? how to do this for this model...
 mod = model.SharedGainModel(ID, epoch_response_matrix)
 r2_vals = []
-for K in range(1, 10):
+for K in range(1, 5):
     mod.fit_model(K=K)
     res = mod.evaluate_performance()
     r2_vals.append(res.get('r2'))
 r2_vals = np.vstack(r2_vals)
+
+
 # %%
 
-fh, ax = plt.subplots(1, 1, figsize=(4, 4))
+fh, ax = plt.subplots(1, 1, figsize=(3, 3))
 for g_ind, glom in enumerate(included_gloms):
-    ax.plot(np.arange(1, 5), r2_vals[:, g_ind], color=util.get_color_dict()[glom])
-
-
+    ax.plot(np.arange(1, 5), r2_vals[:, g_ind], marker='o', color=util.get_color_dict()[glom])
 
 # %%
-fh, ax = plt.subplots(4, 4, figsize=(8, 8))
-ax = ax.ravel()
-for g_ind in range(mod.n_gloms):
-    r2 = explained_variance_score(mod.response_amplitude[g_ind, :], res.get('y_hat')[g_ind, :])
-    ax[g_ind].plot(mod.response_amplitude[g_ind, :], res.get('y_hat')[g_ind, :], 'ko')
-    ax[g_ind].plot([0, 0.8], [0, 0.8], 'k--')
-    ax[g_ind].set_title('r2 = {:.2f}'.format(r2))
-
-# %% Distribution of gains across trials
-
-gain_by_trial.shape
-tt = gain_by_trial.reshape(len(included_gloms), -1)
-tt.shape
-
-plt.hist(tt[12, :])
-
-# %%
-
-def getPCs(data_matrix):
-    """
-    data_matrix shape = gloms x features (e.g. gloms x time, or gloms x response amplitudes)
-    """
-
-    mean_sub = data_matrix - data_matrix.mean(axis=1)[:, np.newaxis]
-    C = np.cov(mean_sub)
-    evals, evecs = np.linalg.eig(C)
-
-    # For modes where loadings are all negative, swap the sign
-    for m in range(evecs.shape[1]):
-        if np.all(np.sign(evecs[:, m]) < 0):
-            evecs[:, m] = -evecs[:, m]
-
-    frac_var = evals / evals.sum()
-
-    results_dict = {'eigenvalues': evals,
-                    'eigenvectors': evecs,
-                    'frac_var': frac_var}
-
-    return results_dict
-
-
-# %%
-
-
-# %%
-sns.heatmap(W_fit)
-
-fh, ax = plt.subplots(K, 1, figsize=(8, 6))
-for k in range(K):
-    ax[k].plot(M_fit[k, :], 'b-')
-    ax[k].plot(behavior_data['running_amp'][0, :], 'k')
-
-
-# %%
-y_hat = predict_trial_responses(stim_inds, W_fit, M_fit, mean_tuning)
-
-fh, ax = plt.subplots(4, 4, figsize=(8, 8))
-ax = ax.ravel()
-for g_ind in range(n_gloms):
-    r2 = explained_variance_score(response_amplitude[g_ind, :], y_hat[g_ind, :])
-    ax[g_ind].plot(response_amplitude[g_ind, :], y_hat[g_ind, :], 'ko')
-    ax[g_ind].plot([0, 0.8], [0, 0.8], 'k--')
-    ax[g_ind].set_title('r2 = {:.2f}'.format(r2))
-
-
-# %%
-trial_factors = np.exp(W_fit @ M_fit)
-trial_factors.shape
-sns.heatmap(W_fit)
-fh, ax = plt.subplots(n_gloms, 1, figsize=(8, 8))
-for g_ind in range(n_gloms):
-    ax[g_ind].plot(trial_factors[g_ind, :])
-    twax = ax[g_ind].twinx()
-    twax.plot(behavior_data['running_amp'][0, :], 'k')
-
-    r = np.corrcoef(trial_factors[g_ind, :], behavior_data['running_amp'][0, :])[0, 1]
-
-
-# %%
-fh, ax = plt.subplots(K, 1, figsize=(8, 5))
-for k in range(K):
-    ax[k].plot(M_fit[k, :], 'b')
-    twax = ax[k].twinx()
-    twax.plot(behavior_data['running_amp'][0, :], 'k')
-
-    r = np.corrcoef(M_fit[k, :], behavior_data['running_amp'][0, :])[0, 1]
-    print(r)
-
-# %%
-gain_for_all_trials = np.zeros_like(response_amplitude)
-for up, pind in enumerate(pull_inds):
-    gain_for_all_trials[:, pind] = response_amplitude[:, pind] / np.nanmean(response_amplitude[:, pind], axis=1)[:, np.newaxis]
-    # gain_for_stim = response_amplitude[:, pind] / np.nanmean(response_amplitude[:, pind], axis=1)[:, np.newaxis]
-gain = gain_for_all_trials
-
-gain[np.isnan(gain)] = 0
-
-fh, ax = plt.subplots(4, 1, figsize=(6, 6))
-pca_results = getPCs(gain)
-ax[0].plot(pca_results['frac_var'], 'k-o')
-
-# First mode
-ax[1].bar(np.arange(len(included_gloms)), pca_results['eigenvectors'][:, 0])
-
-# Projection of PC onto data:
-F = pca_results['eigenvectors'] @ gain
-
-ax[2].plot(behavior_data['running_amp'][0, :], 'k', alpha=0.5)
-ax2 = ax[2].twinx()
-ax2.plot(F[0, :], alpha=0.5)
-ax2.set_yticks([])
-xx = np.arange(0, behavior_data['running_amp'].shape[1]) - behavior_data['running_amp'].shape[1]/2
-# cc = getXcorr(F[0, :], fly_running[0, :], )
-# ax[f_ind, 3].plot(xx, cc, 'k-o')
-# ax[f_ind, 3].set_xlim([-10, 10])
-# ax[f_ind, 3].set_ylim([-0.5, 0.5])
-
-# %%
-
-plt.plot(behavior_data['running_amp'][0, :], gain_for_all_trials[0, :], 'ko')
-
 
 # %% glom-glom correlation matrix, across all stims
 fly_average_cmats = np.nanmean(all_cmats, axis=-1)  # shape = glom x glom x stim

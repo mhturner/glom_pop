@@ -134,7 +134,7 @@ for s_ind, series in enumerate(matching_series):
 
         for g_ind, glom in enumerate(included_gloms):
             ax0[2+g_ind].set_ylabel(glom, rotation=0)
-            ax0[2+g_ind].fill_between(concat_time, concat_behaving[0, :], color='k', alpha=0.25)
+            ax0[2+g_ind].fill_between(concat_time, concat_behaving[0, :], color='k', alpha=0.25, linewidth=0)
             ax0[2+g_ind].plot(concat_time, concat_response[g_ind, :], color=util.get_color_dict()[glom])
             ax0[2+g_ind].set_ylim([concat_response.min(), concat_response.max()])
             if g_ind == 0:
@@ -147,7 +147,7 @@ for s_ind, series in enumerate(matching_series):
         tw_ax = ax2.twinx()
         tw_ax.fill_between(behavior_data['frame_times'][:len(behavior_data['binary_behavior'])],
                            behavior_data['binary_behavior'],
-                           color=[0.5, 0.5, 0.5], alpha=0.5)
+                           color=[0.5, 0.5, 0.5], alpha=0.5, linewidth=0.0)
         ax2.axhline(behavior_data['binary_thresh'], color='r')
         ax2.plot(behavior_data['frame_times'][:len(behavior_data['binary_behavior'])],
                  behavior_data['rmse'],
