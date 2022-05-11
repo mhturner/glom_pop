@@ -62,7 +62,7 @@ def get_vh_image(image_name):
 image_names = np.unique([x[0].replace('whitened_', '') for x in unique_parameter_values])
 filter_codes = np.unique([x[1] for x in unique_parameter_values])
 image_speeds = np.unique([x[2] for x in unique_parameter_values])
-filter_codes
+
 # Black,: 0, raw
 # Blue: 1, whitened
 # Magenta: 3, highpass
