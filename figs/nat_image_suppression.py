@@ -33,7 +33,6 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                           })
 
 # %%
-plot_glom_ind = 0
 all_responses = []
 for s_ind, series in enumerate(matching_series):
     series_number = series['series']
@@ -52,53 +51,58 @@ for s_ind, series in enumerate(matching_series):
 
     all_responses.append(mean_response)
 
+# Stack accumulated responses
+# The glom order here is included_gloms
+all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, param, time, fly)
+# stats across animals
+mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, param, time)
+sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, param, time)
+std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
 # %%
-
 
 def get_vh_image(image_name):
     return imread(os.path.join(images_dir, image_name))
-
 
 image_names = np.unique([x[0].replace('whitened_', '') for x in unique_parameter_values])
 filter_codes = np.unique([x[1] for x in unique_parameter_values])
 image_speeds = np.unique([x[2] for x in unique_parameter_values])
 
-# Black,: 0, raw
-# Blue: 1, whitened
-# Magenta: 3, highpass
-# Yellow: 4, lowpass
+eg_glom = 0
 
+fh0, ax0 = plt.subplots(len(image_names), len(image_speeds)+1, figsize= (5, 3), gridspec_kw={'width_ratios': [3, 1, 1, 1, 1]})
+[plot_tools.cleanAxes(x) for x in ax0.ravel()]
+[x.set_ylim([-0.15, 0.6]) for x in ax0[:, 1:].ravel()]
 colors = 'kbxmy'
-# Shape = gloms, images, speeds, filter, flies
-response_amps = np.zeros((len(included_gloms), len(image_names), len(image_speeds), len(filter_codes), len(all_responses)))
-for fly_ind, mean_response in enumerate(all_responses):
-    fly_resp_amps = ID.getResponseAmplitude(mean_response, metric='max')
-    fh, ax = plt.subplots(len(image_names), len(image_speeds)+1, gridspec_kw={'width_ratios': [1, 1, 1, 1, 4]})
-    [plot_tools.cleanAxes(x) for x in ax.ravel()]
-    [x.set_ylim([-0.1, 0.75]) for x in ax[:, :-1].ravel()]
-    for im_ind, image_name in enumerate(image_names):
-        ax[im_ind, -1].imshow(get_vh_image(image_name), cmap='Greys_r')
-        for spd_ind, image_speed in enumerate(image_speeds):
-            for fc_ind, filter_code in enumerate(filter_codes):
-                pull_image_ind = np.where([image_name in x[0] for x in unique_parameter_values])[0]
-                pull_filter_ind = np.where([filter_code == x[1] for x in unique_parameter_values])[0]
-                pull_speed_ind = np.where([image_speed == x[2] for x in unique_parameter_values])[0]
+filter_list = ['Original', 'Whitened', 'DoG', 'Highpass', 'Lowpass']
+ax0[0, 0].set_title('Background image')
+for im_ind, image_name in enumerate(image_names):
+    ax0[im_ind, 0].imshow(np.flipud(get_vh_image(image_name)), cmap='Greys_r')
+    for spd_ind, image_speed in enumerate(image_speeds):
+        if im_ind == 0:
+            ax0[im_ind, spd_ind+1].set_title('{:.0f}$\degree$/s'.format(image_speed))
+        if np.logical_and(im_ind == 0, spd_ind == 0):
+            plot_tools.addScaleBars(ax0[im_ind, spd_ind+1], dT=2, dF=0.25, T_value=-1, F_value=-0.1)
+        for fc_ind, filter_code in enumerate(filter_codes):
+            pull_image_ind = np.where([image_name in x[0] for x in unique_parameter_values])[0]
+            pull_filter_ind = np.where([filter_code == x[1] for x in unique_parameter_values])[0]
+            pull_speed_ind = np.where([image_speed == x[2] for x in unique_parameter_values])[0]
 
-                pull_ind = list(set.intersection(set(pull_image_ind),
-                                                 set(pull_filter_ind),
-                                                 set(pull_speed_ind)))
+            pull_ind = list(set.intersection(set(pull_image_ind),
+                                             set(pull_filter_ind),
+                                             set(pull_speed_ind)))
 
-                assert len(pull_ind) == 1
-                pull_ind = pull_ind[0]
+            ax0[im_ind, spd_ind+1].axhline(0, color=[0.5, 0.5, 0.5], alpha=0.5)
+            ax0[im_ind, spd_ind+1].plot(response_data['time_vector'], mean_responses[eg_glom, pull_ind, :].T,
+                                        color=colors[int(filter_code)],
+                                        label=filter_list[int(filter_code)] if im_ind+spd_ind == 0 else '')
 
-                response_amps[:, im_ind, spd_ind, fc_ind, fly_ind] = fly_resp_amps[:, pull_ind]
+fh0.suptitle('                                                     Image speed')
+fh0.legend()
+fh0.savefig(os.path.join(save_directory, 'nat_image_{}_meantrace.svg'.format(included_gloms[eg_glom])), transparent=True)
 
-                ax[im_ind, spd_ind].plot(mean_response[plot_glom_ind, pull_ind, :], color=colors[int(filter_code)])
 
-                if im_ind == 0:
-                    ax[im_ind, spd_ind].set_title('{:.0f}'.format(image_speed),
-                                                  color='r' if image_speed==ID.getRunParameters('spot_speed') else 'k')
 
+# %% OLD OLD OLD
 # %% TODO: summary plots for nat image suppression
 # response_amps shape = (gloms, images, speeds, filters flies)
 #mod_index shape = (gloms, images, filters flies)
