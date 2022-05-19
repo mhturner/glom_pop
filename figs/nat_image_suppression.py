@@ -1,11 +1,13 @@
 from visanalysis.analysis import imaging_data, shared_analysis
 from visanalysis.util import plot_tools
 import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgba
 import numpy as np
 import os
 from glom_pop import dataio, util
 from scipy.stats import ttest_rel
 from skimage.io import imread
+from flystim import image
 
 util.config_matplotlib()
 
@@ -13,7 +15,7 @@ sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
 transform_directory = os.path.join(sync_dir, 'transforms', 'meanbrain_template')
 images_dir = os.path.join(dataio.get_config_file()['images_dir'], 'vh_tif')
-
+whitened_dir = os.path.join(dataio.get_config_file()['images_dir'], 'vh_tif')
 
 leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.get_included_gloms()
@@ -32,8 +34,11 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                           'image_index': [0, 5, 15],
                                                                           })
 
-# %%
+
+# %% Pull out amp stats for each image/speed/filter/fly
+
 all_responses = []
+response_amps = []
 for s_ind, series in enumerate(matching_series):
     series_number = series['series']
     file_path = series['file_name'] + '.hdf5'
@@ -48,142 +53,193 @@ for s_ind, series in enumerate(matching_series):
     # Align responses
     parameter_key = ['stim0_image_name', 'current_filter_flag', 'current_image_speed']
     unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix, parameter_key=parameter_key)
-
     all_responses.append(mean_response)
+
+    # get response amps and sort by image, speed, filter code
+    tmp_ra = ID.getResponseAmplitude(mean_response, metric='max')
+
+    image_names = np.unique([x[0].replace('whitened_', '') for x in unique_parameter_values])
+    filter_codes = np.unique([x[1] for x in unique_parameter_values])
+    image_speeds = np.unique([x[2] for x in unique_parameter_values])
+    new_resp_amp = np.zeros((len(included_gloms), len(image_names), len(image_speeds), len(filter_codes)))
+    for im_ind, image_name in enumerate(image_names):
+        for spd_ind, image_speed in enumerate(image_speeds):
+            for fc_ind, filter_code in enumerate(filter_codes):
+                pull_image_ind = np.where([image_name in x[0] for x in unique_parameter_values])[0]
+                pull_filter_ind = np.where([filter_code == x[1] for x in unique_parameter_values])[0]
+                pull_speed_ind = np.where([image_speed == x[2] for x in unique_parameter_values])[0]
+
+                pull_ind = list(set.intersection(set(pull_image_ind),
+                                                 set(pull_filter_ind),
+                                                 set(pull_speed_ind)))
+
+                new_resp_amp[:, im_ind, spd_ind, fc_ind] = tmp_ra[:, pull_ind[0]]
+
+    response_amps.append(new_resp_amp)
 
 # Stack accumulated responses
 # The glom order here is included_gloms
 all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, param, time, fly)
+response_amps = np.stack(response_amps, axis=-1)  # (glom, image, speed, filter, fly)
+
 # stats across animals
 mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, param, time)
 sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, param, time)
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, param, time)
-# %%
 
-def get_vh_image(image_name):
-    return imread(os.path.join(images_dir, image_name))
+# %% Fet filtered images for fig. panels
+pixels_per_degree = 1536 / 360
+screen_width = 160 * pixels_per_degree  # deg -> pixels
+screen_height = 50 * pixels_per_degree  # deg -> pixels
 
-image_names = np.unique([x[0].replace('whitened_', '') for x in unique_parameter_values])
-filter_codes = np.unique([x[1] for x in unique_parameter_values])
-image_speeds = np.unique([x[2] for x in unique_parameter_values])
+
+new_im = image.Image(image_name=image_names[0])
+img_orig = new_im.load_image()
+image_width = img_orig.shape[1]
+image_height = img_orig.shape[0]
+freq, pspect_orig = util.get_power_spectral_density(img_orig[:, 512:2*512], pixels_per_degree)
+
+# High-pass
+filter_name = 'butterworth'
+filter_kwargs = {'cutoff_frequency_ratio': 0.1,
+                 'order': 2,
+                 'high_pass': True}
+
+img_hp = new_im.filter_image(filter_name=filter_name,
+                             filter_kwargs=filter_kwargs)
+freq, pspect_hp = util.get_power_spectral_density(img_hp[:, 512:2*512], pixels_per_degree)
+
+# Low-pass
+filter_name = 'butterworth'
+filter_kwargs = {'cutoff_frequency_ratio': 0.1,
+                 'order': 2,
+                 'high_pass': False}
+
+img_lp = new_im.filter_image(filter_name=filter_name,
+                             filter_kwargs=filter_kwargs)
+freq, pspect_lp = util.get_power_spectral_density(img_lp[:, 512:2*512], pixels_per_degree)
+
+img_white = new_im.whiten_image()
+
+# %% mean resp for eg glom
 
 eg_glom = 0
 
-fh0, ax0 = plt.subplots(len(image_names), len(image_speeds)+1, figsize= (5, 3), gridspec_kw={'width_ratios': [3, 1, 1, 1, 1]})
+filter_list = ['Original', 'Whitened', 'DoG', 'Highpass', 'Lowpass']
+colors = 'kbxmy'
+
+# fh0: original image only, no filtering
+fh0, ax0 = plt.subplots(len(image_names), len(image_speeds)+1+len(filter_codes), figsize= (8, 2.75), gridspec_kw={'width_ratios': [3, 1, 1, 1, 1, 1, 1, 1, 1]})
 [plot_tools.cleanAxes(x) for x in ax0.ravel()]
 [x.set_ylim([-0.15, 0.6]) for x in ax0[:, 1:].ravel()]
-colors = 'kbxmy'
-filter_list = ['Original', 'Whitened', 'DoG', 'Highpass', 'Lowpass']
-ax0[0, 0].set_title('Background image')
+
+# # fh2: for spd=160, compare filter conditions
+# fh2, ax2 = plt.subplots(len(image_names), len(filter_codes), figsize= (3, 2.5))
+# [plot_tools.cleanAxes(x) for x in ax2.ravel()]
+# [x.set_ylim([-0.15, 0.6]) for x in ax2.ravel()]
+
+
+
+
 for im_ind, image_name in enumerate(image_names):
-    ax0[im_ind, 0].imshow(np.flipud(get_vh_image(image_name)), cmap='Greys_r')
+    ax0[im_ind, 0].imshow(np.flipud(image.Image(image_name).load_image()), cmap='Greys_r')
+    ax0[im_ind, 0].set_title('Image {}'.format(im_ind+1))
     for spd_ind, image_speed in enumerate(image_speeds):
         if im_ind == 0:
             ax0[im_ind, spd_ind+1].set_title('{:.0f}$\degree$/s'.format(image_speed))
         if np.logical_and(im_ind == 0, spd_ind == 0):
             plot_tools.addScaleBars(ax0[im_ind, spd_ind+1], dT=2, dF=0.25, T_value=-1, F_value=-0.1)
+        pull_image_ind = np.where([image_name in x[0] for x in unique_parameter_values])[0]
+        pull_filter_ind = np.where([0 == x[1] for x in unique_parameter_values])[0]
+        pull_speed_ind = np.where([image_speed == x[2] for x in unique_parameter_values])[0]
+
+        pull_ind = list(set.intersection(set(pull_image_ind),
+                                         set(pull_filter_ind),
+                                         set(pull_speed_ind)))
+
+        ax0[im_ind, spd_ind+1].axhline(0, color=[0.5, 0.5, 0.5], alpha=0.5)
+        ax0[im_ind, spd_ind+1].plot(response_data['time_vector'], mean_responses[eg_glom, pull_ind, :][0, :],
+                                    color=util.get_color_dict()[included_gloms[eg_glom]])
+        ax0[im_ind, spd_ind+1].fill_between(response_data['time_vector'],
+                                            mean_responses[eg_glom, pull_ind, :][0, :] - sem_responses[eg_glom, pull_ind, :][0, :] ,
+                                            mean_responses[eg_glom, pull_ind, :][0, :] + sem_responses[eg_glom, pull_ind, :][0, :] ,
+                                            color=util.get_color_dict()[included_gloms[eg_glom]], alpha=0.25, linewidth=0)
         for fc_ind, filter_code in enumerate(filter_codes):
+            if im_ind == 0:
+                ax0[im_ind, 5+fc_ind].set_title(filter_list[int(filter_code)], fontsize=10, rotation=-45)
+
+            # if np.logical_and(im_ind == 0, fc_ind == 0):
+            #     plot_tools.addScaleBars(ax2[im_ind, fc_ind], dT=2, dF=0.25, T_value=-1, F_value=-0.1)
             pull_image_ind = np.where([image_name in x[0] for x in unique_parameter_values])[0]
             pull_filter_ind = np.where([filter_code == x[1] for x in unique_parameter_values])[0]
-            pull_speed_ind = np.where([image_speed == x[2] for x in unique_parameter_values])[0]
+            pull_speed_ind = np.where([160 == x[2] for x in unique_parameter_values])[0]
 
             pull_ind = list(set.intersection(set(pull_image_ind),
                                              set(pull_filter_ind),
                                              set(pull_speed_ind)))
 
-            ax0[im_ind, spd_ind+1].axhline(0, color=[0.5, 0.5, 0.5], alpha=0.5)
-            ax0[im_ind, spd_ind+1].plot(response_data['time_vector'], mean_responses[eg_glom, pull_ind, :].T,
-                                        color=colors[int(filter_code)],
-                                        label=filter_list[int(filter_code)] if im_ind+spd_ind == 0 else '')
 
-fh0.suptitle('                                                     Image speed')
-fh0.legend()
+
+            ax0[im_ind, 5+fc_ind].axhline(0, color=[0.5, 0.5, 0.5], alpha=0.5)
+            ax0[im_ind, 5+fc_ind].fill_between(response_data['time_vector'],
+                                                mean_responses[eg_glom, pull_ind, :][0, :] - sem_responses[eg_glom, pull_ind, :][0, :] ,
+                                                mean_responses[eg_glom, pull_ind, :][0, :] + sem_responses[eg_glom, pull_ind, :][0, :] ,
+                                                color=util.get_color_dict()[included_gloms[eg_glom]], alpha=0.25, linewidth=0)
+            ax0[im_ind, 5+fc_ind].plot(response_data['time_vector'], mean_responses[eg_glom, pull_ind, :].T,
+                                       color=util.get_color_dict()[included_gloms[eg_glom]], linewidth=1,
+                                       label=filter_list[int(filter_code)] if im_ind+spd_ind == 0 else '')
+
+
+
 fh0.savefig(os.path.join(save_directory, 'nat_image_{}_meantrace.svg'.format(included_gloms[eg_glom])), transparent=True)
+# fh2.savefig(os.path.join(save_directory, 'im_filter_{}_meantrace.svg'.format(included_gloms[eg_glom])), transparent=True)
 
+# %% pop stats: response as a fxn of speed for filter conditions
 
+fh1, ax1 = plt.subplots(len(included_gloms), 3, figsize=(4, 6.5))
+[x.set_ylim([0, 1.1]) for x in ax1.ravel()]
+[x.spines['top'].set_visible(False) for x in ax1.ravel()]
+[x.spines['right'].set_visible(False) for x in ax1.ravel()]
 
-# %% OLD OLD OLD
-# %% TODO: summary plots for nat image suppression
-# response_amps shape = (gloms, images, speeds, filters flies)
-#mod_index shape = (gloms, images, filters flies)
-mod_index = response_amps[:, :, 1, :, :] / response_amps[:, :, 0, :, :]
+# for im_ind, image_name in enumerate(image_names):
 
-fh, ax = plt.subplots(len(included_gloms), 1, figsize=(6, 8))
-for g_ind, glom in enumerate(included_gloms):
+for fc_ind, fc in enumerate(filter_codes):
+    for g_ind, glom in enumerate(included_gloms):
 
-    ct, bn = np.histogram(mod_index[g_ind, :, 0, :].ravel(),
-                          # bins=np.linspace(0, np.nanmax(mod_index), 40),
-                          bins=30,
-                          density=False)
-    bn_ctr = bn[:-1] + np.diff(bn)[0]
-    bn_prob = ct / np.sum(ct)
-    ax[g_ind].fill_between(bn_ctr, bn_prob, color=util.get_color_dict()[glom])
+        if fc_ind == 0: # original image, plot to all panels
 
-    ct, bn = np.histogram(mod_index[g_ind, :, 1, :].ravel(),
-                          # bins=np.linspace(0, np.nanmax(mod_index), 40),
-                          bins=30,
-                          density=False)
-    bn_ctr = bn[:-1] + np.diff(bn)[0]
-    bn_prob = ct / np.sum(ct)
-    ax[g_ind].fill_between(bn_ctr, bn_prob, color=util.get_color_dict()[glom], alpha=0.5)
+            fly_responses = response_amps[g_ind, :, :, 0, :]  # image x speed x flies
+            fly_responses_norm = fly_responses / np.nanmax(fly_responses, axis=(0, 1))[np.newaxis, np.newaxis, :]
+            meanresp = np.nanmean(fly_responses_norm, axis=(0, 2)) # average over flies and images
+            semresp = np.nanstd(fly_responses_norm, axis=(0, 2)) / np.sqrt(fly_responses.shape[-1])
+            for panel in range(3):
+                ax1[g_ind, panel].errorbar(x=image_speeds, y=meanresp,
+                                            yerr=semresp,
+                                            marker='None', linestyle='-', linewidth=2, color=util.get_color_dict()[glom], alpha=0.75)
+                if g_ind == 12:
+                    ax1[g_ind, panel].set_xticks(image_speeds)
 
-    ax[g_ind].axvline(x=1)
+                else:
+                    ax1[g_ind, panel].set_yticks([])
+                    ax1[g_ind, panel].set_xticks([])
 
-# %%
+        else:  # filter conditions
+            if g_ind == 0:
+                ax1[g_ind, fc_ind-1].set_title(filter_list[int(fc)])
+            elif g_ind == 12:
+                ax1[g_ind, fc_ind-1].set_xticks(image_speeds)
+            fly_responses = response_amps[g_ind, :, :, fc_ind, :]  # image x speed x flies
+            fly_responses_norm = fly_responses / np.nanmax(fly_responses, axis=(0, 1))[np.newaxis, np.newaxis, :]
+            meanresp = np.nanmean(fly_responses_norm, axis=(0, 2)) # average over flies and images
+            semresp = np.nanstd(fly_responses_norm, axis=(0, 2)) / np.sqrt(fly_responses.shape[-1])
+            ax1[g_ind, fc_ind-1].errorbar(x=image_speeds, y=meanresp,
+                                        yerr=semresp,
+                                        marker='None', linestyle=':', linewidth=2, color='k', alpha=0.75)
 
-# static vs moving background image
-fh, ax = plt.subplots(4, 4, figsize=(4, 4))
-ax = ax.ravel()
-[x.set_xlim([0, 1]) for x in ax]
-[x.set_ylim([0, 1]) for x in ax]
-[x.plot([0, 1], [0, 1], 'k-', alpha=0.5) for x in ax]
-for g_ind, glom in enumerate(included_gloms):
-    ax[g_ind].set_title(glom, rotation=0)
-    # Mean +/- sem across flies, for each image
-    across_fly_mean_static = response_amps[g_ind, :, 0, 0, :].mean(axis=-1)
-    across_fly_mean_moving = response_amps[g_ind, :, 1, 0, :].mean(axis=-1)
-    ax[g_ind].plot(across_fly_mean_static,
-                   across_fly_mean_moving, 'o', color=util.get_color_dict()[glom])
+ax1[12, 1].set_xlabel('Speed ($\degree$/s)')
+ax1[12, 0].set_ylabel('Resp. (norm.)')
 
-fh.supxlabel('Static background')
-fh.supylabel('Moving background')
-
-# Whitened vs original image
-fh, ax = plt.subplots(4, 4, figsize=(4, 4))
-ax = ax.ravel()
-[x.set_xlim([0, 1]) for x in ax]
-[x.set_ylim([0, 1]) for x in ax]
-[x.plot([0, 1], [0, 1], 'k-', alpha=0.5) for x in ax]
-for g_ind, glom in enumerate(included_gloms):
-    ax[g_ind].set_title(glom, rotation=0)
-    # Mean +/- sem across flies, for each image
-    across_fly_mean_static = response_amps[g_ind, :, 1, 0, :].mean(axis=-1)
-    across_fly_mean_moving = response_amps[g_ind, :, 1, 1, :].mean(axis=-1)
-    ax[g_ind].plot(across_fly_mean_static,
-                   across_fly_mean_moving, 'o', color=util.get_color_dict()[glom])
-
-fh.supxlabel('Original image')
-fh.supylabel('Whitened image')
-
-        # %%
-
-all_amplitudes = ID.getResponseAmplitude(all_responses[0], metric='max')
-
-fh, ax = plt.subplots(len(included_gloms), 1, figsize=(0.75, 8))
-[x.set_xticks([]) for x in ax]
-[x.set_yticks([]) for x in ax]
-[x.set_xlim([0, 0.7]) for x in ax]
-[x.set_ylim([0, 0.7]) for x in ax]
-[x.spines['top'].set_visible(False) for x in ax]
-[x.spines['right'].set_visible(False) for x in ax]
-for g_ind, glom in enumerate(included_gloms):
-    ax[g_ind].plot([0, 0.7], [0, 0.7], 'k-', alpha=0.5, zorder=0)
-    ax[g_ind].scatter(all_amplitudes[g_ind, :, 0, :].mean(axis=0),
-                      all_amplitudes[g_ind, :, 1, :].mean(axis=0),
-                      color=util.get_color_dict()[glom])
-    result = ttest_rel(all_amplitudes[g_ind, :, 0, :].mean(axis=0),
-                       all_amplitudes[g_ind, :, 1, :].mean(axis=0))
-
+fh1.savefig(os.path.join(save_directory, 'nat_image_popstats.svg'), transparent=True)
 
 
 

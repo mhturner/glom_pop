@@ -40,6 +40,7 @@ target_grate_rates = [20.,  40.,  80., 160., 320.]
 target_grate_periods = [5., 10., 20., 40.]
 
 all_responses = []
+response_amps = []
 for s_ind, series in enumerate(matching_series):
     series_number = series['series']
     file_path = series['file_name'] + '.hdf5'
@@ -65,8 +66,9 @@ for s_ind, series in enumerate(matching_series):
 
             trial_averages[:, gr_ind, gp_ind, :] = np.nanmean(erm_selected, axis=1)  # each trial average: gloms x params x time
     all_responses.append(trial_averages)
+    response_amps.append(ID.getResponseAmplitude(trial_averages))
 
-    if True:  # plot individual fly responses, QC
+    if False:  # plot individual fly responses, QC
         fh, ax = plt.subplots(len(target_grate_rates), len(target_grate_periods), figsize=(8, 4))
         fh.suptitle('{}: {}'.format(file_name, series_number))
         [plot_tools.cleanAxes(x) for x in ax.ravel()]
@@ -83,6 +85,7 @@ for s_ind, series in enumerate(matching_series):
 # Stack accumulated responses
 # The glom order here is included_gloms
 all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, coh, dir, time, fly)
+response_amps = np.stack(response_amps, axis=-1)  # (glom, image, speed, filter, fly)
 
 # stats across animals
 mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, rate, period, time)
@@ -93,7 +96,7 @@ std_responses = np.nanstd(all_responses, axis=-1)  # (glom, grate, period, time)
 eg_glom = 0
 print(included_gloms[eg_glom])
 
-fh0, ax0 = plt.subplots(len(target_grate_periods), len(target_grate_rates), figsize=(2, 2))
+fh0, ax0 = plt.subplots(len(target_grate_periods), len(target_grate_rates), figsize=(2.0, 2.5))
 [x.spines['bottom'].set_visible(False) for x in ax0.ravel()]
 [x.spines['left'].set_visible(False) for x in ax0.ravel()]
 [x.spines['right'].set_visible(False) for x in ax0.ravel()]
@@ -132,86 +135,97 @@ fh0.suptitle('Speed ($\degree$/s)')
 fh0.savefig(os.path.join(save_directory, 'surround_grating_{}_meantrace.svg'.format(included_gloms[eg_glom])), transparent=True)
 
 
-# glom map inset for highlighted glom
-glom_mask_2_meanbrain = ants.image_read(os.path.join(sync_dir, 'transforms', 'meanbrain_template', 'glom_mask_reg2meanbrain.nii')).numpy()
-fh3, ax3 = plt.subplots(1, 1, figsize=(3, 2))
-util.make_glom_map(ax=ax3,
-                   glom_map=glom_mask_2_meanbrain,
-                   z_val=None,
-                   highlight_names=[included_gloms[eg_glom]])
+# # glom map inset for highlighted glom
+# glom_mask_2_meanbrain = ants.image_read(os.path.join(sync_dir, 'transforms', 'meanbrain_template', 'glom_mask_reg2meanbrain.nii')).numpy()
+# fh3, ax3 = plt.subplots(1, 1, figsize=(3, 2))
+# util.make_glom_map(ax=ax3,
+#                    glom_map=glom_mask_2_meanbrain,
+#                    z_val=None,
+#                    highlight_names=[included_gloms[eg_glom]])
+
+# %% HEATMAPS
+
+# fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(0.4, 6))
+# cbar_ax = fh1.add_axes([.93, .3, .2, .25])
+# [x.set_axis_off() for x in ax1.ravel()]
+
+for g_ind, glom in enumerate(included_gloms):
+    glom_data = response_amps[g_ind, :, :]
+    # norm within each fly
+    glom_data_norm = glom_data / np.nanmax(glom_data, axis=(0, 1))[np.newaxis, np.newaxis, :]
+
+
+    new_df = pd.DataFrame(data=np.nanmean(glom_data_norm, axis=-1),
+                          index=target_grate_rates, columns=target_grate_periods)
+    # sns.heatmap(new_df,
+    #             cmap='viridis',
+    #             vmin=0, vmax=1.0,
+    #             xticklabels=xticklabels,
+    #             yticklabels=yticklabels,
+    #             cbar=g_ind == 0,
+    #             cbar_kws={'label': 'Response peak (norm.)'},
+    #             cbar_ax=None if g_ind else cbar_ax,
+    #             ax=ax1[g_ind])
+
+
+
+# fh1.savefig(os.path.join(save_directory, 'surround_grating_heatmaps.svg'), transparent=True)
+
 
 # %%
-
-mean_response_amp = ID.getResponseAmplitude(mean_responses)
-
-fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(0.4, 6))
-cbar_ax = fh1.add_axes([.93, .3, .2, .25])
-[x.set_axis_off() for x in ax1.ravel()]
-
 fh2, ax2 = plt.subplots(len(included_gloms), 2, figsize=(2.5, 6.5))
-[x.set_axis_off() for x in ax2.ravel()]
 [x.set_ylim([0, 1.1]) for x in ax2.ravel()]
 
 for g_ind, glom in enumerate(included_gloms):
-    glom_data = mean_response_amp[g_ind, :, :]
-    glom_data_norm = glom_data / glom_data.max()
+    glom_data = response_amps[g_ind, :, :]
+    # norm within each fly
+    glom_data_norm = glom_data / np.nanmax(glom_data, axis=(0, 1))[np.newaxis, np.newaxis, :]
 
-    period_tuning = np.mean(glom_data_norm, axis=0)
-    rate_tuning = np.mean(glom_data_norm, axis=1)
+    period_mean = np.nanmean(glom_data_norm, axis=(0, 2))
+    period_err = np.nanstd(glom_data_norm, axis=(0, 2)) / np.sqrt(glom_data.shape[-1])
 
-    ax2[g_ind, 0].axhline(0, color='k', alpha=0.5)
-    ax2[g_ind, 0].plot(target_grate_rates, rate_tuning,
-                       color=util.get_color_dict()[glom], marker='.')
-    ax2[g_ind, 1].axhline(0, color='k', alpha=0.5)
-    ax2[g_ind, 1].plot(target_grate_periods, period_tuning,
-                       color=util.get_color_dict()[glom], marker='.')
+    rate_mean = np.nanmean(glom_data_norm, axis=(1, 2))
+    rate_err = np.nanstd(glom_data_norm, axis=(1, 2)) / np.sqrt(glom_data.shape[-1])
 
-    new_df = pd.DataFrame(data=glom_data_norm,
-                          index=target_grate_rates, columns=target_grate_periods)
+    ax2[g_ind, 0].errorbar(x=target_grate_rates, y=rate_mean,
+                         yerr=rate_err,
+                         marker='None', linestyle='-', linewidth=2, color=util.get_color_dict()[glom], alpha=0.75)
+
+    ax2[g_ind, 1].errorbar(x=target_grate_periods, y=period_mean,
+                         yerr=period_err,
+                         marker='None', linestyle='-', linewidth=2, color=util.get_color_dict()[glom], alpha=0.75)
+
+
     if g_ind == 12:
-        ax1[g_ind].set_axis_on()
-        xticklabels = [5, 10, 20, 40]
-        yticklabels = [20, '', 80, '', 320]
-
-
-        ax2[g_ind, 0].set_axis_on()
         ax2[g_ind, 0].set_xticks([20, 40, 80, 160, 320])
-        ax2[g_ind, 0].set_xticklabels([20, '', '', 160, 320])
-        ax2[g_ind, 0].spines['top'].set_visible(False)
-        ax2[g_ind, 0].spines['right'].set_visible(False)
+        ax2[g_ind, 0].set_xticklabels([20, '', 80, 160, 320])
+        ax2[g_ind, 0].set_yticks([0, 1.0])
         ax2[g_ind, 0].set_ylabel('Resp. (norm.)')
-        ax2[g_ind, 0].set_xlabel('Speed\n($\degree$/sec)')
+        ax2[g_ind, 0].set_xlabel('Speed ($\degree$/sec)')
 
-        ax2[g_ind, 1].set_axis_on()
+
         ax2[g_ind, 1].set_xticks([5, 10, 20, 40])
-        ax2[g_ind, 1].set_xticklabels([5, '', '', 40])
+        ax2[g_ind, 1].set_xticklabels([5, 10, 20, 40])
         ax2[g_ind, 1].set_yticks([])
-        ax2[g_ind, 1].spines['top'].set_visible(False)
-        ax2[g_ind, 1].spines['right'].set_visible(False)
         ax2[g_ind, 1].set_xlabel('Period ($\degree$)')
-
-    elif g_ind == 0:
-        ax2[g_ind, 0].set_title('Speed')
-        ax2[g_ind, 1].set_title('Spatial\nFrequency')
-
     else:
-        xticklabels = False
-        yticklabels = False
+        ax2[g_ind, 0].set_xticks([])
+        ax2[g_ind, 0].set_yticks([])
 
-    sns.heatmap(new_df,
-                cmap='viridis',
-                vmin=0, vmax=1.0,
-                xticklabels=xticklabels,
-                yticklabels=yticklabels,
-                cbar=g_ind == 0,
-                cbar_kws={'label': 'Response peak (norm.)'},
-                cbar_ax=None if g_ind else cbar_ax,
-                ax=ax1[g_ind])
-fh1.savefig(os.path.join(save_directory, 'surround_grating_heatmaps.svg'), transparent=True)
+        ax2[g_ind, 1].set_xticks([])
+        ax2[g_ind, 1].set_yticks([])
+
+
+    ax2[g_ind, 0].spines['top'].set_visible(False)
+    ax2[g_ind, 0].spines['right'].set_visible(False)
+    ax2[g_ind, 1].spines['top'].set_visible(False)
+    ax2[g_ind, 1].spines['right'].set_visible(False)
+
+
 fh2.savefig(os.path.join(save_directory, 'surround_grating_tuning.svg'), transparent=True)
 
-# %%
 
+# %%
 
 
 
