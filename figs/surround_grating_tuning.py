@@ -7,6 +7,7 @@ from glom_pop import dataio, util
 from scipy.stats import ttest_rel
 import seaborn as sns
 import pandas as pd
+import ants
 
 
 util.config_matplotlib()
@@ -35,7 +36,6 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                           })
 
 # %%
-# ID.getEpochParameters('current_grate_period')
 target_grate_rates = [20.,  40.,  80., 160., 320.]
 target_grate_periods = [5., 10., 20., 40.]
 
@@ -92,11 +92,11 @@ mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, rate, period, time
 sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, grate, period, time)
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, grate, period, time)
 
-# %%  Mean across animals
+# %%  Mean across animals for eg glomerulus
 eg_glom = 0
 print(included_gloms[eg_glom])
 
-fh0, ax0 = plt.subplots(len(target_grate_periods), len(target_grate_rates), figsize=(2.0, 2.5))
+fh0, ax0 = plt.subplots(len(target_grate_periods), len(target_grate_rates), figsize=(1.5, 2.25))
 [x.spines['bottom'].set_visible(False) for x in ax0.ravel()]
 [x.spines['left'].set_visible(False) for x in ax0.ravel()]
 [x.spines['right'].set_visible(False) for x in ax0.ravel()]
@@ -111,6 +111,7 @@ for gr_ind, gr in enumerate(target_grate_rates):
         lbl = '{:.0f} Hz'.format(tf) if (gr_ind+gp_ind) == 0 else '{:.1f}'.format(tf).rstrip('0').rstrip('.')
         ax0[gp_ind, gr_ind].annotate(lbl, (0.5, 0.4), ha='center', color=[0.5, 0.5, 0.5], fontsize=8)
 
+        ax0[gp_ind, gr_ind].axhline(0, color=[0.5, 0.5, 0.5], alpha=0.5)
         ax0[gp_ind, gr_ind].plot(response_data['time_vector'],
                                 mean_responses[eg_glom, gr_ind, gp_ind, :],
                                 color=util.get_color_dict()[included_gloms[eg_glom]])
@@ -134,46 +135,32 @@ fh0.supylabel('Spatial period ($\degree$)')
 fh0.suptitle('Speed ($\degree$/s)')
 fh0.savefig(os.path.join(save_directory, 'surround_grating_{}_meantrace.svg'.format(included_gloms[eg_glom])), transparent=True)
 
+# %% Schematic figs...
+# glom map inset for highlighted glom
+glom_mask_2_meanbrain = ants.image_read(os.path.join(sync_dir, 'transforms', 'meanbrain_template', 'glom_mask_reg2meanbrain.nii')).numpy()
+fh1, ax1 = plt.subplots(1, 1, figsize=(2, 1))
+util.make_glom_map(ax=ax1,
+                   glom_map=glom_mask_2_meanbrain,
+                   z_val=None,
+                   highlight_names=[included_gloms[eg_glom]])
+ax1.set_axis_off()
+fh1.savefig(os.path.join(save_directory, 'surround_grating_{}_glommap.svg'.format(included_gloms[eg_glom])), transparent=True)
 
-# # glom map inset for highlighted glom
-# glom_mask_2_meanbrain = ants.image_read(os.path.join(sync_dir, 'transforms', 'meanbrain_template', 'glom_mask_reg2meanbrain.nii')).numpy()
-# fh3, ax3 = plt.subplots(1, 1, figsize=(3, 2))
-# util.make_glom_map(ax=ax3,
-#                    glom_map=glom_mask_2_meanbrain,
-#                    z_val=None,
-#                    highlight_names=[included_gloms[eg_glom]])
+# Sine grating image
+sf = np.pi/2
+xx = np.linspace(0, 2*np.pi, 200)
+yy = ID.getRunParameters('grate_contrast') * np.sin(2 * np.pi * sf * xx)
+img = np.repeat(yy[:, np.newaxis], 100, axis=-1)
+fh2, ax2 = plt.subplots(1, 1, figsize=(2, 0.75))
+ax2.imshow(img.T, cmap='Greys_r', vmin=-1, vmax=+1)
+ax2.set_axis_off()
+fh2.savefig(os.path.join(save_directory, 'surround_grating_stim.svg'), transparent=True)
 
-# %% HEATMAPS
-
-# fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(0.4, 6))
-# cbar_ax = fh1.add_axes([.93, .3, .2, .25])
-# [x.set_axis_off() for x in ax1.ravel()]
-
-for g_ind, glom in enumerate(included_gloms):
-    glom_data = response_amps[g_ind, :, :]
-    # norm within each fly
-    glom_data_norm = glom_data / np.nanmax(glom_data, axis=(0, 1))[np.newaxis, np.newaxis, :]
-
-
-    new_df = pd.DataFrame(data=np.nanmean(glom_data_norm, axis=-1),
-                          index=target_grate_rates, columns=target_grate_periods)
-    # sns.heatmap(new_df,
-    #             cmap='viridis',
-    #             vmin=0, vmax=1.0,
-    #             xticklabels=xticklabels,
-    #             yticklabels=yticklabels,
-    #             cbar=g_ind == 0,
-    #             cbar_kws={'label': 'Response peak (norm.)'},
-    #             cbar_ax=None if g_ind else cbar_ax,
-    #             ax=ax1[g_ind])
-
-
-
-# fh1.savefig(os.path.join(save_directory, 'surround_grating_heatmaps.svg'), transparent=True)
+# TODO: Histogram of angular velocities from walking data
 
 
 # %%
-fh2, ax2 = plt.subplots(len(included_gloms), 2, figsize=(2.5, 6.5))
+fh2, ax2 = plt.subplots(len(included_gloms), 2, figsize=(3.5, 6.5))
 [x.set_ylim([0, 1.1]) for x in ax2.ravel()]
 
 for g_ind, glom in enumerate(included_gloms):
@@ -200,7 +187,6 @@ for g_ind, glom in enumerate(included_gloms):
         ax2[g_ind, 0].set_xticks([20, 40, 80, 160, 320])
         ax2[g_ind, 0].set_xticklabels([20, '', 80, 160, 320])
         ax2[g_ind, 0].set_yticks([0, 1.0])
-        ax2[g_ind, 0].set_ylabel('Resp. (norm.)')
         ax2[g_ind, 0].set_xlabel('Speed ($\degree$/sec)')
 
 
@@ -221,7 +207,7 @@ for g_ind, glom in enumerate(included_gloms):
     ax2[g_ind, 1].spines['top'].set_visible(False)
     ax2[g_ind, 1].spines['right'].set_visible(False)
 
-
+fh2.supylabel('Response amplitude (normalized)')
 fh2.savefig(os.path.join(save_directory, 'surround_grating_tuning.svg'), transparent=True)
 
 

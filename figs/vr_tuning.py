@@ -91,9 +91,9 @@ for s_ind, series in enumerate(matching_series):
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
         traj_ind = 3
 
-        fh0, ax0 = plt.subplots(2+len(included_gloms), 3, figsize=(2, 8),
+        fh0, ax0 = plt.subplots(2+len(included_gloms), 3, figsize=(2, 7.6),
                                 gridspec_kw={'width_ratios': [4, 1, 1],
-                                             'height_ratios': [1.5, 1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                                             'height_ratios': [1, 1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
                                              'wspace': 0.01, 'hspace': 0.01})
         [util.clean_axes(x) for x in ax0[2:, :].ravel()]
         [util.clean_axes(x) for x in ax0[0:2, -2:].ravel()]
@@ -122,34 +122,40 @@ for s_ind, series in enumerate(matching_series):
 
         ax0[0, 0].axhline(y=0, color='k', alpha=0.5)
         ax0[0, 0].plot(trajectory_time[:-1], v_trans, 'k', label='Translational')
-        ax0[0, 0].set_ylim([-0.1, 3.5])
-        ax0[0, 0].set_ylabel('Trans. \nVel. (cm/s)')
+        ax0[0, 0].set_ylim([-0.5, 3.5])
+        # ax0[0, 0].set_ylabel('Trans.\n(cm/s)')
         ax0[0, 0].spines['top'].set_visible(False)
         ax0[0, 0].spines['right'].set_visible(False)
+        ax0[0, 0].spines['bottom'].set_visible(False)
 
         v_ang = np.diff(theta) / sample_period  # deg / sample period -> deg/sec
         ax0[1, 0].axhline(y=0, color='k', alpha=0.5)
-        ax0[1, 0].plot(trajectory_time[:-1], v_ang, 'b', label='theta')
-        ax0[1, 0].set_ylim([-275, 275])
-        ax0[1, 0].set_yticks([-200, 200])
-        ax0[1, 0].set_ylabel('Angular \nVel. ($^\circ$/s)')
+        ax0[1, 0].plot(trajectory_time[:-1], v_ang, color='b', label='theta')
+        ax0[1, 0].set_ylim([-200, 200])
+        ax0[1, 0].set_yticks([-100, 100])
+        # ax0[1, 0].set_ylabel('Ang.\n($^\circ$/s)')
         ax0[1, 0].spines['top'].set_visible(False)
         ax0[1, 0].spines['right'].set_visible(False)
+        ax0[1, 0].spines['bottom'].set_visible(False)
 
         # else:
         #     util.clean_axes(ax0[0, un])
         #     util.clean_axes(ax0[1, un])
         # plot glom responses to VR and bars
         for g_ind, glom in enumerate(included_gloms):
-            # Plot VR responses, concatenated across trajectories
+            # Plot VR responses
+            ax0[g_ind+2, 0].axhline(0, color=[0.5, 0.5, 0.5], alpha=0.5)
             ax0[g_ind+2, 0].plot(response_data_vr['time_vector'],
                                  mean_response_vr[g_ind, traj_ind, :], color=util.get_color_dict()[glom])
             if g_ind == 0:
                 plot_tools.addScaleBars(ax0[g_ind+2, 0], dT=5, dF=0.25, T_value=-0.5, F_value=-0.12)
 
             # Plot L & R bar responses
+            ax0[g_ind+2, 1].axhline(0, color=[0.5, 0.5, 0.5], alpha=0.5)
             ax0[g_ind+2, 1].plot(response_data['time_vector'],
                                  mean_pgs_l[g_ind, :], color=util.get_color_dict()[glom])
+
+            ax0[g_ind+2, 2].axhline(0, color=[0.5, 0.5, 0.5], alpha=0.5)
             ax0[g_ind+2, 2].plot(response_data['time_vector'],
                                  mean_pgs_r[g_ind, :], color=util.get_color_dict()[glom])
 
@@ -182,7 +188,7 @@ peak_ls = np.vstack(peak_ls)  # flies x gloms
 peak_rs = np.vstack(peak_rs)
 peak_vrs = np.dstack(peak_vrs)  # gloms x trajectories x flies
 
-# Avg L & R. Seem to be about the same
+# Avg L & R
 peak_bar = (peak_ls + peak_rs) / 2
 
 

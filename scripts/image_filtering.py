@@ -92,33 +92,32 @@ image_height = img_orig.shape[0]
 
 # %%
 
-fh1, ax1 = plt.subplots(1, 2, figsize=(5, 2))
+fh1, ax1 = plt.subplots(1, 1, figsize=(2, 2.5))
+
+# # individual pspects for images used
+# for im_ind, im in enumerate([5, 10, 15]):
+#     norm_factor = original_spectra[im, :][0]
+#     ax1[0].loglog(freq, original_spectra[im, :]/norm_factor, label='Image {}'.format(im_ind+1), linewidth=2, color=0.25+im_ind*0.25*np.ones(3))
+#
+#
+# ax1[0].spines['top'].set_visible(False)
+# ax1[0].spines['right'].set_visible(False)
+# ax1[0].legend(fontsize=9, labelspacing=0.05, ncol=1, handletextpad=0.25)
+# ax1[0].set_xlim([1e-2, freq[-1]]);
+#
 
 norm_factor = original_spectra.mean(axis=0)[0]
-ax1[0].loglog(freq, original_spectra.mean(axis=0)/norm_factor, label='Original', linewidth=2, linestyle='-', color='k')
-ax1[0].loglog(freq, white_spectra.mean(axis=0)/norm_factor, label='Whitened', linewidth=2, linestyle='--', color=[0.25, 0.25, 0.25])
-ax1[0].loglog(freq, highpass_spectra.mean(axis=0)/norm_factor, label='Highpass', linewidth=2, linestyle=':', color=[0.75, 0.75, 0.75])
-ax1[0].loglog(freq, lowpass_spectra.mean(axis=0)/norm_factor, label='Lowpass', linewidth=2, linestyle=':', color=[0.25, 0.25, 0.25])
+ax1.loglog(freq, original_spectra.mean(axis=0)/norm_factor, label='Orig.', linewidth=2, linestyle='-', color='k')
+ax1.loglog(freq, white_spectra.mean(axis=0)/norm_factor, label='White', linewidth=2, linestyle='--', color=[0.25, 0.25, 0.25])
+ax1.loglog(freq, highpass_spectra.mean(axis=0)/norm_factor, label='HP', linewidth=2, linestyle=':', color=[0.75, 0.75, 0.75])
+ax1.loglog(freq, lowpass_spectra.mean(axis=0)/norm_factor, label='LP', linewidth=2, linestyle=':', color=[0.25, 0.25, 0.25])
 
-ax1[0].spines['top'].set_visible(False)
-ax1[0].spines['right'].set_visible(False)
-ax1[0].legend(fontsize=8)
-ax1[0].set_xlim([1e-2, freq[-1]]);
-
-# individual pspects for images used
-for im_ind, im in enumerate([5, 10, 15]):
-    norm_factor = original_spectra[im, :][0]
-    ax1[1].loglog(freq, original_spectra[im, :]/norm_factor, label='Image {}'.format(im_ind+1), linewidth=2, color=0.25+im_ind*0.25*np.ones(3))
-
-ax1[1].set_xlabel('Spatial freq. (cpd)')
-ax1[1].spines['top'].set_visible(False)
-ax1[1].spines['right'].set_visible(False)
-ax1[1].legend(fontsize=8)
-ax1[1].set_xlim([1e-2, freq[-1]]);
-
-
-ax1[0].set_ylabel('Power (norm)')
-ax1[1].set_ylabel('')
+ax1.spines['top'].set_visible(False)
+ax1.spines['right'].set_visible(False)
+ax1.legend(fontsize=9, labelspacing=0.05, ncol=2, handletextpad=0.25)
+ax1.set_xlim([1e-2, freq[-1]]);
+ax1.set_xlabel('Spatial freq. (cpd)')
+ax1.set_ylabel('Power (norm)')
 # fh1.supylabel('Power (norm)')
 fig_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
 fh1.savefig(os.path.join(fig_dir, 'nat_image_pspects.svg'), transparent=True)
