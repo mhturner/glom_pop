@@ -52,6 +52,15 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                   target_groups=['aligned_response', 'behavior'])
 
 # %%
+
+for series in matching_series:
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    print('{}: {}'.format(file_name, series_number))
+
+
+# %%
 # eg fly figs...
 # fh0: snippet of movement and glom response traces
 fh0, ax0 = plt.subplots(2+len(included_gloms), 1, figsize=(5.5, 5))

@@ -24,7 +24,7 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                   target_series_metadata={'protocol_ID': 'PGS_Reduced',
                                                                           'include_in_analysis': True,
                                                                           'num_epochs': 180},
-                                                  target_groups=['aligned_response'])
+                                                  target_groups=['aligned_response', 'behavior'])
 
 eg_series = ('2022-03-01', 2)
 
@@ -194,36 +194,52 @@ prob.solve(verbose=True)
 
 # %% shared gain model
 
-eg_ind = 12
+r_vals = []
+for s_ind, series in enumerate(matching_series):
 
-series = matching_series[eg_ind]
-series_number = series['series']
-file_path = series['file_name'] + '.hdf5'
-file_name = os.path.split(series['file_name'])[-1]
-ID = imaging_data.ImagingDataObject(file_path,
-                                    series_number,
-                                    quiet=True)
-response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
-epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
-behavior_data = dataio.load_behavior(ID, process_behavior=True)
-K = 3
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    ID = imaging_data.ImagingDataObject(file_path,
+                                        series_number,
+                                        quiet=True)
+    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
+    behavior_data = dataio.load_behavior(ID, process_behavior=True)
+    K = 4
 
-# TODO: throws an error with nans. If nans, toss that glom and do the rest...
-mod = model.SharedGainModel(ID, epoch_response_matrix)
-mod.fit_model(K=K)
-res = mod.evaluate_performance()
-mod.M_fit.shape
-# %% plot model results...
-sns.heatmap(mod.W_fit, cmap='RdBu_r', vmin=-0.6, vmax=0.6)
+    if np.any(np.isnan(epoch_response_matrix)):
+        pass
+    else:
+        # TODO: throws an error with nans. If nans, toss that glom and do the rest...
+        mod = model.SharedGainModel(ID, epoch_response_matrix)
+        mod.fit_model(K=K)
+        res = mod.evaluate_performance()
 
-fh, ax = plt.subplots(K, 1, figsize=(8, 4))
-for k in range(K):
-    ax[k].plot(mod.M_fit[k, :])
-    twax = ax[k].twinx()
-    r = np.corrcoef(mod.M_fit[k, :], behavior_data['running_amp'][0, :])[0, 1]
-    twax.plot(behavior_data['running_amp'][0, :], 'k')
-    twax.set_title('r = {:.2f}'.format(r))
+    # plot model results...
 
+        fh0, ax0 = plt.subplots(1, 1, figsize=(4, 4))
+        sns.heatmap(pd.DataFrame(data=mod.W_fit, index=included_gloms), cmap='RdBu_r', vmin=-1, vmax=1)
+
+        fh1, ax1 = plt.subplots(K, 1, figsize=(8, 4))
+        new_r = []
+        for k in range(K):
+            ax1[k].plot(mod.M_fit[k, :])
+            twax = ax1[k].twinx()
+            r = np.corrcoef(mod.M_fit[k, :], behavior_data['running_amp'][0, :])[0, 1]
+            new_r.append(r)
+            twax.plot(behavior_data['running_amp'][0, :], 'k')
+            twax.set_title('r = {:.2f}'.format(r))
+
+        r_vals.append(new_r)
+
+        fh0.savefig(os.path.join(save_directory, 'lsq_model_heatmap_{}.svg'.format(s_ind)), transparent=True)
+        fh1.savefig(os.path.join(save_directory, 'lsq_model_{}.svg'.format(s_ind)), transparent=True)
+
+r_vals = np.vstack(r_vals)
+# %%
+fh2, ax2 = plt.subplots(1, 1, figsize=(8, 3))
+ax2.plot(r_vals, linestyle=None, marker='o', color='k')
 
 # %% TODO: cycle thru K
 # TODO: cross-validation? how to do this for this model...

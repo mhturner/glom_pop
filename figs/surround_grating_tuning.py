@@ -22,6 +22,8 @@ leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.get_included_gloms()
 # sort by dendrogram leaves ordering
 included_gloms = np.array(included_gloms)[leaves]
+included_gloms
+# Included only small spot responder gloms
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
 matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
@@ -93,10 +95,12 @@ sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, grate, period, time)
 
 # %%  Mean across animals for eg glomerulus
-eg_glom = 0
+eg_glom = 12
+
 print(included_gloms[eg_glom])
 
-fh0, ax0 = plt.subplots(len(target_grate_periods), len(target_grate_rates), figsize=(1.5, 2.25))
+# fh0, ax0 = plt.subplots(len(target_grate_periods), len(target_grate_rates), figsize=(1.5, 2.25))
+fh0, ax0 = plt.subplots(len(target_grate_periods), len(target_grate_rates), figsize=(5, 6))
 [x.spines['bottom'].set_visible(False) for x in ax0.ravel()]
 [x.spines['left'].set_visible(False) for x in ax0.ravel()]
 [x.spines['right'].set_visible(False) for x in ax0.ravel()]
@@ -133,7 +137,7 @@ for gr_ind, gr in enumerate(target_grate_rates):
 
 fh0.supylabel('Spatial period ($\degree$)')
 fh0.suptitle('Speed ($\degree$/s)')
-fh0.savefig(os.path.join(save_directory, 'surround_grating_{}_meantrace.svg'.format(included_gloms[eg_glom])), transparent=True)
+# fh0.savefig(os.path.join(save_directory, 'surround_grating_{}_meantrace.svg'.format(included_gloms[eg_glom])), transparent=True)
 
 # %% Schematic figs...
 # glom map inset for highlighted glom

@@ -93,7 +93,7 @@ screen_width = 160 * pixels_per_degree  # deg -> pixels
 screen_height = 50 * pixels_per_degree  # deg -> pixels
 
 
-new_im = image.Image(image_name=image_names[1])
+new_im = image.Image(image_name=image_names[0])
 img_orig = new_im.load_image()
 image_width = img_orig.shape[1]
 image_height = img_orig.shape[0]
@@ -120,6 +120,16 @@ img_lp = new_im.filter_image(filter_name=filter_name,
 freq, pspect_lp = util.get_power_spectral_density(img_lp[:, 512:2*512], pixels_per_degree)
 
 img_white = new_im.whiten_image()
+
+
+# %%
+
+fh, ax = plt.subplots(1, 4, figsize=(8, 2))
+ax[0].hist(img_orig.ravel(), bins=100);
+ax[1].hist(img_white.ravel(), bins=100)
+ax[2].hist(img_hp.ravel(), bins=100)
+ax[3].hist(img_lp.ravel(), bins=100);
+
 
 # %% mean resp for eg glom
 eg_glom = 0
@@ -175,7 +185,7 @@ for im_ind, image_name in enumerate(image_names):
                 plot_tools.addScaleBars(ax2[im_ind, fc_ind], dT=2, dF=0.25, T_value=-1, F_value=-0.1)
             pull_image_ind = np.where([image_name in x[0] for x in unique_parameter_values])[0]
             pull_filter_ind = np.where([filter_code == x[1] for x in unique_parameter_values])[0]
-            pull_speed_ind = np.where([160 == x[2] for x in unique_parameter_values])[0]
+            pull_speed_ind = np.where([320 == x[2] for x in unique_parameter_values])[0]
 
             pull_ind = list(set.intersection(set(pull_image_ind),
                                              set(pull_filter_ind),
