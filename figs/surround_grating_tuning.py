@@ -95,8 +95,7 @@ sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[
 std_responses = np.nanstd(all_responses, axis=-1)  # (glom, grate, period, time)
 
 # %%  Mean across animals for eg glomerulus
-eg_glom = 12
-
+eg_glom = 6
 print(included_gloms[eg_glom])
 
 # fh0, ax0 = plt.subplots(len(target_grate_periods), len(target_grate_rates), figsize=(1.5, 2.25))
