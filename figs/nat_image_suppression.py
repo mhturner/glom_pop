@@ -22,7 +22,7 @@ included_gloms = dataio.get_included_gloms()
 # sort by dendrogram leaves ordering
 included_gloms = np.array(included_gloms)[leaves]
 # Include only small spot responder gloms
-included_gloms = ['LC11', 'LC21', 'LC18', 'LC6', 'LC12', 'LC15']
+included_gloms = ['LC11', 'LC21', 'LC18', 'LC6', 'LC26', 'LC17', 'LC12', 'LC15']
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
 
@@ -151,8 +151,6 @@ fh2, ax2 = plt.subplots(len(image_names), len(filter_codes), figsize= (3, 2))
 [x.set_ylim([-0.15, 0.6]) for x in ax2.ravel()]
 
 
-
-
 for im_ind, image_name in enumerate(image_names):
     ax0[im_ind, 0].imshow(np.flipud(image.Image(image_name).load_image()), cmap='Greys_r')
     ax0[im_ind, 0].set_axis_on()
@@ -188,7 +186,7 @@ for im_ind, image_name in enumerate(image_names):
                 plot_tools.addScaleBars(ax2[im_ind, fc_ind], dT=2, dF=0.25, T_value=-1, F_value=-0.1)
             pull_image_ind = np.where([image_name in x[0] for x in unique_parameter_values])[0]
             pull_filter_ind = np.where([filter_code == x[1] for x in unique_parameter_values])[0]
-            pull_speed_ind = np.where([320 == x[2] for x in unique_parameter_values])[0]
+            pull_speed_ind = np.where([160 == x[2] for x in unique_parameter_values])[0]
 
             pull_ind = list(set.intersection(set(pull_image_ind),
                                              set(pull_filter_ind),
@@ -340,9 +338,11 @@ std_responses = np.nanstd(all_responses, axis=-1)  # (glom, grate, period, time)
 fh0.legend()
 
 # %%
+rows = [0, 0, 0, 1, 1, 2, 2, 2]
+cols = [0, 1, 2, 0, 1, 0, 1, 2]
 
-fh1, ax1 = plt.subplots(6, 1, figsize=(3, 6), subplot_kw={'projection': 'polar'})
-ax1 = ax1.ravel()
+fh1, ax1 = plt.subplots(3, 3, figsize=(4, 5), subplot_kw={'projection': 'polar'})
+[x.set_axis_off() for x in ax1.ravel()]
 
 mean_tuning = []
 for f_ind in range(len(matching_series)):
@@ -363,20 +363,21 @@ mean_tuning = np.nanmean(mean_tuning, axis=-1) # glom x dir x beh/nonbeh
 
 # Plot mean dir tuning across flies, for beh vs. nonbeh trials
 for g_ind, glom in enumerate(included_gloms):
+    ax1[rows[g_ind], cols[g_ind]].set_axis_on()
     plot_dir = np.append(target_angles, target_angles[0])
     # Behaving trials
     plot_resp = np.append(mean_tuning[g_ind, :, 0], mean_tuning[g_ind, 0, 0])
-    ax1[g_ind].plot(np.deg2rad(plot_dir), plot_resp,
+    ax1[rows[g_ind], cols[g_ind]].plot(np.deg2rad(plot_dir), plot_resp,
                     color='b', linewidth=2, marker='.',
                     label='Behaving' if (g_ind == 0) else None)
 
     # Nonbehaving trials
     plot_resp = np.append(mean_tuning[g_ind, :, 1], mean_tuning[g_ind, 0, 1])
-    ax1[g_ind].plot(np.deg2rad(plot_dir), plot_resp,
+    ax1[rows[g_ind], cols[g_ind]].plot(np.deg2rad(plot_dir), plot_resp,
                     color='k', linewidth=2, marker='.',
                     label='Nonbehaving' if (g_ind == 0) else None)
 
 
-    ax1[g_ind].annotate(glom, (0, 0), ha='center')
+    ax1[rows[g_ind], cols[g_ind]].annotate(glom, (0, 0), ha='center')
 
 fh1.legend()
