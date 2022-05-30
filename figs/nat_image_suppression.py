@@ -21,7 +21,12 @@ leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.get_included_gloms()
 # sort by dendrogram leaves ordering
 included_gloms = np.array(included_gloms)[leaves]
+# Include only small spot responder gloms
+included_gloms = ['LC11', 'LC21', 'LC18', 'LC6', 'LC12', 'LC15']
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
+
+
+# %% (1) SPEED & IMAGE & FILTER
 
 matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
                                                   target_fly_metadata={'driver_1': 'ChAT-T2A',
@@ -30,12 +35,10 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                   target_series_metadata={'protocol_ID': 'NaturalImageSuppression',
                                                                           'include_in_analysis': True,
                                                                           'image_speed': [0, 40, 160, 320],
-                                                                          # 'image_index': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                                                                          'filter_flag': [0, 1, 3, 4],
                                                                           'image_index': [0, 5, 15],
                                                                           })
 
-
-# %% Pull out amp stats for each image/speed/filter/fly
 
 all_responses = []
 response_amps = []
@@ -254,4 +257,126 @@ fh1.supylabel('Response amplitude (normalized)')
 fh1.savefig(os.path.join(save_directory, 'nat_image_popstats.svg'), transparent=True)
 
 
+# %% (2) 8 DIRECTIONS
+target_angles = [0, 45, 90, 135, 180, 225, 270, 315]
+eg_series = ('2022-05-26', 2)  # ('2022-05-26', 2)
+
+matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
+                                                  target_fly_metadata={'driver_1': 'ChAT-T2A',
+                                                                       'indicator_1': 'Syt1GCaMP6f',
+                                                                       'indicator_2': 'TdTomato'},
+                                                  target_series_metadata={'protocol_ID': 'NaturalImageSuppression',
+                                                                          'include_in_analysis': True,
+                                                                          'image_speed': [160],
+                                                                          'background_direction': target_angles,
+                                                                          'image_index': [0, 5, 15],
+                                                                          })
+
+all_responses = []
+response_amps = []
+for s_ind, series in enumerate(matching_series):
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    ID = imaging_data.ImagingDataObject(file_path,
+                                        series_number,
+                                        quiet=True)
+
+
+    # Get behavior data
+    behavior_data = dataio.load_behavior(ID, process_behavior=True)
+    behaving_trials = np.where(behavior_data.get('behaving'))[0]
+    nonbehaving_trials = np.where(~behavior_data.get('behaving'))[0]
+
+    # Load response data
+    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+
+    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
+
+    trial_averages = np.zeros((len(included_gloms), len(target_angles), 2, epoch_response_matrix.shape[-1]))
+    trial_averages[:] = np.nan
+    for ang_ind, ang in enumerate(target_angles):
+        erm_selected, matching_inds = shared_analysis.filterTrials(epoch_response_matrix,
+                                                                   ID,
+                                                                   query={'current_background_direction': ang},
+                                                                   return_inds=True)
+
+        behaving_inds = np.array([x for x in matching_inds if x in behaving_trials])
+        if len(behaving_inds) >= 1:
+            trial_averages[:, ang_ind, 0, :] = np.nanmean(epoch_response_matrix[:, behaving_inds, :], axis=1)  # each trial average: gloms x time
+
+        nonbehaving_inds = np.array([x for x in matching_inds if x in nonbehaving_trials])
+        if len(nonbehaving_inds) >= 1:
+            trial_averages[:, ang_ind, 1, :] = np.nanmean(epoch_response_matrix[:, nonbehaving_inds, :], axis=1)  # each trial average: gloms x time
+
+        # trial_averages[:, ang_ind, :] = np.nanmean(erm_selected, axis=1)  # each trial average: gloms x params x time
+    all_responses.append(trial_averages)
+    response_amps.append(ID.getResponseAmplitude(trial_averages))
+
+    if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
+    # if True:  # plot individual fly responses, QC
+        fh0, ax0 = plt.subplots(len(included_gloms), len(target_angles), figsize=(3, 4))
+        # fh.suptitle('{}: {}'.format(file_name, series_number))
+        [plot_tools.cleanAxes(x) for x in ax0.ravel()]
+        [x.set_ylim([-0.1, 0.4]) for x in ax0.ravel()]
+        for ang_ind, ang in enumerate(target_angles):
+            ax0[0, ang_ind].set_title('{}$\degree$'.format(ang), rotation=45)
+            for g_ind, glom in enumerate(included_gloms):
+                ax0[g_ind, ang_ind].plot(trial_averages[g_ind, ang_ind, 1, :], color='k', linewidth=1, label='Nonbehaving' if (g_ind+ang_ind == 0) else None)
+                ax0[g_ind, ang_ind].plot(trial_averages[g_ind, ang_ind, 0,  :], color='b', linewidth=1, label='Behaving' if (g_ind+ang_ind == 0) else None)
+
+            if g_ind == 0:
+                ax0[gr_ind, gp_ind].set_title('{:.0f}'.format(ang))
+
+# Stack accumulated responses
+# The glom order here is included_gloms
+all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, coh, dir, time, fly)
+response_amps = np.stack(response_amps, axis=-1)  # (glom, image, speed, filter, fly)
+
+# stats across animals
+mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, rate, period, time)
+sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, grate, period, time)
+std_responses = np.nanstd(all_responses, axis=-1)  # (glom, grate, period, time)
+fh0.legend()
+
 # %%
+
+fh1, ax1 = plt.subplots(6, 1, figsize=(3, 6), subplot_kw={'projection': 'polar'})
+ax1 = ax1.ravel()
+
+mean_tuning = []
+for f_ind in range(len(matching_series)):
+    fly_tuning = []
+    for b in range(2):
+        dir_tuning = ID.getResponseAmplitude(all_responses[:, :, b, :, f_ind])
+        fly_tuning.append(dir_tuning)
+
+        for g_ind, glom in enumerate(included_gloms):
+            dir_resp = dir_tuning[g_ind, :]
+            plot_resp = np.append(dir_resp, dir_resp[0])
+            plot_dir = np.append(target_angles, target_angles[0])
+
+    mean_tuning.append(np.stack(fly_tuning, axis=-1))
+
+mean_tuning = np.stack(mean_tuning, axis=-1)
+mean_tuning = np.nanmean(mean_tuning, axis=-1) # glom x dir x beh/nonbeh
+
+# Plot mean dir tuning across flies, for beh vs. nonbeh trials
+for g_ind, glom in enumerate(included_gloms):
+    plot_dir = np.append(target_angles, target_angles[0])
+    # Behaving trials
+    plot_resp = np.append(mean_tuning[g_ind, :, 0], mean_tuning[g_ind, 0, 0])
+    ax1[g_ind].plot(np.deg2rad(plot_dir), plot_resp,
+                    color='b', linewidth=2, marker='.',
+                    label='Behaving' if (g_ind == 0) else None)
+
+    # Nonbehaving trials
+    plot_resp = np.append(mean_tuning[g_ind, :, 1], mean_tuning[g_ind, 0, 1])
+    ax1[g_ind].plot(np.deg2rad(plot_dir), plot_resp,
+                    color='k', linewidth=2, marker='.',
+                    label='Nonbehaving' if (g_ind == 0) else None)
+
+
+    ax1[g_ind].annotate(glom, (0, 0), ha='center')
+
+fh1.legend()
