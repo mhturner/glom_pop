@@ -17,6 +17,8 @@ leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.get_included_gloms()
 # sort by dendrogram leaves ordering
 included_gloms = np.array(included_gloms)[leaves]
+# Include only small spot responder gloms
+included_gloms = ['LC11', 'LC21', 'LC18', 'LC6', 'LC26', 'LC17', 'LC12', 'LC15']
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
 eg_series = ('2021-08-11', 2)
@@ -93,7 +95,6 @@ for s_ind, series in enumerate(matching_series):
 
         fh0, ax0 = plt.subplots(2+len(included_gloms), 3, figsize=(2, 7.6),
                                 gridspec_kw={'width_ratios': [4, 1, 1],
-                                             'height_ratios': [1, 1 , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
                                              'wspace': 0.01, 'hspace': 0.01})
         [util.clean_axes(x) for x in ax0[2:, :].ravel()]
         [util.clean_axes(x) for x in ax0[0:2, -2:].ravel()]

@@ -311,20 +311,20 @@ for s_ind, series in enumerate(matching_series):
     all_responses.append(trial_averages)
     response_amps.append(ID.getResponseAmplitude(trial_averages))
 
-    if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
-    # if True:  # plot individual fly responses, QC
+    # if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
+    if True:  # plot individual fly responses, QC
         fh0, ax0 = plt.subplots(len(included_gloms), len(target_angles), figsize=(3, 4))
-        # fh.suptitle('{}: {}'.format(file_name, series_number))
+        fh0.suptitle('{}: {}'.format(file_name, series_number))
         [plot_tools.cleanAxes(x) for x in ax0.ravel()]
         [x.set_ylim([-0.1, 0.4]) for x in ax0.ravel()]
         for ang_ind, ang in enumerate(target_angles):
-            ax0[0, ang_ind].set_title('{}$\degree$'.format(ang), rotation=45)
+            # ax0[0, ang_ind].set_title('{}$\degree$'.format(ang), rotation=45)
             for g_ind, glom in enumerate(included_gloms):
                 ax0[g_ind, ang_ind].plot(trial_averages[g_ind, ang_ind, 1, :], color='k', linewidth=1, label='Nonbehaving' if (g_ind+ang_ind == 0) else None)
                 ax0[g_ind, ang_ind].plot(trial_averages[g_ind, ang_ind, 0,  :], color='b', linewidth=1, label='Behaving' if (g_ind+ang_ind == 0) else None)
 
-            if g_ind == 0:
-                ax0[gr_ind, gp_ind].set_title('{:.0f}'.format(ang))
+            # if g_ind == 0:
+            #     ax0[gr_ind, gp_ind].set_title('{:.0f}'.format(ang))
 
 # Stack accumulated responses
 # The glom order here is included_gloms

@@ -2,12 +2,14 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from visanalysis.analysis import imaging_data, shared_analysis
-# from scipy.signal import resample, savgol_filter
+from scipy.signal import resample, savgol_filter
 from scipy.stats import ttest_1samp, ttest_rel
 from visanalysis.util import plot_tools
 # from skimage import filters
+import pandas as pd
+import glob
 
-from glom_pop import dataio, util
+from glom_pop import dataio, util, fictrac
 
 
 PROTOCOL_ID = 'ExpandingMovingSpot'
@@ -50,6 +52,58 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                        'indicator_2': 'TdTomato'},
                                                   target_series_metadata=target_series_metadata,
                                                   target_groups=['aligned_response', 'behavior'])
+
+# %% Fictrac data analyze
+series_number = 1
+file_path = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/sync/datafiles/2022-04-12.hdf5'
+file_name = os.path.split(series['file_name'])[-1]
+ID = imaging_data.ImagingDataObject(file_path,
+                                    series_number,
+                                    quiet=True)
+
+# Get behavior data
+behavior_data = dataio.load_behavior(ID, process_behavior=True)
+
+# FT data:
+ft_dir = '/Users/mhturner/Desktop/'
+dir = os.path.join(ft_dir, 'series001')
+filename = os.path.split(glob.glob(os.path.join(dir, '*.dat'))[0])[-1]
+
+ft_data = pd.read_csv(os.path.join(dir, filename), header=None)
+sphere_radius = 4.5e-3 # in m
+fps = 50  # hz
+
+frame = ft_data.iloc[:, 0]
+xrot = ft_data.iloc[:, 5]
+yrot = ft_data.iloc[:, 6] * sphere_radius * fps * 1000 # fwd --> in mm/sec
+zrot = ft_data.iloc[:, 7]  * 180 / np.pi * fps # rot  --> deg/sec
+
+heading = ft_data.iloc[:, 16]
+direction = ft_data.iloc[:, 16] + ft_data.iloc[:, 17]
+
+speed = ft_data.iloc[:, 18]
+
+x_loc = ft_data.iloc[:, 14]
+y_loc = ft_data.iloc[:, 15]
+
+plt.plot(x_loc, y_loc)
+
+# %%
+xrot_filt = savgol_filter(xrot, 41, 3)
+yrot_filt = savgol_filter(yrot, 41, 3)
+zrot_filt = savgol_filter(zrot, 41, 3)
+
+timestamps = 1/50 * np.arange(0, len(frame))
+fh, ax = plt.subplots(3, 1, figsize=(16, 8))
+ax[0].plot(timestamps, yrot_filt, 'k')
+ax[1].plot(timestamps, zrot_filt, 'b')
+
+
+ax[2].plot(timestamps[:-1], behavior_data.get('rmse'), 'r')
+
+[x.set_xlim([100, 200]) for x in ax]
+
+# plt.hist(zrot_filt, 100)
 
 # %%
 
@@ -117,7 +171,23 @@ for s_ind, series in enumerate(matching_series):
     # ax[0].set_title('{}: {}'.format(file_name, series_number))
 
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
+        # FT data:
+        ft_dir = '/Users/mhturner/Desktop/'
+        ft_data = pd.read_csv(glob.glob(os.path.join(ft_dir, 'series001', '*.dat'))[0], header=None)
 
+        frame = ft_data.iloc[:, 0]
+        heading = ft_data.iloc[:, 16]
+        direction = ft_data.iloc[:, 16] + ft_data.iloc[:, 17]
+        speed = ft_data.iloc[:, 18]
+
+        direction = np.mod(direction, 2*np.pi)
+        fh, ax = plt.subplots(2, 2, figsize=(16, 8))
+        ax[0, 0].plot(frame, speed, 'b')
+        ax[0, 1].plot(frame, direction, 'k')
+
+        ax[1, 0].plot(behavior_data.get('rmse'), 'b')
+
+        #
         concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in eg_trials], axis=1)
         concat_running = np.concatenate([behavior_data.get('running_response_matrix')[:, x, :] for x in eg_trials], axis=1)
         concat_behaving = np.concatenate([behavior_data.get('behavior_binary_matrix')[:, x, :] for x in eg_trials], axis=1)
