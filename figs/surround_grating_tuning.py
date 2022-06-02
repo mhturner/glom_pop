@@ -54,6 +54,9 @@ for s_ind, series in enumerate(matching_series):
                                         series_number,
                                         quiet=True)
 
+    print('-----')
+    print('File = {} / series = {}'.format(file_name, series_number))
+
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
 
@@ -72,7 +75,7 @@ for s_ind, series in enumerate(matching_series):
             trial_averages[:, gr_ind, gp_ind, :] = np.nanmean(erm_selected, axis=1)  # each trial average: gloms x params x time
     all_responses.append(trial_averages)
     response_amps.append(ID.getResponseAmplitude(trial_averages))
-
+    print('-----')
     if False:  # plot individual fly responses, QC
         fh, ax = plt.subplots(len(target_grate_rates), len(target_grate_periods), figsize=(8, 4))
         fh.suptitle('{}: {}'.format(file_name, series_number))
@@ -164,17 +167,16 @@ fh2.savefig(os.path.join(save_directory, 'surround_grating_stim.svg'), transpare
 
 # TODO: Histogram of angular velocities from walking data
 
-# %%
+# %% heatmaps for all gloms
 rows = [0, 0, 0, 1, 1, 2, 2, 2]
 cols = [0, 1, 2, 0, 1, 0, 1, 2]
 
-fh2, ax2 = plt.subplots(3, 3, figsize=(4, 5))
+fh2, ax2 = plt.subplots(3, 3, figsize=(3, 4), tight_layout=True)
 [x.set_axis_off() for x in ax2.ravel()]
 cbar_ax = fh2.add_axes([.91, .3, .03, .4])
 for g_ind, glom in enumerate(included_gloms):
     ax2[rows[g_ind], cols[g_ind]].set_axis_on()
     glom_data = response_amps[g_ind, :, :]
-    # ax2[g]
     df = pd.DataFrame(data=np.nanmean(glom_data, axis=-1), index=target_grate_rates, columns=target_grate_periods)
     if g_ind == 5:
         xticklabels = np.array(target_grate_rates).astype('int')
@@ -192,11 +194,12 @@ for g_ind, glom in enumerate(included_gloms):
         cbar=False
     sns.heatmap(df.T, ax=ax2[rows[g_ind], cols[g_ind]],
                 xticklabels=xticklabels, yticklabels=yticklabels,
-                vmin=0, vmax=0.35, cbar=cbar, cbar_ax=cbar_ax, cbar_kws=cbar_kws)
-    ax2[rows[g_ind], cols[g_ind]].set_title(glom, color=util.get_color_dict()[glom])
+                vmin=0, vmax=0.35, cbar=cbar, cbar_ax=cbar_ax, cbar_kws=cbar_kws,
+                rasterized=True, cmap='viridis')
+    ax2[rows[g_ind], cols[g_ind]].set_title(glom, color=util.get_color_dict()[glom], fontsize=10, fontweight='bold')
 
-fh2.supxlabel('Speed ($\degree$/sec)')
-fh2.supylabel('Period ($\degree$)')
+ax2[2, 0].set_xlabel('Speed ($\degree$/sec)')
+ax2[2, 0].set_ylabel('Period ($\degree$)')
 
 fh2.savefig(os.path.join(save_directory, 'surround_grating_tuning.svg'), transparent=True)
 

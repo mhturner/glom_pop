@@ -93,7 +93,7 @@ for s_ind, series in enumerate(matching_series):
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
         traj_ind = 3
 
-        fh0, ax0 = plt.subplots(2+len(included_gloms), 3, figsize=(2, 7.6),
+        fh0, ax0 = plt.subplots(2+len(included_gloms), 3, figsize=(2, 5),
                                 gridspec_kw={'width_ratios': [4, 1, 1],
                                              'wspace': 0.01, 'hspace': 0.01})
         [util.clean_axes(x) for x in ax0[2:, :].ravel()]
@@ -198,7 +198,7 @@ fh0.savefig(os.path.join(save_directory, 'vr_eg_traces.svg'))
 
 # %% Histogram of peak response for each trajectory
 
-fh1, ax1 = plt.subplots(peak_vrs.shape[0], 1, figsize=(1.5, 6.5))
+fh1, ax1 = plt.subplots(peak_vrs.shape[0], 1, figsize=(1.5, 3.9))
 
 for g_ind, glom in enumerate(included_gloms):
     ct, bn = np.histogram(peak_vrs[g_ind, :, :].ravel(),
@@ -211,13 +211,14 @@ for g_ind, glom in enumerate(included_gloms):
     mean_bar = np.nanmean(peak_bar[:, g_ind])
     ax1[g_ind].axvline(x=mean_bar, color='k', linewidth=2)
     ax1[g_ind].set_xlim([0, 0.6])
-    ax1[g_ind].set_ylim([0, 0.45])
+    ax1[g_ind].set_ylim([0, 0.25])
     # ttest: mean across trajectories, vs. bar response from the same glom/fly
     h, p = ttest_1samp(peak_vrs[g_ind, ...].ravel(), popmean=mean_bar)
     # if p < (0.05 / len(included_gloms)):
     #     ax[g_ind].annotate('*', (mean_bar+0.01, 0.15), fontsize=18)
 [x.set_xticks([]) for x in ax1[:-1]]
 [x.set_yticks([]) for x in ax1[:-1]]
+ax1[-1].set_yticks([0, 0.2])
 
 
 [x.spines['top'].set_visible(False) for x in ax1]
