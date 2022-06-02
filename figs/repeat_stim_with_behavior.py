@@ -15,6 +15,11 @@ from glom_pop import dataio, util, fictrac
 PROTOCOL_ID = 'ExpandingMovingSpot'
 # PROTOCOL_ID = 'LoomingSpot'
 
+
+sync_dir = dataio.get_config_file()['sync_dir']
+save_directory = dataio.get_config_file()['save_directory']
+data_directory = os.path.join(sync_dir, 'datafiles')
+
 if PROTOCOL_ID == 'ExpandingMovingSpot':
     eg_series = ('2022-04-12', 1)  # ('2022-04-12', 1): good, punctuated movement bouts
     target_series_metadata = {'protocol_ID': PROTOCOL_ID,
@@ -24,6 +29,10 @@ if PROTOCOL_ID == 'ExpandingMovingSpot':
     y_min = -0.15
     y_max = 0.80
     eg_trials = np.arange(30, 50)
+
+    included_gloms = ['LC11', 'LC21', 'LC18', 'LC6', 'LC26', 'LC17', 'LC12', 'LC15']
+
+
 elif PROTOCOL_ID == 'LoomingSpot':
     # eg_series = ('2022-04-12', 6)  # ('2022-04-12', 2)
     eg_series = ('2022-04-26', 5)  # ('2022-04-12', 2)
@@ -35,15 +44,12 @@ elif PROTOCOL_ID == 'LoomingSpot':
     y_min = -0.05
     y_max = 0.35
     eg_trials = np.arange(25, 45)
+    leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
+    included_gloms = dataio.get_included_gloms()
+    # sort by dendrogram leaves ordering
+    included_gloms = np.array(included_gloms)[leaves]
 
-sync_dir = dataio.get_config_file()['sync_dir']
-save_directory = dataio.get_config_file()['save_directory']
-data_directory = os.path.join(sync_dir, 'datafiles')
 
-leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
-included_gloms = dataio.get_included_gloms()
-# sort by dendrogram leaves ordering
-included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
 matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
@@ -117,7 +123,7 @@ for series in matching_series:
 # %%
 # eg fly figs...
 # fh0: snippet of movement and glom response traces
-fh0, ax0 = plt.subplots(2+len(included_gloms), 1, figsize=(5.5, 5))
+fh0, ax0 = plt.subplots(2+len(included_gloms), 1, figsize=(5.5, 3))
 [x.set_ylim([y_min, y_max]) for x in ax0.ravel()]
 [util.clean_axes(x) for x in ax0.ravel()]
 [x.set_ylim() for x in ax0.ravel()]
@@ -171,21 +177,21 @@ for s_ind, series in enumerate(matching_series):
     # ax[0].set_title('{}: {}'.format(file_name, series_number))
 
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
-        # FT data:
-        ft_dir = '/Users/mhturner/Desktop/'
-        ft_data = pd.read_csv(glob.glob(os.path.join(ft_dir, 'series001', '*.dat'))[0], header=None)
-
-        frame = ft_data.iloc[:, 0]
-        heading = ft_data.iloc[:, 16]
-        direction = ft_data.iloc[:, 16] + ft_data.iloc[:, 17]
-        speed = ft_data.iloc[:, 18]
-
-        direction = np.mod(direction, 2*np.pi)
-        fh, ax = plt.subplots(2, 2, figsize=(16, 8))
-        ax[0, 0].plot(frame, speed, 'b')
-        ax[0, 1].plot(frame, direction, 'k')
-
-        ax[1, 0].plot(behavior_data.get('rmse'), 'b')
+        # # FT data:
+        # ft_dir = '/Users/mhturner/Desktop/'
+        # ft_data = pd.read_csv(glob.glob(os.path.join(ft_dir, 'series001', '*.dat'))[0], header=None)
+        #
+        # frame = ft_data.iloc[:, 0]
+        # heading = ft_data.iloc[:, 16]
+        # direction = ft_data.iloc[:, 16] + ft_data.iloc[:, 17]
+        # speed = ft_data.iloc[:, 18]
+        #
+        # direction = np.mod(direction, 2*np.pi)
+        # fh, ax = plt.subplots(2, 2, figsize=(16, 8))
+        # ax[0, 0].plot(frame, speed, 'b')
+        # ax[0, 1].plot(frame, direction, 'k')
+        #
+        # ax[1, 0].plot(behavior_data.get('rmse'), 'b')
 
         #
         concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in eg_trials], axis=1)
@@ -250,7 +256,7 @@ fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROT
 # %% Summary plots
 
 # For each fly: corr between trial amplitude and trial behavior amount
-fh2, ax2 = plt.subplots(1, 1, figsize=(2, 4.45))
+fh2, ax2 = plt.subplots(1, 1, figsize=(2, 2.4))
 ax2.axvline(0, color='k', alpha=0.50)
 ax2.set_xlim([-0.8, 0.8])
 ax2.invert_yaxis()
@@ -261,7 +267,7 @@ for g_ind, glom in enumerate(included_gloms):
     p_vals.append(t_result.pvalue)
 
     if t_result.pvalue < (0.05 / len(included_gloms)):
-        ax2.annotate('*', (0.80, g_ind), fontsize=12)
+        ax2.annotate('*', (0.5, g_ind), fontsize=12)
 
     y_mean = np.nanmean(corr_with_running[:, g_ind])
     y_err = np.nanstd(corr_with_running[:, g_ind]) / np.sqrt(corr_with_running.shape[0])
@@ -321,7 +327,7 @@ for g_ind, glom in enumerate(included_gloms):
     ax4[rows[g_ind], cols[g_ind]].set_yticks([])
 
     if p < (0.05 / len(included_gloms)):
-        ax4[rows[g_ind], cols[g_ind]].annotate('*', (0, 0.55), fontsize=12)
+        ax4[rows[g_ind], cols[g_ind]].annotate('*', (0, 0.45), fontsize=12)
 
 fh4.suptitle('Mean response amplitude (dF/F)')
 fh4.supxlabel('Behaving')
@@ -331,11 +337,301 @@ ax4[3, 0].set_yticks([0, 0.5])
 
 fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
 fh4.savefig(os.path.join(save_directory, 'repeat_beh_{}_binary.svg'.format(PROTOCOL_ID)), transparent=True)
+# %% Temporal relationship between behavior and response gain modulation...
+# %% (1) Response-weighted behavior
+window_size = 8  # sec
 
-# %% TODO: temporal relationship between onset/offset and gain?
+def getResponseWeightedAverage(stimulus_ensemble, response_ensemble, seed=1):
+        ResponseWeightedAverage = np.mean(response_ensemble * stimulus_ensemble, axis=1)
+        ResponseWeightedAverage_prior = np.mean(np.mean(response_ensemble) * stimulus_ensemble, axis=1)
+
+        np.random.seed(seed)
+        ResponseWeightedAverage_random = np.mean(np.random.permutation(response_ensemble) * stimulus_ensemble, axis=1)
+
+        results_dict = {'rwa': ResponseWeightedAverage,
+                        'rwa_prior': ResponseWeightedAverage_prior,
+                        'rwa_random': ResponseWeightedAverage_random}
+        return results_dict
+
+all_rwa = []
+all_rwa_prior = []
+all_rwa_corrected = []
+for s_ind, series in enumerate(matching_series):
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    ID = imaging_data.ImagingDataObject(file_path,
+                                        series_number,
+                                        quiet=True)
+
+    # Get behavior data
+    behavior_data = dataio.load_behavior(ID, process_behavior=True)
+
+    # Load response data
+    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
+
+    # Get response amps and response times in raw series time
+    response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
+    # Normalize within each glom
+    response_amp = response_amp / np.mean(response_amp, axis=1)[:, np.newaxis]
+
+    # Frame index of peak response, avg across all trials and gloms
+    peak_ind = np.argmax(np.mean(epoch_response_matrix, axis=(0, 1)), axis=-1)  # shape = ngloms
+    # peak_time: seconds into stim presentation that peak response occurs
+    peak_time = response_data['time_vector'][peak_ind] - ID.getRunParameters('pre_time')
+    stimulus_start_times = ID.getStimulusTiming(plot_trace_flag=False)['stimulus_start_times']
+    peak_times = stimulus_start_times + peak_time
+
+    behavior_rmse = behavior_data.get('rmse') / np.max(behavior_data.get('rmse'))  # Note normed behavior RMSE
+    behavior_timepoints = behavior_data['frame_times'][:len(behavior_rmse)]
+    stimulus_ensemble = []
+    response_ensemble = []
+    for pt_ind, pt in enumerate(peak_times):
+        window_indices = np.where(np.logical_and(behavior_timepoints < (pt), behavior_timepoints > (pt-window_size)))[0]
+        if len(window_indices) == (window_size*50):
+            stimulus_ensemble.append(behavior_rmse[window_indices])
+            response_ensemble.append(response_amp[:, pt_ind])
+
+        else:
+            print('Skipped epoch {}: len = {}'.format(pt_ind, len(window_indices)))
+
+
+    stimulus_ensemble = np.stack(stimulus_ensemble, axis=-1)
+    response_ensemble = np.stack(response_ensemble, axis=-1)
+
+    filter_time = (1/50) * np.arange(-window_size*50, 0)
+    # fh, ax = plt.subplots(len(included_gloms), 1, figsize=(2, 7))
+    fly_rwa = []
+    fly_rwa_prior = []
+    fly_rwa_corrected = []
+    for g_ind, glom in enumerate(included_gloms):
+        rwa_results = getResponseWeightedAverage(stimulus_ensemble, response_ensemble[g_ind, :], seed=1)
+        fly_rwa.append(rwa_results['rwa'])
+        fly_rwa_prior.append(rwa_results['rwa_prior'])
+        rwa_corrected = rwa_results['rwa'] - rwa_results['rwa_prior']
+        # ax[g_ind].plot(filter_time, rwa_results['rwa_prior'].mean() * np.ones_like(filter_time), color=[0.5, 0.5, 0.5])
+        # ax[g_ind].plot(filter_time, rwa_results['rwa'], color=util.get_color_dict()[glom])
+        # ax[g_ind].plot(filter_time, rwa_results['rwa_prior'], color='k')
+        fly_rwa_corrected.append(rwa_corrected)
+
+    all_rwa.append(np.stack(fly_rwa, axis=-1))
+    all_rwa_prior.append(np.stack(fly_rwa_prior, axis=-1))
+    all_rwa_corrected.append(np.stack(fly_rwa_corrected, axis=-1))
+
+all_rwa = np.stack(all_rwa, axis=-1)  # shape = time, gloms, flies
+all_rwa_prior = np.stack(all_rwa_prior, axis=-1)  # shape = time, gloms, flies
+all_rwa_corrected = np.stack(all_rwa_corrected, axis=-1)  # shape = time, gloms, flies
+
+# %% Plot response-weighted behavior...
+
+fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(1.5, 7))
+[x.set_ylim([-0.025, 0.025]) for x in ax1.ravel()]
+[x.set_yticks([]) for x in ax1[:-1]]
+[x.set_xticks([]) for x in ax1[:-1]]
+[x.spines['top'].set_visible(False) for x in ax1.ravel()]
+[x.spines['right'].set_visible(False) for x in ax1.ravel()]
+for g_ind, glom in enumerate(included_gloms):
+    corrected_mean = np.nanmean(all_rwa_corrected[:, g_ind, :], axis=-1)
+    corrected_sem = np.nanstd(all_rwa_corrected[:, g_ind, :], axis=-1) / all_rwa.shape[-1]
+
+    diff = rwa_mean - prior_mean
+    ax1[g_ind].axhline(y=0, color=[0.5, 0.5, 0.5])
+    ax1[g_ind].fill_between(filter_time,
+                           corrected_mean-corrected_sem,
+                           corrected_mean+corrected_sem,
+                           color=util.get_color_dict()[glom], linewidth=0)
+    ax1[g_ind].plot(filter_time, corrected_mean, color=util.get_color_dict()[glom], linewidth=2)
+
+ax1[g_ind].set_xlabel('Time to response peak (s)')
+fh1.supylabel('Response-weighted behavior (a.u.)')
+
+# %% (2) Response gain as a function of time since behavior onset/offset
+
+from scipy.signal import medfilt
+from skimage import filters
+
+eg_glom_ind = 0
+window_size = 3  # sec
+
+minimum_bout_duration = 0.5  # sec
+minimum_before_duration = 0.5  # sec
+minimum_after_duration = 0.5  # sec
+
+
+# series_number=1
+# file_path = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/sync/datafiles/2022-04-12.hdf5'
+# file_name = os.path.split(file_path)[-1]
+# ID = imaging_data.ImagingDataObject(file_path,
+#                                     series_number,
+#                                     quiet=True)
+
+for s_ind, series in enumerate(matching_series):
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    ID = imaging_data.ImagingDataObject(file_path,
+                                        series_number,
+                                        quiet=True)
+
+    # Get behavior data
+    behavior_data = dataio.load_behavior(ID, process_behavior=True)
+
+    # Load response data
+    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
+
+
+    # Get response amps and response times in raw series time
+    response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
+    # Frame index of peak response, avg across all trials and gloms
+    peak_ind = np.argmax(np.mean(epoch_response_matrix, axis=(0, 1)), axis=-1)  # shape = ngloms
+    # peak_time: seconds into stim presentation that peak response occurs
+    peak_time = response_data['time_vector'][peak_ind] - ID.getRunParameters('pre_time')
+    stimulus_start_times = ID.getStimulusTiming(plot_trace_flag=False)['stimulus_start_times']
+    peak_times = stimulus_start_times + peak_time
+
+    # Get behavior trace, smooth and binarize to find "bouts"
+    """
+    """
+    behavior_timepoints = behavior_data['frame_times'][:len(behavior_data.get('binary_behavior'))]
+    filt_rmse = medfilt(behavior_data.get('rmse'), kernel_size=21)
+    thresh = filters.threshold_li(filt_rmse)
+    beh_binary = filt_rmse > thresh
+
+    dbinary = beh_binary[1:].astype(int) - beh_binary[:-1].astype(int)
+    behavior_onsets = np.where(dbinary == 1)[0]
+    behavior_offsets = np.where(dbinary == -1)[0]
+
+    onset_times = behavior_timepoints[behavior_onsets]
+    offset_times = behavior_timepoints[behavior_offsets]
+
+    if onset_times[0] > offset_times[0]:  # animal starts behaving. First transition is 1->0. Chop this out
+        offset_times = offset_times[1:]
+
+    assert onset_times[0] < offset_times[0]
+    assert len(onset_times) == len(offset_times)
+
+    fh, ax = plt.subplots(2, 1, figsize=(4, 4))
+    [x.axhline(y=np.nanmean(response_amp[eg_glom_ind, :])) for x in ax]
+    num_bouts = len(onset_times)
+    for bout in range(1, num_bouts-1):
+        bout_start = onset_times[bout]
+        bout_end = offset_times[bout]
+        bout_duration = bout_end - bout_start  # sec
+        # duration (sec) of pre/post-bout quiet periods
+        before_duration = bout_start - offset_times[bout-1]
+        after_duration = offset_times[bout+1] - bout_end
+
+        if bout_duration >= minimum_bout_duration:
+            # Get response amplitudes around the bout start
+            if before_duration >= minimum_before_duration:
+                inds = np.where(np.logical_and(peak_times > (bout_start-window_size/2), peak_times < (bout_start+window_size/2)))[0]
+                if len(inds) > 0:
+                    new_dt = peak_times[inds] - bout_start
+                    new_amp = response_amp[eg_glom_ind, inds]
+                    ax[0].plot(new_dt, new_amp, linestyle='None', marker='.', color='k')
+
+            # Get response amplitudes around the bout end
+            if after_duration >= minimum_after_duration:
+                inds = np.where(np.logical_and(peak_times > (bout_end-window_size/2), peak_times < (bout_end+window_size/2)))[0]
+                if len(inds) > 0:
+                    new_dt = peak_times[inds] - bout_end
+                    new_amp = response_amp[eg_glom_ind, inds]
+                    ax[1].plot(new_dt, new_amp, linestyle='None', marker='.', color='k')
+
+# %%
 
 
 # %%
+
+
+
+for on_ind, onset_time in enumerate(onset_times):
+    if behavior_durations[on_ind] > thresh:
+        inds = np.where(np.logical_and(peak_times > onset_time, peak_times < (onset_time+window_size)))[0]
+        if len(inds) > 0:
+            new_dt = peak_times[inds] - onset_time
+            new_amp = response_amp[eg_glom_ind, inds]
+
+
+for off_ind, offset_time in enumerate(offset_times):
+    previous_bout_duration = behavior_durations[off_ind-1]
+
+
+# %%
+#
+# window_radius = 3  # sec
+# eg_glom_ind = 0
+# onset_times = behavior_timepoints[behavior_onsets]
+# offset_times = behavior_timepoints[behavior_offsets]
+#
+# onset_dt = []
+# onset_amp = []
+# for on_ind, onset_time in enumerate(onset_times):
+#     # find nearest response before onset
+#     tmp = np.where((peak_times < onset_time))[0]
+#     if len(tmp) > 0:
+#         before_ind = tmp[-1]
+#         dt = peak_times[before_ind] - onset_time
+#         resp = response_amp[eg_glom_ind, before_ind]
+#         onset_dt.append(dt)
+#         onset_amp.append(resp)
+#
+#     # find nearest response after onset
+#     tmp = np.where((peak_times > onset_time))[0]
+#     if len(tmp) > 0:
+#         after_ind = tmp[0]
+#         dt = peak_times[after_ind] - onset_time
+#         resp = response_amp[eg_glom_ind, after_ind]
+#         onset_dt.append(dt)
+#         onset_amp.append(resp)
+#
+# onset_dt = np.hstack(onset_dt)
+# onset_amp = np.hstack(onset_amp)
+#
+# # %%
+# fh, ax = plt.subplots(2, 1, figsize=(4, 4))
+# ax[0].plot(onset_dt, onset_amp, 'k.')
+# ax[0].axhline(y=np.mean(all_amps), color='k', alpha=0.5)
+#
+#
+# # %%
+# np.logical_and(peak_times > (onset_time-window_radius), peak_times < (onset_time+window_radius))
+#
+# offset_dt = []
+# offset_amp = []
+# for off_ind, offset_time in enumerate(offset_times):
+#     response_indices = np.logical_and(peak_times > (offset_time-window_radius), peak_times < (offset_time+window_radius))
+#     window_amplitudes = response_amp[eg_glom_ind, response_indices]
+#     window_dts = peak_times[response_indices] - offset_time
+#     offset_dt.append(window_dts)
+#     offset_amp.append(window_amplitudes)
+# offset_dt = np.hstack(offset_dt)
+# offset_amp = np.hstack(offset_amp)
+# # %%
+# fh, ax = plt.subplots(2, 1, figsize=(4, 4))
+# ax[0].plot(onset_dt, onset_amp, 'k.')
+# ax[0].axhline(y=np.mean(all_amps), color='k', alpha=0.5)
+#
+#
+# ax[1].plot(offset_dt, offset_amp, 'k.')
+# ax[1].axhline(y=np.mean(offset_amp), color='k', alpha=0.5)
+
+
+# %%
+
+onset_dt[onset_sort_inds]
+onset_amp[onset_sort_inds]
+onset_dt.max()
+
+# %%
+
+
+# %%
+
+
+
 
 
 

@@ -259,7 +259,6 @@ for s_ind, series in enumerate(matching_series):
     all_responses.append(trial_averages)
     response_amps.append(ID.getResponseAmplitude(trial_averages))
 
-    # if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
     if True: # QC
         fh0, ax0 = plt.subplots(len(included_gloms), len(target_angles), figsize=(4, 6))
         fh0.suptitle('{}: {}'.format(file_name, series_number))
@@ -285,7 +284,7 @@ std_responses = np.nanstd(all_responses, axis=-1)  # (glom, grate, period, time)
 rows = [0, 0, 0, 1, 1, 2, 2, 2]
 cols = [0, 1, 2, 0, 1, 0, 1, 2]
 
-fh1, ax1 = plt.subplots(3, 3, figsize=(4, 5), subplot_kw={'projection': 'polar'})
+fh1, ax1 = plt.subplots(3, 3, figsize=(4, 4), subplot_kw={'projection': 'polar'})
 [x.set_axis_off() for x in ax1.ravel()]
 
 mean_tuning = []
@@ -317,16 +316,31 @@ for g_ind, glom in enumerate(included_gloms):
     # Behaving trials
     plot_resp = np.append(mean_tuning[g_ind, :, 0], mean_tuning[g_ind, 0, 0])
     ax1[rows[g_ind], cols[g_ind]].plot(np.deg2rad(plot_dir), plot_resp,
-                    color='b', linewidth=2, marker='.',
-                    label='Behaving' if (g_ind == 0) else None)
+                    color=util.get_color_dict()[glom], linewidth=2, marker='.', alpha=1.0,
+                    label='Behaving' if (g_ind == 0) else None, linestyle=':')
 
     # Nonbehaving trials
     plot_resp = np.append(mean_tuning[g_ind, :, 1], mean_tuning[g_ind, 0, 1])
     ax1[rows[g_ind], cols[g_ind]].plot(np.deg2rad(plot_dir), plot_resp,
-                    color='k', linewidth=2, marker='.',
+                    color=util.get_color_dict()[glom], linewidth=2, marker='.',
                     label='Nonbehaving' if (g_ind == 0) else None)
 
 
-    ax1[rows[g_ind], cols[g_ind]].annotate(glom, (0, 0), ha='center')
+    if g_ind == 0:
+        pass
+    else:
+        ax1[rows[g_ind], cols[g_ind]].set_xticklabels([])
+        # ax1[rows[g_ind], cols[g_ind]].set_yticks([0.1, 0.2])
+        # ax1[rows[g_ind], cols[g_ind]].set_ylim([0, 0.25])
+
+    y_lim = np.ceil(np.max(mean_tuning[g_ind, ...]) / 0.1) * 0.1
+
+    ax1[rows[g_ind], cols[g_ind]].set_ylim([0, y_lim])
+    ax1[rows[g_ind], cols[g_ind]].set_yticks([y_lim])
+
+    ax1[rows[g_ind], cols[g_ind]].annotate(glom, (np.deg2rad(160), 0.7*y_lim),
+                                           ha='center', rotation=0, fontsize=9, color=util.get_color_dict()[glom])
+
 fh1.legend()
+fh1.savefig(os.path.join(save_directory, 'surroundgrating_direction_polar.svg'), transparent=True)
 # %%
