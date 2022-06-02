@@ -76,14 +76,13 @@ for s_ind, series in enumerate(matching_series):
 
     print('-----')
 all_resp_mat = np.stack(all_resp_mat, axis=-1)  # shape = (gloms, speeds, filters, flies)
-all_resp_mat.shape
 
 # %% Mean traces across animals for eg glomerulus
 eg_glom_ind = 0
 
 filter_list = ['Original', 'Whitened', 'DoG', 'Highpass', 'Lowpass']
-fh0, ax0 = plt.subplots(len(filter_codes), len(image_speeds), figsize=(4, 4))
-[x.set_ylim([-0.1, 0.6]) for x in ax0.ravel()]
+fh0, ax0 = plt.subplots(len(filter_codes), len(image_speeds), figsize=(2.5, 3.5))
+[x.set_ylim([-0.15, 0.6]) for x in ax0.ravel()]
 [x.spines['bottom'].set_visible(False) for x in ax0.ravel()]
 [x.spines['left'].set_visible(False) for x in ax0.ravel()]
 [x.spines['right'].set_visible(False) for x in ax0.ravel()]
@@ -104,13 +103,42 @@ for spd_ind, image_speed in enumerate(image_speeds):
                                   color=util.get_color_dict()[included_gloms[eg_glom_ind]])
 
         if fc_ind == 0:
-            ax0[fc_ind, spd_ind].set_title(image_speed)
+            ax0[fc_ind, spd_ind].set_title('{}'.format(image_speed))
+            if spd_ind == 0:
+                plot_tools.addScaleBars(ax0[fc_ind, spd_ind], dT=2, dF=0.25, T_value=-0.1, F_value=-0.08)
         if spd_ind == 0:
             ax0[fc_ind, spd_ind].set_ylabel(filter_list[filter_code], rotation=45)
+
+fh0.suptitle('Background speed ($\degree$/s)')
+fh0.savefig(os.path.join(save_directory, 'natimage_traces_{}.svg'.format(included_gloms[eg_glom_ind])), transparent=True)
+
+# %%
+# eg single fly glom to original image only
+eg_fly_ind = 1
+fh1, ax1 = plt.subplots(1, 4, figsize=(2.5, 0.7))
+[x.set_ylim([-0.15, 0.8]) for x in ax1.ravel()]
+[x.spines['bottom'].set_visible(False) for x in ax1.ravel()]
+[x.spines['left'].set_visible(False) for x in ax1.ravel()]
+[x.spines['right'].set_visible(False) for x in ax1.ravel()]
+[x.spines['top'].set_visible(False) for x in ax1.ravel()]
+[x.set_xticks([]) for x in ax1.ravel()]
+[x.set_yticks([]) for x in ax1.ravel()]
+for spd_ind, image_speed in enumerate(image_speeds):
+    ax1[spd_ind].axhline(y=0, color='k', alpha=0.5)
+    ax1[spd_ind].plot(response_data['time_vector'],
+                      all_resp_mat[eg_glom_ind, spd_ind, 0, :, eg_fly_ind],
+                      color=util.get_color_dict()[included_gloms[eg_glom_ind]])
+    ax1[spd_ind].set_title('{}'.format(image_speed))
+    if spd_ind == 0:
+        plot_tools.addScaleBars(ax1[spd_ind], dT=2, dF=0.25, T_value=-0.1, F_value=-0.08)
+fh1.suptitle('Background speed ($\degree$/s)')
+
+fh1.savefig(os.path.join(save_directory, 'natimage_egfly_{}.svg'.format(included_gloms[eg_glom_ind])), transparent=True)
+
 # %% heatmaps for all gloms
 rows = [0, 0, 0, 1, 1, 2, 2, 2]
 cols = [0, 1, 2, 0, 1, 0, 1, 2]
-fh2, ax2 = plt.subplots(3, 3, figsize=(3, 4), tight_layout=True)
+fh2, ax2 = plt.subplots(3, 3, figsize=(2.5, 3.5), tight_layout=True)
 [x.set_axis_off() for x in ax2.ravel()]
 cbar_ax = fh2.add_axes([.91, .3, .03, .4])
 for g_ind, glom in enumerate(included_gloms):
@@ -120,7 +148,7 @@ for g_ind, glom in enumerate(included_gloms):
     df = pd.DataFrame(data=glom_data, columns=image_speeds, index=[filter_list[x] for x in filter_codes])
     if g_ind == 5:
         xticklabels = np.array(image_speeds).astype('int')
-        yticklabels = [filter_list[x] for x in filter_codes]
+        yticklabels = [filter_list[x][0] for x in filter_codes]
     else:
         xticklabels = False
         yticklabels = False
@@ -151,7 +179,7 @@ screen_width = 160 * pixels_per_degree  # deg -> pixels
 screen_height = 50 * pixels_per_degree  # deg -> pixels
 
 
-new_im = image.Image(image_name=image_names[0])
+new_im = image.Image(image_name=image_names[2])
 img_orig = new_im.load_image()
 image_width = img_orig.shape[1]
 image_height = img_orig.shape[0]
@@ -179,6 +207,51 @@ freq, pspect_lp = util.get_power_spectral_density(img_lp[:, 512:2*512], pixels_p
 
 img_white = new_im.whiten_image()
 
+# %% Show example filtered images, and spectra
+
+spectra = pd.read_pickle(os.path.join(dataio.get_config_file()['save_directory'], 'vh_images_meanspsectra.pkl'))
+freq = spectra.columns.values
+scale = 3e7
+p_ideal = scale * 1 / freq**2
+
+fh3, ax3 = plt.subplots(4, 2, figsize=(3, 3.75))
+[x.set_axis_off() for x in ax3[:, 1]]
+# Crop to about the extent of the image on the screen
+pixels_per_degree = 1536 / 360
+screen_width = 160 * pixels_per_degree  # deg -> pixels
+screen_height = 50 * pixels_per_degree  # deg -> pixels
+image_width = img_orig.shape[1]
+image_height = img_orig.shape[0]
+[x.set_xlim([image_width/2 - screen_width/2, image_width/2 + screen_width/2]) for x in ax3[:, 1]]
+[x.set_ylim([image_height/2 - image_height/2, image_height/2 + image_height/2]) for x in ax3[:, 1]]
+[x.set_xlim([1e-3, 1e-1]) for x in ax3[:, 0]]
+[x.set_ylim([1e9, 1e13]) for x in ax3[:, 0]]
+[x.loglog(freq, p_ideal, 'k', alpha=0.5) for x in ax3[:, 0]]
+
+
+ax3[0, 1].imshow(img_orig, cmap='Greys_r')
+ax3[0, 0].loglog(freq, spectra.loc['original', :].values, label='original')
+ax3[0, 0].annotate('Original', (1.2e-3, 3e9))
+
+ax3[1, 1].imshow(img_white, cmap='Greys_r')
+ax3[1, 0].loglog(freq, spectra.loc['white', :].values)
+ax3[1, 0].annotate('Whitened', (1.2e-3, 3e9))
+
+ax3[2, 1].imshow(img_hp, cmap='Greys_r')
+ax3[2, 0].loglog(freq, spectra.loc['highpass', :].values)
+ax3[2, 0].annotate('Highpass', (1.2e-3, 3e9))
+
+ax3[3, 1].imshow(img_lp, cmap='Greys_r')
+ax3[3, 0].loglog(freq, spectra.loc['lowpass', :].values)
+ax3[3, 0].annotate('Lowpass', (1.2e-3, 3e9))
+
+[x.set_xticks([]) for x in ax3[:-1, 0]]
+[x.set_yticks([]) for x in ax3[:-1, 0]]
+
+ax3[3, 0].set_xlabel('Spatial freq. (cpd)')
+
+fh3.supylabel('Power')
+fh3.savefig(os.path.join(save_directory, 'natimage_spectra.svg'), transparent=True)
 
 
 # %% (2) 8 DIRECTIONS

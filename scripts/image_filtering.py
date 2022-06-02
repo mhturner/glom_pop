@@ -5,6 +5,8 @@ from glom_pop import util
 from skimage.io import imsave, imread
 import os
 from scipy import ndimage
+import pandas as pd
+from glom_pop import dataio
 
 
 # %%
@@ -106,6 +108,12 @@ fh1, ax1 = plt.subplots(1, 1, figsize=(2, 2.5))
 # ax1[0].set_xlim([1e-2, freq[-1]]);
 #
 
+all_mean_spectra = np.vstack([original_spectra.mean(axis=0),
+                              white_spectra.mean(axis=0),
+                              highpass_spectra.mean(axis=0),
+                              lowpass_spectra.mean(axis=0)])
+spectra = pd.DataFrame(data=all_mean_spectra, columns=freq, index=['original', 'white', 'highpass', 'lowpass'])
+
 norm_factor = original_spectra.mean(axis=0)[0]
 ax1.loglog(freq, original_spectra.mean(axis=0)/norm_factor, label='Orig.', linewidth=2, linestyle='-', color='k')
 ax1.loglog(freq, white_spectra.mean(axis=0)/norm_factor, label='White', linewidth=2, linestyle='--', color=[0.25, 0.25, 0.25])
@@ -118,8 +126,8 @@ ax1.legend(fontsize=9, labelspacing=0.05, ncol=2, handletextpad=0.25)
 ax1.set_xlim([1e-2, freq[-1]]);
 ax1.set_xlabel('Spatial freq. (cpd)')
 ax1.set_ylabel('Power (norm)')
-# fh1.supylabel('Power (norm)')
-fig_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/fig_panels'
-fh1.savefig(os.path.join(fig_dir, 'nat_image_pspects.svg'), transparent=True)
+
+save_path = os.path.join(dataio.get_config_file()['save_directory'], 'vh_images_meanspsectra.pkl')
+spectra.to_pickle(save_path)
 
 # %%

@@ -28,15 +28,12 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                        'indicator_2': 'TdTomato'},
                                                   target_series_metadata={'protocol_ID': 'CoherentDots',
                                                                           'include_in_analysis': True,
-                                                                          # 'signal_direction': [0, 45, 90, 135, 180, 225, 270, 315,],
-                                                                          # 'cylinder_pitch': -60,
                                                                           'signal_direction': 0.0,
                                                                           },
-                                                  # target_groups=['aligned_response', 'behavior'],
                                                   target_groups=['aligned_response'],
                                                   )
 
-# %% SINGLE DIRECTION. NOT ALINGED WITH HEAD AXES
+# %%
 target_coherence = [0, 0.25, 0.5, 0.75, 1.0]
 target_speed = 80
 
@@ -77,16 +74,18 @@ for s_ind, series in enumerate(matching_series):
 
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
         # eg fly: show responses to 0 and 1 coherence
-        fh0, ax = plt.subplots(2, len(included_gloms), figsize=(4, 1.5), gridspec_kw={'hspace': 0})
+        fh0, ax = plt.subplots(2, len(included_gloms), figsize=(4, 1.25), gridspec_kw={'hspace': 0})
         [x.set_ylim([-0.15, 0.35]) for x in ax.ravel()]
         [x.set_xlim([-0.25, response_data['time_vector'].max()]) for x in ax.ravel()]
         [util.clean_axes(x) for x in ax.ravel()]
         for g_ind, glom in enumerate(included_gloms):
             ax[0, g_ind].set_title(glom, fontsize=9, rotation=45)
+
             for u_ind, up in enumerate([0, 1]):
                 pull_ind = np.where(np.array(target_coherence) == up)[0]
                 if u_ind == 0:
-                    plot_tools.addScaleBars(ax[0, 0], dT=4, dF=0.25, T_value=-0.1, F_value=-0.1)
+                    plot_tools.addScaleBars(ax[0, 0], dT=2, dF=0.25, T_value=-0.1, F_value=-0.1)
+                ax[u_ind, g_ind].axhline(y=0, color='k', alpha=0.5)
                 ax[u_ind, g_ind].plot(response_data['time_vector'],
                                       trial_averages[g_ind, pull_ind, :][0],
                                       color=util.get_color_dict()[glom])
@@ -109,7 +108,7 @@ fh0.savefig(os.path.join(save_directory, 'coherence_eg_fly.svg'), transparent=Tr
 # resp amp normalized, within fly
 normalized_response_amplitudes = response_amplitudes / response_amplitudes.max(axis=1)[:, np.newaxis, :]
 
-fh2, ax = plt.subplots(1, len(included_gloms), figsize=(4, 1.5))
+fh2, ax = plt.subplots(1, len(included_gloms), figsize=(4, 1.25))
 [x.set_ylim([0, 1.1]) for x in ax.ravel()]
 [util.clean_axes(x) for x in ax.ravel()[1:]]
 ax[0].spines['top'].set_visible(False)
