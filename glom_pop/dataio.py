@@ -206,13 +206,13 @@ def load_behavior(ID, process_behavior=True):
         response_data = load_responses(ID, response_set_name='glom', get_voxel_responses=False)
 
         # downsample behavior from video rate (50 Hz) to imaging rate
-        behavior_data['rmse'].shape[0] / response_data.get('response').shape[1]
-        rmse_ds = resample(behavior_data['rmse'], response_data.get('response').shape[1])
-
         # smooth behavior trace.
         #   Window size about 200 msec, 1st order polynomial
         #   Keeps rapid onsets/offsets pretty well but makes bouts more obvious and continuous
-        rmse_ds = savgol_filter(rmse_ds, 9, 1)
+        # rmse_smooth = savgol_filter(rmse_ds, 21, 1)
+        rmse_smooth = savgol_filter(behavior_data['rmse'], 21, 1)
+        rmse_ds = resample(rmse_smooth, response_data.get('response').shape[1])
+
 
         # (1) RMS difference, mean per trial
         _, running_response_matrix = ID.getEpochResponseMatrix(rmse_ds[np.newaxis, :],
@@ -229,6 +229,7 @@ def load_behavior(ID, process_behavior=True):
         beh_per_trial = np.mean(behavior_binary_matrix[0, :, :], axis=1)
         behaving = beh_per_trial > 0.5
 
+        behavior_data['rmse_smooth'] = rmse_smooth  # lp filtered RMS difference, for each video frame
         behavior_data['behaving'] = behaving  # bool array: n trials
         behavior_data['running_amp'] = running_amp  # time-averaged RMS difference for each trial
         behavior_data['behavior_binary_matrix'] = behavior_binary_matrix  # is_behaving binary at each time point, for each trial

@@ -234,8 +234,8 @@ for s_ind, series in enumerate(matching_series):
                            behavior_data['binary_behavior'],
                            color=[0.5, 0.5, 0.5], alpha=0.5, linewidth=0.0)
         ax2.axhline(behavior_data['binary_thresh'], color='r')
-        ax2.plot(behavior_data['frame_times'][:len(behavior_data['binary_behavior'])],
-                 behavior_data['rmse'],
+        ax2.plot(behavior_data['frame_times'][:len(behavior_data['rmse_smooth'])],
+                 behavior_data['rmse_smooth'],
                  'k')
         tw_ax.set_yticks([])
 
@@ -383,7 +383,7 @@ for s_ind, series in enumerate(matching_series):
     stimulus_start_times = ID.getStimulusTiming(plot_trace_flag=False)['stimulus_start_times']
     peak_times = stimulus_start_times + peak_time
 
-    behavior_rmse = behavior_data.get('rmse') / np.max(behavior_data.get('rmse'))  # Note normed behavior RMSE
+    behavior_rmse = behavior_data.get('rmse_smooth') / np.max(behavior_data.get('rmse_smooth'))  # Note normed behavior RMSE
     behavior_timepoints = behavior_data['frame_times'][:len(behavior_rmse)]
     stimulus_ensemble = []
     response_ensemble = []
@@ -426,7 +426,7 @@ all_rwa_corrected = np.stack(all_rwa_corrected, axis=-1)  # shape = time, gloms,
 # %% Plot response-weighted behavior...
 
 fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(1.5, 7))
-[x.set_ylim([-0.025, 0.025]) for x in ax1.ravel()]
+[x.set_ylim([-0.030, 0.01]) for x in ax1.ravel()]
 [x.set_yticks([]) for x in ax1[:-1]]
 [x.set_xticks([]) for x in ax1[:-1]]
 [x.spines['top'].set_visible(False) for x in ax1.ravel()]
@@ -434,8 +434,6 @@ fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(1.5, 7))
 for g_ind, glom in enumerate(included_gloms):
     corrected_mean = np.nanmean(all_rwa_corrected[:, g_ind, :], axis=-1)
     corrected_sem = np.nanstd(all_rwa_corrected[:, g_ind, :], axis=-1) / all_rwa.shape[-1]
-
-    diff = rwa_mean - prior_mean
     ax1[g_ind].axhline(y=0, color=[0.5, 0.5, 0.5])
     ax1[g_ind].fill_between(filter_time,
                            corrected_mean-corrected_sem,
@@ -455,8 +453,8 @@ eg_glom_ind = 0
 window_size = 3  # sec
 
 minimum_bout_duration = 0.5  # sec
-minimum_before_duration = 0.5  # sec
-minimum_after_duration = 0.5  # sec
+minimum_before_duration = 1.0  # sec
+minimum_after_duration = 1.0  # sec
 
 
 # series_number=1
@@ -466,6 +464,11 @@ minimum_after_duration = 0.5  # sec
 #                                     series_number,
 #                                     quiet=True)
 
+onset_dt = []
+onset_amp = []
+
+offset_dt = []
+offset_amp = []
 for s_ind, series in enumerate(matching_series):
     series_number = series['series']
     file_path = series['file_name'] + '.hdf5'
@@ -484,6 +487,9 @@ for s_ind, series in enumerate(matching_series):
 
     # Get response amps and response times in raw series time
     response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
+    # Normalize within each glom
+    response_amp = response_amp / np.mean(response_amp, axis=1)[:, np.newaxis]
+
     # Frame index of peak response, avg across all trials and gloms
     peak_ind = np.argmax(np.mean(epoch_response_matrix, axis=(0, 1)), axis=-1)  # shape = ngloms
     # peak_time: seconds into stim presentation that peak response occurs
@@ -494,10 +500,9 @@ for s_ind, series in enumerate(matching_series):
     # Get behavior trace, smooth and binarize to find "bouts"
     """
     """
-    behavior_timepoints = behavior_data['frame_times'][:len(behavior_data.get('binary_behavior'))]
-    filt_rmse = medfilt(behavior_data.get('rmse'), kernel_size=21)
-    thresh = filters.threshold_li(filt_rmse)
-    beh_binary = filt_rmse > thresh
+    behavior_timepoints = behavior_data['frame_times'][:len(behavior_data.get('rmse_smooth'))]
+    thresh = filters.threshold_li(behavior_data.get('rmse_smooth'))
+    beh_binary = behavior_data.get('rmse_smooth') > thresh
 
     dbinary = beh_binary[1:].astype(int) - beh_binary[:-1].astype(int)
     behavior_onsets = np.where(dbinary == 1)[0]
@@ -506,14 +511,14 @@ for s_ind, series in enumerate(matching_series):
     onset_times = behavior_timepoints[behavior_onsets]
     offset_times = behavior_timepoints[behavior_offsets]
 
-    if onset_times[0] > offset_times[0]:  # animal starts behaving. First transition is 1->0. Chop this out
+    if onset_times[0] > offset_times[0]:  # animal starts off behaving. First transition is 1->0. Chop this out
         offset_times = offset_times[1:]
 
     assert onset_times[0] < offset_times[0]
     assert len(onset_times) == len(offset_times)
 
-    fh, ax = plt.subplots(2, 1, figsize=(4, 4))
-    [x.axhline(y=np.nanmean(response_amp[eg_glom_ind, :])) for x in ax]
+    # fh, ax = plt.subplots(2, 1, figsize=(4, 4))
+    # [x.axhline(y=np.nanmean(response_amp[eg_glom_ind, :])) for x in ax]
     num_bouts = len(onset_times)
     for bout in range(1, num_bouts-1):
         bout_start = onset_times[bout]
@@ -530,7 +535,9 @@ for s_ind, series in enumerate(matching_series):
                 if len(inds) > 0:
                     new_dt = peak_times[inds] - bout_start
                     new_amp = response_amp[eg_glom_ind, inds]
-                    ax[0].plot(new_dt, new_amp, linestyle='None', marker='.', color='k')
+                    # ax[0].plot(new_dt, new_amp, linestyle='None', marker='.', color='k')
+                    onset_dt.append(new_dt)
+                    onset_amp.append(new_amp)
 
             # Get response amplitudes around the bout end
             if after_duration >= minimum_after_duration:
@@ -538,10 +545,22 @@ for s_ind, series in enumerate(matching_series):
                 if len(inds) > 0:
                     new_dt = peak_times[inds] - bout_end
                     new_amp = response_amp[eg_glom_ind, inds]
-                    ax[1].plot(new_dt, new_amp, linestyle='None', marker='.', color='k')
+                    # ax[1].plot(new_dt, new_amp, linestyle='None', marker='.', color='k')
+                    offset_dt.append(new_dt)
+                    offset_amp.append(new_amp)
+
+onset_dt = np.hstack(onset_dt)
+onset_amp = np.hstack(onset_amp)
+
+offset_dt = np.hstack(offset_dt)
+offset_amp = np.hstack(offset_amp)
+
 
 # %%
-
+fh, ax = plt.subplots(2, 1, figsize=(4, 4))
+[x.axhline(y=np.nanmean(response_amp[eg_glom_ind, :])) for x in ax]
+ax[0].plot(onset_dt, onset_amp, linestyle='None', marker='.', color='k')
+ax[1].plot(offset_dt, offset_amp, linestyle='None', marker='.', color='k')
 
 # %%
 
