@@ -83,7 +83,10 @@ class SingleTrialEncoding():
         self.included_gloms = included_gloms
         self.included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-    def evaluate_performance(self, model_type='LogReg', iterations=20, pull_eg=0, classify_on_amplitude=False, random_state=None):
+    def evaluate_performance(self, model_type='LogReg',
+                             iterations=20, pull_eg=0,
+                             classify_on_amplitude=True, random_state=None,
+                             shuffle_trials=False):
 
         self.cmats = []
         self.overall_performances = []
@@ -143,7 +146,7 @@ class SingleTrialEncoding():
             # Filter trials to only include stims of interest
             #   Exclude last 2 (uniform flash)
             #   Exclude one direction of bidirectional stims
-            #   Exclude spot on grating for now
+            #   Exclude spot on grating
             keep_stims = np.array([0, 2, 4, 6, 8, 10, 12, 14, 15, 16, 17, 18, 19, 20, 21])
             keep_inds = np.where([x in keep_stims for x in df['encoded'].values])[0]
 
@@ -151,9 +154,20 @@ class SingleTrialEncoding():
             X = single_trial_responses[keep_inds, :]
             y = df['encoded'].values[keep_inds]
 
+            if shuffle_trials:
+                assert classify_on_amplitude, 'shuffle_trials only implemented for amplitude classification'
+                for stim_ind, stim in enumerate(np.unique(y)):
+                    matching_inds = np.where(y == stim)[0]
+                    subset = X[matching_inds, :]
+                    c_pre = np.nanmean(np.corrcoef(subset.T))
+
+                    idx = np.random.rand(*subset.shape).argsort(0)
+                    shuffled = subset[idx, np.arange(subset.shape[1])]
+                    X[matching_inds, :] = shuffled
+                    c_shuffle = np.nanmean(np.corrcoef(shuffled.T))
+
             if model_type == 'LogReg':
                 classifier_model = LogisticRegression(multi_class='multinomial', solver='lbfgs', fit_intercept=False)
-                # classifier_model = LogisticRegression(multi_class='ovr', solver='liblinear', penalty='l1', C=2)
             elif model_type == 'RandomForest':
                 classifier_model = RandomForestClassifier(n_estimators=100,
                                                           criterion='gini',

@@ -24,7 +24,7 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                   target_series_metadata={'protocol_ID': 'PGS_Reduced',
                                                                           'include_in_analysis': True,
                                                                           'num_epochs': 180},
-                                                  target_groups=['aligned_response', 'behavior'])
+                                                  target_groups=['aligned_response'])
 
 eg_series = ('2022-03-01', 2)
 
@@ -117,8 +117,43 @@ r_gain_behavior = np.stack(r_gain_behavior, axis=-1)  # (gloms x stim x fly)
 fh0.savefig(os.path.join(save_directory, 'pgs_variance_eg_fly.svg'), transparent=True)
 
 
-# %%
+# %% glom-glom correlation matrix, across all stims
+fly_average_cmats = np.nanmean(all_cmats, axis=-1)  # shape = glom x glom x stim
 
+glom_corr_df = pd.DataFrame(data=np.nanmean(fly_average_cmats, axis=-1), index=included_gloms, columns=included_gloms)
+
+fh1, ax1 = plt.subplots(1, 1, figsize=(3, 2.5))
+sns.heatmap(glom_corr_df,
+            ax=ax1,
+            vmin=0, vmax=+1,
+            cmap='Reds',
+            xticklabels=True,
+            yticklabels=True,
+            cbar_kws={'label': 'Gain-gain corr. (r)'}
+            )
+fh1.savefig(os.path.join(save_directory, 'pgs_variance_corrmat.svg'), transparent=True)
+
+# %% For flies w behavior tracking: corr between gain & behavior, for each stim and glom
+unique_parameter_values
+print(unique_parameter_values)
+df = pd.DataFrame(data=np.nanmean(r_gain_behavior, axis=-1),
+                  index=included_gloms, columns=[str(s) for s in unique_parameter_values])
+
+fh2, ax2 = plt.subplots(1, 1, figsize=(6, 3))
+sns.heatmap(df,
+            cmap='coolwarm', vmin=-0.6, vmax=+0.6,
+            ax=ax2,
+            yticklabels=True,
+            xticklabels=False,
+            cbar_kws={'label': 'Behavior-gain corr (r)'})
+
+fh2.savefig(os.path.join(save_directory, 'pgs_variance_behcorr.svg'), transparent=True)
+
+
+
+# %% IN PROGRESS...
+# TODO: shared gain model
+# TODO: corr with behavior
 eg_ind = 13
 
 series = matching_series[eg_ind]
@@ -130,66 +165,6 @@ ID = imaging_data.ImagingDataObject(file_path,
                                     quiet=True)
 response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
 epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
-
-# %% cvxpy
-import cvxpy as cp
-
-K = 3
-n_trials = epoch_response_matrix.shape[1]
-# param val for each trial:
-parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
-pull_inds = [np.where([pv == up for pv in parameter_values])[0] for up in unique_parameter_values]
-df = pd.DataFrame(data=np.array(parameter_values, dtype='object'), columns=['params'])
-df['encoded'] = df['params'].apply(lambda x: list(unique_parameter_values).index(x))
-stim_inds = df['encoded'].values
-
-y_measured = ID.getResponseAmplitude(epoch_response_matrix, metric='max')  # gloms x trials
-mean_tuning = np.vstack([np.nanmean(y_measured[:, pi], axis=-1) for pi in pull_inds]).T  # gloms x stim ID
-deterministic_resp = np.vstack([mean_tuning[:, stim_ind] for stim_ind in stim_inds]).T  # gloms x trials
-
-# %%
-fh, ax = plt.subplots(4, 4, figsize=(8, 8))
-ax = ax.ravel()
-for g_ind, glom in enumerate(included_gloms):
-    r = np.corrcoef(deterministic_resp[g_ind, :], y_measured[g_ind, :])[0, 1]
-    ax[g_ind].plot([0, 0.8], [0, 0.8], 'k-')
-    ax[g_ind].plot(deterministic_resp[g_ind, :], y_measured[g_ind, :],
-                   linestyle='none', marker='o', color=util.get_color_dict()[glom], alpha=0.5)
-    ax[g_ind].set_title('r = {:.2f}'.format(r))
-    ax[g_ind].set_xticks([])
-
-
-# %%
-G = cp.Variable((len(included_gloms), n_trials))
-
-W = cp.Variable((len(included_gloms), K))
-M = cp.Variable((K, n_trials))
-
-
-# objective = cp.Minimize(cp.sum(cp.multiply(deterministic_resp, cp.exp(W @ M)) - y_measured))
-# objective = cp.Minimize(cp.sum(cp.exp(W @ M) - y_measured))
-
-
-
-# THIS WORKS...
-objective = cp.Minimize(cp.sum_squares(cp.multiply(deterministic_resp, G ) - y_measured))
-
-
-# BUT THESE DON'T...
-objective = cp.Minimize(cp.sum_squares(cp.multiply(deterministic_resp, cp.exp(W @ M)) - y_measured))
-objective = cp.Minimize(cp.sum_squares(cp.multiply(deterministic_resp, cp.exp(G) ) - y_measured))
-objective = cp.Minimize(cp.sum_squares(cp.multiply(deterministic_resp, W @ M ) - y_measured))
-
-constraints = [0 >= W]
-prob = cp.Problem(objective, constraints)
-
-
-prob = cp.Problem(objective)
-
-
-prob.solve(verbose=True)
-
-
 
 
 # %% shared gain model
@@ -260,37 +235,8 @@ for g_ind, glom in enumerate(included_gloms):
 
 # %%
 
-# %% glom-glom correlation matrix, across all stims
-fly_average_cmats = np.nanmean(all_cmats, axis=-1)  # shape = glom x glom x stim
 
-glom_corr_df = pd.DataFrame(data=np.nanmean(fly_average_cmats, axis=-1), index=included_gloms, columns=included_gloms)
-# sns.clustermap(glom_corr_df)
 
-fh1, ax1 = plt.subplots(1, 1, figsize=(3, 2.5))
-sns.heatmap(glom_corr_df,
-            ax=ax1,
-            vmin=0, vmax=+1,
-            cmap='Reds',
-            xticklabels=True,
-            yticklabels=True,
-            cbar_kws={'label': 'Gain-gain corr. (r)'}
-            )
-fh1.savefig(os.path.join(save_directory, 'pgs_variance_corrmat.svg'), transparent=True)
 
-# %% For flies w behavior tracking: corr between gain & behavior, for each stim and glom
-unique_parameter_values
-print(unique_parameter_values)
-df = pd.DataFrame(data=np.nanmean(r_gain_behavior, axis=-1),
-                  index=included_gloms, columns=[str(s) for s in unique_parameter_values])
-
-fh2, ax2 = plt.subplots(1, 1, figsize=(6, 3))
-sns.heatmap(df,
-            cmap='coolwarm', vmin=-0.6, vmax=+0.6,
-            ax=ax2,
-            yticklabels=True,
-            xticklabels=False,
-            cbar_kws={'label': 'Behavior-gain corr (r)'})
-
-fh2.savefig(os.path.join(save_directory, 'pgs_variance_behcorr.svg'), transparent=True)
 
 # %%

@@ -7,7 +7,7 @@ import os
 from glom_pop import dataio, util
 from scipy.stats import ttest_rel
 from skimage.io import imread
-from flystim import image
+# from flystim import image
 import pandas as pd
 import seaborn as sns
 
