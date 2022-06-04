@@ -7,9 +7,11 @@ import os
 from glom_pop import dataio, util
 from scipy.stats import ttest_rel
 from skimage.io import imread
-# from flystim import image
+from flystim import image
 import pandas as pd
 import seaborn as sns
+import PIL
+
 
 util.config_matplotlib()
 
@@ -81,7 +83,7 @@ all_resp_mat = np.stack(all_resp_mat, axis=-1)  # shape = (gloms, speeds, filter
 eg_glom_ind = 0
 
 filter_list = ['Original', 'Whitened', 'DoG', 'Highpass', 'Lowpass']
-fh0, ax0 = plt.subplots(len(filter_codes), len(image_speeds), figsize=(2.5, 3.5))
+fh0, ax0 = plt.subplots(len(filter_codes), len(image_speeds), figsize=(1.75, 3.5))
 [x.set_ylim([-0.15, 0.6]) for x in ax0.ravel()]
 [x.spines['bottom'].set_visible(False) for x in ax0.ravel()]
 [x.spines['left'].set_visible(False) for x in ax0.ravel()]
@@ -115,7 +117,7 @@ fh0.savefig(os.path.join(save_directory, 'natimage_traces_{}.svg'.format(include
 # %%
 # eg single fly glom to original image only
 eg_fly_ind = 1
-fh1, ax1 = plt.subplots(1, 4, figsize=(2.5, 0.7))
+fh1, ax1 = plt.subplots(1, 4, figsize=(1.75, 0.7))
 [x.set_ylim([-0.15, 0.8]) for x in ax1.ravel()]
 [x.spines['bottom'].set_visible(False) for x in ax1.ravel()]
 [x.spines['left'].set_visible(False) for x in ax1.ravel()]
@@ -207,6 +209,12 @@ freq, pspect_lp = util.get_power_spectral_density(img_lp[:, 512:2*512], pixels_p
 
 img_white = new_im.whiten_image()
 
+pixels_per_degree = 1536 / 360
+screen_width = 140 * pixels_per_degree  # deg -> pixels
+screen_height = 50 * pixels_per_degree  # deg -> pixels
+image_width = img_orig.shape[1]
+image_height = img_orig.shape[0]
+
 # %% Show example filtered images, and spectra
 
 spectra = pd.read_pickle(os.path.join(dataio.get_config_file()['save_directory'], 'vh_images_meanspsectra.pkl'))
@@ -217,17 +225,11 @@ p_ideal = scale * 1 / freq**2
 fh3, ax3 = plt.subplots(4, 2, figsize=(3, 3.75))
 [x.set_axis_off() for x in ax3[:, 1]]
 # Crop to about the extent of the image on the screen
-pixels_per_degree = 1536 / 360
-screen_width = 160 * pixels_per_degree  # deg -> pixels
-screen_height = 50 * pixels_per_degree  # deg -> pixels
-image_width = img_orig.shape[1]
-image_height = img_orig.shape[0]
 [x.set_xlim([image_width/2 - screen_width/2, image_width/2 + screen_width/2]) for x in ax3[:, 1]]
-[x.set_ylim([image_height/2 - image_height/2, image_height/2 + image_height/2]) for x in ax3[:, 1]]
+[x.set_ylim([image_height/2 - screen_height/2, image_height/2 + screen_height/2]) for x in ax3[:, 1]]
 [x.set_xlim([1e-3, 1e-1]) for x in ax3[:, 0]]
 [x.set_ylim([1e9, 1e13]) for x in ax3[:, 0]]
 [x.loglog(freq, p_ideal, 'k', alpha=0.5) for x in ax3[:, 0]]
-
 
 ax3[0, 1].imshow(img_orig, cmap='Greys_r')
 ax3[0, 0].loglog(freq, spectra.loc['original', :].values, label='original')
@@ -256,7 +258,6 @@ fh3.savefig(os.path.join(save_directory, 'natimage_spectra.svg'), transparent=Tr
 
 # %% (2) 8 DIRECTIONS
 target_angles = [0, 45, 90, 135, 180, 225, 270, 315]
-eg_series = ('2022-05-24', 6)  # ('2022-05-26', 2)
 
 matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
                                                   target_fly_metadata={'driver_1': 'ChAT-T2A',
@@ -310,13 +311,13 @@ for s_ind, series in enumerate(matching_series):
     all_responses.append(trial_averages)
     response_amps.append(ID.getResponseAmplitude(trial_averages))
 
-    if True:  # plot individual fly responses, QC
+    if False:  # plot individual fly responses, QC
         fh0, ax0 = plt.subplots(len(included_gloms), len(target_angles), figsize=(3, 4))
         fh0.suptitle('{}: {}'.format(file_name, series_number))
         [plot_tools.cleanAxes(x) for x in ax0.ravel()]
         [x.set_ylim([-0.1, 0.3]) for x in ax0.ravel()]
         for ang_ind, ang in enumerate(target_angles):
-            ax0[g_ind, ang_ind].set_title('{}$\degree$'.format(ang), rotation=45)
+            ax0[0, ang_ind].set_title('{}$\degree$'.format(ang), rotation=45)
             for g_ind, glom in enumerate(included_gloms):
                 ax0[g_ind, ang_ind].plot(trial_averages[g_ind, ang_ind, 1, :], color='k', linewidth=1, label='Nonbehaving' if (g_ind+ang_ind == 0) else None)
                 ax0[g_ind, ang_ind].plot(trial_averages[g_ind, ang_ind, 0,  :], color='b', linewidth=1, label='Behaving' if (g_ind+ang_ind == 0) else None)
@@ -336,23 +337,48 @@ std_responses = np.nanstd(all_responses, axis=-1)  # (glom, grate, period, time)
 # %% eg fly/glom
 
 eg_fly_ind = 2
-eg_glom_ind = 0
-fh0, ax0 = plt.subplots(1, len(target_angles), figsize=(5, 1.5))
+# eg_glom_ind = 0
+eg_glom_inds = [0, 3, 6]
+fh0, ax0 = plt.subplots(len(eg_glom_inds) + 1, len(target_angles), figsize=(5, 4))
 fh0.suptitle('Background direction')
-[plot_tools.cleanAxes(x) for x in ax0.ravel()]
-[x.set_ylim([-0.1, 0.4]) for x in ax0.ravel()]
+[plot_tools.cleanAxes(x) for x in ax0[0, :]]
+[x.spines['bottom'].set_visible(False) for x in ax0.ravel()]
+[x.spines['left'].set_visible(False) for x in ax0.ravel()]
+[x.spines['right'].set_visible(False) for x in ax0.ravel()]
+[x.spines['top'].set_visible(False) for x in ax0.ravel()]
+[x.set_yticks([]) for x in ax0.ravel()]
+[x.set_xticks([]) for x in ax0.ravel()]
+[x.set_ylim([-0.1, 0.3]) for x in ax0[1:, :].ravel()]
 
 for ang_ind, ang in enumerate(target_angles):
-    ax0[ang_ind].set_title('{}$\degree$'.format(ang), rotation=0)
-    ax0[ang_ind].plot(all_responses[eg_glom_ind, ang_ind, 1, :, eg_fly_ind],
-                      color=util.get_color_dict()[included_gloms[eg_glom_ind]], linewidth=2,
-                      label='Nonbehaving' if (ang_ind == 0) else None)
-    ax0[ang_ind].plot(all_responses[eg_glom_ind, ang_ind, 0,  :, eg_fly_ind],
-                      color=util.get_color_dict()[included_gloms[eg_glom_ind]], linewidth=2, alpha=0.5,
-                      label='Behaving' if (ang_ind == 0) else None)
+    ax0[0, ang_ind].set_title('{}$\degree$'.format(ang), rotation=0)
+    rot_image = PIL.Image.fromarray(img_orig).rotate(ang, expand=False)
+    ax0[0, ang_ind].imshow(rot_image, cmap='Greys_r', vmax=200)  # brighten for fig display
+    ax0[0, ang_ind].set_xlim([image_width/2 - 0.8*screen_width/2, image_width/2 + 0.8*screen_width/2])
+    ax0[0, ang_ind].set_ylim([image_height/2 - screen_height/2, image_height/2 + screen_height/2])
+    ax0[0, ang_ind].quiver(image_width/2, image_height/2,
+                           np.cos(np.radians(ang)), np.sin(np.radians(ang)),
+                           color='y', scale=4.5, width=0.03, headwidth=3)
+
+    for idx, g_ind in enumerate(eg_glom_inds):
+        ax0[idx+1, ang_ind].axhline(color='k', alpha=0.5)
+        ax0[idx+1, ang_ind].plot(response_data['time_vector'],
+                             all_responses[g_ind, ang_ind, 1, :, eg_fly_ind],
+                             color=util.get_color_dict()[included_gloms[g_ind]], linewidth=2,
+                             label='Nonbehaving' if (idx + ang_ind == 0) else None)
+
+        ax0[idx+1, ang_ind].plot(response_data['time_vector'],
+                             all_responses[g_ind, ang_ind, 0,  :, eg_fly_ind],
+                             color=util.get_color_dict()[included_gloms[g_ind]], linewidth=2, alpha=0.5,
+                             label='Behaving' if (idx + ang_ind == 0) else None)
+        if ang_ind == 0:
+            ax0[idx+1, ang_ind].set_ylabel(included_gloms[g_ind])
+
+
+plot_tools.addScaleBars(ax0[1, 0], dT=2, dF=0.25, T_value=-0.1, F_value=-0.08)
 
 fh0.legend()
-fh0.savefig(os.path.join(save_directory, 'natimage_direction_egfly_{}.svg'.format(included_gloms[eg_glom_ind])), transparent=True)
+fh0.savefig(os.path.join(save_directory, 'natimage_direction_eggloms.svg'), transparent=True)
 
 # %% Summary: polar plots
 rows = [0, 0, 0, 1, 1, 2, 2, 2]
@@ -360,7 +386,7 @@ cols = [0, 1, 2, 0, 1, 0, 1, 2]
 
 fh1, ax1 = plt.subplots(3, 3, figsize=(4, 4), subplot_kw={'projection': 'polar'})
 [x.set_axis_off() for x in ax1.ravel()]
-
+[x.spines['polar'].set_visible(False) for x in ax1.ravel()]
 mean_tuning = []
 for f_ind in range(len(matching_series)):
     fly_tuning = []
@@ -382,17 +408,20 @@ mean_tuning = np.nanmean(mean_tuning, axis=-1) # glom x dir x beh/nonbeh
 for g_ind, glom in enumerate(included_gloms):
     ax1[rows[g_ind], cols[g_ind]].set_axis_on()
     plot_dir = np.append(target_angles, target_angles[0])
-    # Behaving trials
-    plot_resp = np.append(mean_tuning[g_ind, :, 0], mean_tuning[g_ind, 0, 0])
-    ax1[rows[g_ind], cols[g_ind]].plot(np.deg2rad(plot_dir), plot_resp,
-                    color=util.get_color_dict()[glom], linewidth=2, marker='.', alpha=1,
-                    label='Behaving' if (g_ind == 0) else None, linestyle=':')
 
     # Nonbehaving trials
     plot_resp = np.append(mean_tuning[g_ind, :, 1], mean_tuning[g_ind, 0, 1])
     ax1[rows[g_ind], cols[g_ind]].plot(np.deg2rad(plot_dir), plot_resp,
                     color=util.get_color_dict()[glom], linewidth=2, marker='.',
                     label='Nonbehaving' if (g_ind == 0) else None, linestyle='-')
+
+    # Behaving trials
+    plot_resp = np.append(mean_tuning[g_ind, :, 0], mean_tuning[g_ind, 0, 0])
+    ax1[rows[g_ind], cols[g_ind]].plot(np.deg2rad(plot_dir), plot_resp,
+                    color=util.get_color_dict()[glom], linewidth=2, marker='.', alpha=0.5,
+                    label='Behaving' if (g_ind == 0) else None, linestyle='-')
+
+
 
 
 
@@ -401,16 +430,15 @@ for g_ind, glom in enumerate(included_gloms):
         pass
     else:
         ax1[rows[g_ind], cols[g_ind]].set_xticklabels([])
-        # ax1[rows[g_ind], cols[g_ind]].set_yticks([0.1, 0.2])
-        # ax1[rows[g_ind], cols[g_ind]].set_ylim([0, 0.25])
 
     y_lim = np.ceil(np.max(mean_tuning[g_ind, ...]) / 0.1) * 0.1
-
     ax1[rows[g_ind], cols[g_ind]].set_ylim([0, y_lim])
-    ax1[rows[g_ind], cols[g_ind]].set_yticks([y_lim])
+    ax1[rows[g_ind], cols[g_ind]].set_yticks([0, y_lim/2, y_lim])
+    yticklabels = ['', '', '{:.1f}'.format(y_lim)]
+    ax1[rows[g_ind], cols[g_ind]].set_yticklabels(yticklabels)
 
-    ax1[rows[g_ind], cols[g_ind]].annotate(glom, (np.deg2rad(160), 0.7*y_lim),
-                                           ha='center', rotation=0, fontsize=9, color=util.get_color_dict()[glom])
+    ax1[rows[g_ind], cols[g_ind]].annotate(glom, (np.deg2rad(90), 0.9*y_lim),
+                                           ha='center', rotation=0, fontsize=9, color='k')
 
 fh1.legend()
 fh1.savefig(os.path.join(save_directory, 'natimage_direction_polar.svg'), transparent=True)

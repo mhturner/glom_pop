@@ -139,10 +139,10 @@ ax[0].set_ylabel('Response (norm.)')
 fh2.savefig(os.path.join(save_directory, 'coherence_tuning_curves.svg'), transparent=True)
 
 # %% stim images
-npoints = 100
-w = 100
-h = 100
-steps = 8
+npoints = 300
+w = 200
+h = 200
+steps = 10
 
 # starting locations
 x = np.random.uniform(low=steps, high=w-steps, size=npoints).astype(int)
@@ -165,13 +165,23 @@ for step in range(1, steps):
     rand_step[(y+step*vel_y).astype(int), (x+step*vel_x).astype(int)] = 1 - step/steps
 
 
-fh3, ax3 = plt.subplots(2, 1, figsize=(1.5, 3), tight_layout=True)
+fh3, ax3 = plt.subplots(2, 1, figsize=(3, 3), tight_layout=True)
+cbar_ax = fh3.add_axes([.65, .1, .1, .8])
+cbar_ax.set_axis_off()
 [x.set_axis_off() for x in ax3.ravel()]
-ax3[0].imshow(rand_step, cmap='Greys', vmin=-0.5, vmax=1.0)
+[x.set_xlim([50, 150]) for x in ax3.ravel()]
+[x.set_ylim([50, 150]) for x in ax3.ravel()]
+mp = ax3[0].imshow(rand_step, cmap='Greys', vmin=-0.5, vmax=1.0)
 ax3[0].set_title('Coherence = 0', fontsize=12)
 
 ax3[1].imshow(coh_step, cmap='Greys', vmin=-0.5, vmax=1.0)
 ax3[1].set_title('Coherence = 1', fontsize=12)
+
+a = np.array([[0,1]])
+img = plt.imshow(a, cmap="Greys_r")
+plt.gca().set_visible(False)
+cbar = fh3.colorbar(img, ax=cbar_ax, ticks=[0, 1])
+cbar.ax.set_yticklabels(['t < 0', 't = 0'])
 
 fh3.savefig(os.path.join(save_directory, 'coherence_stim_images.svg'), transparent=True)
 

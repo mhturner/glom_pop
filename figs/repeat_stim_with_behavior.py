@@ -339,7 +339,7 @@ fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROT
 fh4.savefig(os.path.join(save_directory, 'repeat_beh_{}_binary.svg'.format(PROTOCOL_ID)), transparent=True)
 # %% Temporal relationship between behavior and response gain modulation...
 # %% (1) Response-weighted behavior
-window_size = 8  # sec
+window_size = 16  # sec
 
 def getResponseWeightedAverage(stimulus_ensemble, response_ensemble, seed=1):
         ResponseWeightedAverage = np.mean(response_ensemble * stimulus_ensemble, axis=1)
@@ -376,19 +376,20 @@ for s_ind, series in enumerate(matching_series):
     # Normalize within each glom
     response_amp = response_amp / np.mean(response_amp, axis=1)[:, np.newaxis]
 
-    # Frame index of peak response, avg across all trials and gloms
-    peak_ind = np.argmax(np.mean(epoch_response_matrix, axis=(0, 1)), axis=-1)  # shape = ngloms
-    # peak_time: seconds into stim presentation that peak response occurs
-    peak_time = response_data['time_vector'][peak_ind] - ID.getRunParameters('pre_time')
+    # Frame index of response onset, avg across all trials and gloms
+    response_ind = np.argmax(np.diff(np.mean(epoch_response_matrix, axis=(0, 1))))
+    # response_times: seconds into stim presentation that onset response occurs
+    response_time = response_data['time_vector'][response_ind] - ID.getRunParameters('pre_time')
     stimulus_start_times = ID.getStimulusTiming(plot_trace_flag=False)['stimulus_start_times']
-    peak_times = stimulus_start_times + peak_time
+    response_times = stimulus_start_times + response_time
 
     behavior_rmse = behavior_data.get('rmse_smooth') / np.max(behavior_data.get('rmse_smooth'))  # Note normed behavior RMSE
     behavior_timepoints = behavior_data['frame_times'][:len(behavior_rmse)]
     stimulus_ensemble = []
     response_ensemble = []
-    for pt_ind, pt in enumerate(peak_times):
-        window_indices = np.where(np.logical_and(behavior_timepoints < (pt), behavior_timepoints > (pt-window_size)))[0]
+    for pt_ind, pt in enumerate(response_times):
+        # window_indices = np.where(np.logical_and(behavior_timepoints < (pt), behavior_timepoints > (pt-window_size)))[0]
+        window_indices = np.where(np.logical_and(behavior_timepoints < (pt+window_size/2), behavior_timepoints > (pt-window_size/2)))[0]
         if len(window_indices) == (window_size*50):
             stimulus_ensemble.append(behavior_rmse[window_indices])
             response_ensemble.append(response_amp[:, pt_ind])
@@ -425,8 +426,11 @@ all_rwa_corrected = np.stack(all_rwa_corrected, axis=-1)  # shape = time, gloms,
 
 # %% Plot response-weighted behavior...
 
+filter_time = (1/50) * np.arange(-window_size/2*50, window_size/2*50)
+
 fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(1.5, 7))
 [x.set_ylim([-0.030, 0.01]) for x in ax1.ravel()]
+# [x.set_xlim([-5, 0]) for x in ax1.ravel()]
 [x.set_yticks([]) for x in ax1[:-1]]
 [x.set_xticks([]) for x in ax1[:-1]]
 [x.spines['top'].set_visible(False) for x in ax1.ravel()]
@@ -441,7 +445,7 @@ for g_ind, glom in enumerate(included_gloms):
                            color=util.get_color_dict()[glom], linewidth=0)
     ax1[g_ind].plot(filter_time, corrected_mean, color=util.get_color_dict()[glom], linewidth=2)
 
-ax1[g_ind].set_xlabel('Time to response peak (s)')
+ax1[g_ind].set_xlabel('Time to response onset (s)')
 fh1.supylabel('Response-weighted behavior (a.u.)')
 
 # %% (2) Response gain as a function of time since behavior onset/offset
@@ -491,11 +495,11 @@ for s_ind, series in enumerate(matching_series):
     response_amp = response_amp / np.mean(response_amp, axis=1)[:, np.newaxis]
 
     # Frame index of peak response, avg across all trials and gloms
-    peak_ind = np.argmax(np.mean(epoch_response_matrix, axis=(0, 1)), axis=-1)  # shape = ngloms
-    # peak_time: seconds into stim presentation that peak response occurs
-    peak_time = response_data['time_vector'][peak_ind] - ID.getRunParameters('pre_time')
+    onset_ind = np.argmax(np.diff(np.mean(epoch_response_matrix, axis=(0, 1))))
+    # onset_time: seconds into stim presentation that onset response occurs
+    onset_time = response_data['time_vector'][onset_ind] - ID.getRunParameters('pre_time')
     stimulus_start_times = ID.getStimulusTiming(plot_trace_flag=False)['stimulus_start_times']
-    peak_times = stimulus_start_times + peak_time
+    onset_tims = stimulus_start_times + onset_time
 
     # Get behavior trace, smooth and binarize to find "bouts"
     """
@@ -531,9 +535,9 @@ for s_ind, series in enumerate(matching_series):
         if bout_duration >= minimum_bout_duration:
             # Get response amplitudes around the bout start
             if before_duration >= minimum_before_duration:
-                inds = np.where(np.logical_and(peak_times > (bout_start-window_size/2), peak_times < (bout_start+window_size/2)))[0]
+                inds = np.where(np.logical_and(onset_times > (bout_start-window_size/2), onset_times < (bout_start+window_size/2)))[0]
                 if len(inds) > 0:
-                    new_dt = peak_times[inds] - bout_start
+                    new_dt = onset_times[inds] - bout_start
                     new_amp = response_amp[eg_glom_ind, inds]
                     # ax[0].plot(new_dt, new_amp, linestyle='None', marker='.', color='k')
                     onset_dt.append(new_dt)
@@ -541,9 +545,9 @@ for s_ind, series in enumerate(matching_series):
 
             # Get response amplitudes around the bout end
             if after_duration >= minimum_after_duration:
-                inds = np.where(np.logical_and(peak_times > (bout_end-window_size/2), peak_times < (bout_end+window_size/2)))[0]
+                inds = np.where(np.logical_and(onset_times > (bout_end-window_size/2), onset_times < (bout_end+window_size/2)))[0]
                 if len(inds) > 0:
-                    new_dt = peak_times[inds] - bout_end
+                    new_dt = onset_times[inds] - bout_end
                     new_amp = response_amp[eg_glom_ind, inds]
                     # ax[1].plot(new_dt, new_amp, linestyle='None', marker='.', color='k')
                     offset_dt.append(new_dt)
@@ -568,9 +572,9 @@ ax[1].plot(offset_dt, offset_amp, linestyle='None', marker='.', color='k')
 
 for on_ind, onset_time in enumerate(onset_times):
     if behavior_durations[on_ind] > thresh:
-        inds = np.where(np.logical_and(peak_times > onset_time, peak_times < (onset_time+window_size)))[0]
+        inds = np.where(np.logical_and(onset_times > onset_time, onset_times < (onset_time+window_size)))[0]
         if len(inds) > 0:
-            new_dt = peak_times[inds] - onset_time
+            new_dt = onset_times[inds] - onset_time
             new_amp = response_amp[eg_glom_ind, inds]
 
 
@@ -580,75 +584,6 @@ for off_ind, offset_time in enumerate(offset_times):
 
 # %%
 #
-# window_radius = 3  # sec
-# eg_glom_ind = 0
-# onset_times = behavior_timepoints[behavior_onsets]
-# offset_times = behavior_timepoints[behavior_offsets]
-#
-# onset_dt = []
-# onset_amp = []
-# for on_ind, onset_time in enumerate(onset_times):
-#     # find nearest response before onset
-#     tmp = np.where((peak_times < onset_time))[0]
-#     if len(tmp) > 0:
-#         before_ind = tmp[-1]
-#         dt = peak_times[before_ind] - onset_time
-#         resp = response_amp[eg_glom_ind, before_ind]
-#         onset_dt.append(dt)
-#         onset_amp.append(resp)
-#
-#     # find nearest response after onset
-#     tmp = np.where((peak_times > onset_time))[0]
-#     if len(tmp) > 0:
-#         after_ind = tmp[0]
-#         dt = peak_times[after_ind] - onset_time
-#         resp = response_amp[eg_glom_ind, after_ind]
-#         onset_dt.append(dt)
-#         onset_amp.append(resp)
-#
-# onset_dt = np.hstack(onset_dt)
-# onset_amp = np.hstack(onset_amp)
-#
-# # %%
-# fh, ax = plt.subplots(2, 1, figsize=(4, 4))
-# ax[0].plot(onset_dt, onset_amp, 'k.')
-# ax[0].axhline(y=np.mean(all_amps), color='k', alpha=0.5)
-#
-#
-# # %%
-# np.logical_and(peak_times > (onset_time-window_radius), peak_times < (onset_time+window_radius))
-#
-# offset_dt = []
-# offset_amp = []
-# for off_ind, offset_time in enumerate(offset_times):
-#     response_indices = np.logical_and(peak_times > (offset_time-window_radius), peak_times < (offset_time+window_radius))
-#     window_amplitudes = response_amp[eg_glom_ind, response_indices]
-#     window_dts = peak_times[response_indices] - offset_time
-#     offset_dt.append(window_dts)
-#     offset_amp.append(window_amplitudes)
-# offset_dt = np.hstack(offset_dt)
-# offset_amp = np.hstack(offset_amp)
-# # %%
-# fh, ax = plt.subplots(2, 1, figsize=(4, 4))
-# ax[0].plot(onset_dt, onset_amp, 'k.')
-# ax[0].axhline(y=np.mean(all_amps), color='k', alpha=0.5)
-#
-#
-# ax[1].plot(offset_dt, offset_amp, 'k.')
-# ax[1].axhline(y=np.mean(offset_amp), color='k', alpha=0.5)
-
-
-# %%
-
-onset_dt[onset_sort_inds]
-onset_amp[onset_sort_inds]
-onset_dt.max()
-
-# %%
-
-
-# %%
-
 
 
 

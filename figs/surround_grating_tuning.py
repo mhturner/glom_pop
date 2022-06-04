@@ -259,7 +259,7 @@ for s_ind, series in enumerate(matching_series):
     all_responses.append(trial_averages)
     response_amps.append(ID.getResponseAmplitude(trial_averages))
 
-    if True: # QC
+    if False: # QC
         fh0, ax0 = plt.subplots(len(included_gloms), len(target_angles), figsize=(4, 6))
         fh0.suptitle('{}: {}'.format(file_name, series_number))
         [plot_tools.cleanAxes(x) for x in ax0.ravel()]
@@ -284,9 +284,9 @@ std_responses = np.nanstd(all_responses, axis=-1)  # (glom, grate, period, time)
 rows = [0, 0, 0, 1, 1, 2, 2, 2]
 cols = [0, 1, 2, 0, 1, 0, 1, 2]
 
-fh1, ax1 = plt.subplots(3, 3, figsize=(4, 4), subplot_kw={'projection': 'polar'})
+fh1, ax1 = plt.subplots(3, 3, figsize=(3, 3), subplot_kw={'projection': 'polar'})
 [x.set_axis_off() for x in ax1.ravel()]
-
+[x.spines['polar'].set_visible(False) for x in ax1.ravel()]
 mean_tuning = []
 for f_ind in range(len(matching_series)):
     fly_tuning = []
@@ -313,33 +313,33 @@ mean_tuning = np.nanmean(mean_tuning, axis=-1) # glom x dir x beh/nonbeh
 # Plot mean dir tuning across flies, for beh vs. nonbeh trials
 for g_ind, glom in enumerate(included_gloms):
     plot_dir = np.append(target_angles, target_angles[0])
-    # Behaving trials
-    plot_resp = np.append(mean_tuning[g_ind, :, 0], mean_tuning[g_ind, 0, 0])
-    ax1[rows[g_ind], cols[g_ind]].plot(np.deg2rad(plot_dir), plot_resp,
-                    color=util.get_color_dict()[glom], linewidth=2, marker='.', alpha=1.0,
-                    label='Behaving' if (g_ind == 0) else None, linestyle=':')
+
 
     # Nonbehaving trials
     plot_resp = np.append(mean_tuning[g_ind, :, 1], mean_tuning[g_ind, 0, 1])
     ax1[rows[g_ind], cols[g_ind]].plot(np.deg2rad(plot_dir), plot_resp,
                     color=util.get_color_dict()[glom], linewidth=2, marker='.',
                     label='Nonbehaving' if (g_ind == 0) else None)
+    # Behaving trials
+    plot_resp = np.append(mean_tuning[g_ind, :, 0], mean_tuning[g_ind, 0, 0])
+    ax1[rows[g_ind], cols[g_ind]].plot(np.deg2rad(plot_dir), plot_resp,
+                    color=util.get_color_dict()[glom], linewidth=2, marker='.', alpha=0.5,
+                    label='Behaving' if (g_ind == 0) else None, linestyle='-')
 
 
     if g_ind == 0:
         pass
     else:
         ax1[rows[g_ind], cols[g_ind]].set_xticklabels([])
-        # ax1[rows[g_ind], cols[g_ind]].set_yticks([0.1, 0.2])
-        # ax1[rows[g_ind], cols[g_ind]].set_ylim([0, 0.25])
 
     y_lim = np.ceil(np.max(mean_tuning[g_ind, ...]) / 0.1) * 0.1
-
     ax1[rows[g_ind], cols[g_ind]].set_ylim([0, y_lim])
-    ax1[rows[g_ind], cols[g_ind]].set_yticks([y_lim])
+    ax1[rows[g_ind], cols[g_ind]].set_yticks([0, y_lim/2, y_lim])
+    yticklabels = ['', '', '{:.1f}'.format(y_lim)]
+    ax1[rows[g_ind], cols[g_ind]].set_yticklabels(yticklabels)
 
-    ax1[rows[g_ind], cols[g_ind]].annotate(glom, (np.deg2rad(160), 0.7*y_lim),
-                                           ha='center', rotation=0, fontsize=9, color=util.get_color_dict()[glom])
+    ax1[rows[g_ind], cols[g_ind]].annotate(glom, (np.deg2rad(90), 0.8*y_lim),
+                                           ha='center', rotation=0, fontsize=9, color='k')
 
 fh1.legend()
 fh1.savefig(os.path.join(save_directory, 'surroundgrating_direction_polar.svg'), transparent=True)

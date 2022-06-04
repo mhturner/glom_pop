@@ -8,6 +8,9 @@ from glom_pop import dataio, util
 from scipy.stats import ttest_rel
 from skimage.io import imread
 from flystim import image
+import ast
+from scipy.interpolate import interp1d
+
 
 util.config_matplotlib()
 
@@ -66,7 +69,7 @@ for s_ind, series in enumerate(matching_series):
     all_responses.append(mean_response)
     all_response_amps.append(resp_amp)
 
-    if True: # Plot ind fly responses. QC
+    if False: # Plot ind fly responses. QC
         eg_saccade_inds = np.arange(0, len(saccade_times), 1)
         fh, ax = plt.subplots(len(included_gloms), len(eg_saccade_inds), figsize=(4, 2))
         fh.suptitle('{}: {}'.format(file_name, series_number))
@@ -85,23 +88,23 @@ eg_fly_ind = 4
 eg_glom_ind = 0
 
 # mean response trace for timing illustration
-eg_saccade_inds = [0, 4, 5, 6, 7, 9, 11]
+eg_saccade_inds = [1, 4, 5, 6, 7, 9, 11]
 tags = 'abcdefghijk'
-fh0, ax0 = plt.subplots(1, 1, figsize=(3, 2))
+fh0, ax0 = plt.subplots(1, 1, figsize=(2.5, 1.5))
 ax0.set_ylim([-0.1, 0.45])
 ax0.spines['top'].set_visible(False)
 ax0.spines['right'].set_visible(False)
 for ind, si in enumerate(eg_saccade_inds):
-    xval = saccade_times[si] + ID.getRunParameters('pre_time')
+    xval = saccade_times[si]
     ax0.plot([xval, xval], [0, 0.4], color='k', linestyle='--')
     ax0.annotate(tags[ind], (xval, 0.41), ha='center')
 ax0.axhline(y=0, color='k', alpha=0.5)
 ax0.set_xlabel('Time (sec)')
 ax0.set_ylabel('Response (dF/F)')
-ax0.plot(response_data['time_vector'], np.mean(all_responses[eg_glom_ind, :, :, eg_fly_ind], axis=0),
+ax0.plot(response_data['time_vector']-ID.getRunParameters('pre_time'), np.mean(all_responses[eg_glom_ind, :, :, eg_fly_ind], axis=0),
          color=util.get_color_dict()[included_gloms[eg_glom_ind]], linewidth=2)
 
-fh1, ax1 = plt.subplots(1, len(eg_saccade_inds), figsize=(3, 1.5))
+fh1, ax1 = plt.subplots(1, len(eg_saccade_inds), figsize=(2.75, 1.5))
 [x.set_ylim([-0.1, 0.5]) for x in ax1.ravel()]
 [x.set_axis_off() for x in ax1.ravel()]
 for ind, si in enumerate(eg_saccade_inds):
@@ -114,26 +117,74 @@ for ind, si in enumerate(eg_saccade_inds):
 
 fh0.savefig(os.path.join(save_directory, 'saccade_timing_{}.svg'.format(included_gloms[eg_glom_ind])), transparent=True)
 fh1.savefig(os.path.join(save_directory, 'saccade_traces_{}.svg'.format(included_gloms[eg_glom_ind])), transparent=True)
-# %%
+
+# %% Stim schematic
+
+fh2, ax2 = plt.subplots(1, 1, figsize=(2, 1.5))
+ax2.spines['top'].set_visible(False)
+ax2.spines['right'].set_visible(False)
+tt = np.linspace(0.01, 2.99, 100)
+np.array(saccade_times)[eg_saccade_inds]
+switch_times = [1, 1.5, 2]
+for st_ind, st in enumerate(switch_times):
+    t = [0, st, st+0.2, 3]
+    p = [0, 0, 70, 70]
+    interp_fh = interp1d(t, p, kind='linear')
+    loc = interp_fh(tt)
+    loc -= loc[0]  # start at 0
+    ax2.plot(tt, loc, alpha=1, color=[0.5, 0.5, 0.5], linewidth=2)
+
+ax2.quiver(1.6, 35, 1, 0, color='y', scale=3, width=0.02, headwidth=3)
+ax2.quiver(1.6, 35, -1, 0, color='y', scale=3, width=0.02, headwidth=3)
+ax2.annotate('$\Delta t$', (1.65, 40))
+ax2.plot(1.6, 35, 'yo')
+ax2.set_xlabel('Time (s)')
+ax2.set_ylabel('Background \nposition ($\degree$)')
+fh2.savefig(os.path.join(save_directory, 'saccade_schematic.svg'), transparent=True)
+
+
+# %% Summary data: probe response gain as a fxn of saccade time
+
+# Response onset := peak slope of mean response across all stims, animals
+onset_inds = [np.argmax(np.diff(np.mean(all_responses[x, :, :, :], axis=(0, 2)))) for x in range(len(included_gloms))]
+
+rows = [0, 0, 0, 1, 1, 2, 2, 2]
+cols = [0, 1, 2, 0, 1, 0, 1, 2]
+
 mean_response_gain = np.mean(all_response_gains, axis=-1)
 sem_response_gain = np.std(all_response_gains, axis=-1) / np.sqrt(all_response_gains.shape[-1])
 
-fh3, ax3 = plt.subplots(1, len(included_gloms), figsize=(5, 1.5))
+fh3, ax3 = plt.subplots(3, 3, figsize=(4.5, 3.5))
 [x.set_ylim([0.2, 1.8]) for x in ax3.ravel()]
-[x.spines['top'].set_visible(False) for x in ax3.ravel()]
-[x.spines['right'].set_visible(False) for x in ax3.ravel()]
+[x.set_axis_off() for x in ax3.ravel()]
 for g_ind, glom in enumerate(included_gloms):
-    ax3[g_ind].axhline(y=1, color='k', alpha=0.5)
-    ax3[g_ind].errorbar(x=saccade_times,
+    # indication of response onset time
+    tt = response_data['time_vector'] - ID.getRunParameters('pre_time')
+    ax3[rows[g_ind], cols[g_ind]].axvline(x=tt[onset_inds[g_ind]],
+                                          color='k', alpha=0.5, linestyle=':')
+
+    ax3[rows[g_ind], cols[g_ind]].axhline(y=1, color='k', alpha=0.5)
+    ax3[rows[g_ind], cols[g_ind]].errorbar(x=saccade_times,
                         y=mean_response_gain[g_ind, :],
                         yerr=sem_response_gain[g_ind, :],
-                        color=util.get_color_dict()[glom])
-    ax3[g_ind].set_title(glom)
-    if g_ind == 0:
-        ax3[g_ind].set_ylabel('Response gain')
-        ax3[g_ind].set_xlabel('Time (s)')
+                        color=util.get_color_dict()[glom],
+                        linewidth=2)
+    ax3[rows[g_ind], cols[g_ind]].set_title(glom)
+
+
+
+    if g_ind == 5:
+        ax3[rows[g_ind], cols[g_ind]].set_axis_on()
+        ax3[rows[g_ind], cols[g_ind]].set_ylabel('Response gain')
+        ax3[rows[g_ind], cols[g_ind]].set_xlabel('Saccade time (s)')
+        ax3[rows[g_ind], cols[g_ind]].spines['top'].set_visible(False)
+        ax3[rows[g_ind], cols[g_ind]].spines['right'].set_visible(False)
     else:
-        ax3[g_ind].set_axis_off()
+        ax3[rows[g_ind], cols[g_ind]].set_axis_off()
+
+
+
+
 
 fh3.savefig(os.path.join(save_directory, 'saccade_gain_summary.svg'), transparent=True)
 
