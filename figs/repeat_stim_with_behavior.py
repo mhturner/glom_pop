@@ -234,9 +234,9 @@ for s_ind, series in enumerate(matching_series):
                            behavior_data['binary_behavior'],
                            color=[0.5, 0.5, 0.5], alpha=0.5, linewidth=0.0)
         ax2.axhline(behavior_data['binary_thresh'], color='r')
-        ax2.plot(behavior_data['frame_times'][:len(behavior_data['rmse_smooth'])],
-                 behavior_data['rmse_smooth'],
-                 'k')
+        ax2.fill_between(behavior_data['frame_times'][:len(behavior_data['rmse_smooth'])],
+                         behavior_data['rmse_smooth'], y2=0,
+                         color='k')
         tw_ax.set_yticks([])
 
 corr_with_running = np.vstack(corr_with_running)  # flies x gloms
@@ -251,6 +251,8 @@ tw_ax.spines['right'].set_visible(False)
 fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
 fh1.savefig(os.path.join(save_directory, 'repeat_beh_{}_flyonball.svg'.format(PROTOCOL_ID)), transparent=True)
 fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
+
+# %%
 
 
 # %% Summary plots

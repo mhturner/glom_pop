@@ -107,10 +107,6 @@ np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
 np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
 np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
 
-# %%
-unique_parameter_values
-
-
 # %% QC: Number of voxels in each glomerulus. Included vs. excluded gloms sizes
 
 glom_sizes_pd = pd.DataFrame(data=all_glom_sizes.copy(),
@@ -216,7 +212,7 @@ for leaf_ind, g_ind in enumerate(leaves):
                                facecolor=util.get_color_dict().get(name), alpha=0.5, linewidth=0,
                                rasterized=True)
     ax1[leaf_ind].plot(time_concat, mean_concat[g_ind, :],
-                       color=util.get_color_dict().get(name), alpha=1.0, linewidth=1.0)
+                       color=util.get_color_dict().get(name), alpha=1.0, linewidth=2.0)
 
     if (leaf_ind == 0):
         plot_tools.addScaleBars(ax1[leaf_ind], dT=2, dF=0.25, T_value=0, F_value=-0.1)

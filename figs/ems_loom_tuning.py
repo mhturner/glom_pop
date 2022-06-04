@@ -6,8 +6,8 @@ from visanalysis.analysis import imaging_data, shared_analysis
 from glom_pop import dataio, util
 
 
-# PROTOCOL_ID = 'ExpandingMovingSpot'
-PROTOCOL_ID = 'LoomingSpot'
+PROTOCOL_ID = 'ExpandingMovingSpot'
+# PROTOCOL_ID = 'LoomingSpot'
 
 if PROTOCOL_ID == 'ExpandingMovingSpot':
     eg_series = ('2022-04-19', 1)

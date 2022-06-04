@@ -111,42 +111,64 @@ for s_ind, series in enumerate(matching_series):
         r_gain_behavior.append(r_gain_behavior_new)
 
     all_gain_by_trial.append(gain_by_trial)
-
-    if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
-        # Plot eg trials for eg fly
-        eg_trials = np.arange(20, 28)
-        eg_glom_inds = [0, 3, 9, 11]
-        fh0, ax0 = plt.subplots(len(eg_glom_inds), 5, figsize=(4, 3), gridspec_kw={'wspace': 0.025, 'hspace':0.025})
-        for up_ind, up in enumerate(np.arange(1, 6)):  # skip drifting gratings (first param set)
-            concat_trial_response = np.concatenate([trial_response_by_stimulus[up][:, x, :] for x in eg_trials], axis=1)
-            [x.set_ylim([-0.15, 1.1]) for x in ax0.ravel()]
-            [util.clean_axes(x) for x in ax0.ravel()]
-            [x.set_ylim() for x in ax0.ravel()]
-            for g_ind, eg_glom_ind in enumerate(eg_glom_inds):
-                glom = included_gloms[eg_glom_ind]
-                if up_ind == 0:
-                    ax0[g_ind, up_ind].set_ylabel(glom, rotation=0)
-                    if g_ind == 0:
-                        plot_tools.addScaleBars(ax0[g_ind, up_ind], dT=2, dF=0.25, T_value=0, F_value=-0.1)
-                if g_ind == 0:
-                    trial_len = trial_response_by_stimulus[0].shape[2]
-                    concat_len = concat_trial_response.shape[1]
-                    y_val = 1.1
-                    ax0[g_ind, up_ind].plot(np.linspace(trial_len/2,
-                                                        concat_len-trial_len/2,
-                                                        len(eg_trials)),
-                                            y_val * np.ones(len(eg_trials)),
-                                            'rv')
-                ax0[g_ind, up_ind].plot(concat_trial_response[g_ind, :], color=util.get_color_dict()[glom])
-
     print('--------')
 all_cmats = np.stack(all_cmats, axis=-1)  # (glom x glom x stim x fly)
 all_cmats_shuffled = np.stack(all_cmats_shuffled, axis=-1)
 r_gain_behavior = np.stack(r_gain_behavior, axis=-1)  # (gloms x stim x fly)
 all_gain_by_trial = np.stack(all_gain_by_trial, axis=-1)  # (gloms x trial x fly)
 all_beh = np.stack(all_beh, axis=-1)  # (time x fly) for subset of flies with behavior
-fh0.savefig(os.path.join(save_directory, 'pgs_variance_eg_fly.svg'), transparent=True)
 
+# %% # Plot eg trials for eg fly
+eg_fly_ind = 4
+eg_trials = np.arange(12, 20)
+eg_glom_inds = [0, 3, 11]
+
+series = matching_series[eg_fly_ind]
+series_number = series['series']
+file_path = series['file_name'] + '.hdf5'
+file_name = os.path.split(series['file_name'])[-1]
+ID = imaging_data.ImagingDataObject(file_path,
+                                    series_number,
+                                    quiet=True)
+
+# Load response data
+response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
+
+# Align responses
+unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
+
+# Calculate gain for each trial. Gain := response amplitude normalized by median response amplitude to that stim
+parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
+pull_inds = [np.where([pv == up for pv in parameter_values])[0] for up in unique_parameter_values]
+response_amplitude = ID.getResponseAmplitude(epoch_response_matrix, metric='max')  # gloms x trials
+
+stim_inds = [1, 2, 4, 5]  # exclude big spot and d gratings, not much responses
+fh0, ax0 = plt.subplots(len(eg_glom_inds), len(stim_inds), figsize=(5, 2.5), gridspec_kw={'wspace': 0.025, 'hspace':0.025})
+
+for up_ind, up in enumerate(stim_inds):
+    concat_trial_response = np.concatenate([trial_response_by_stimulus[up][:, x, :] for x in eg_trials], axis=1)
+    [x.set_ylim([-0.15, 1.1]) for x in ax0.ravel()]
+    [util.clean_axes(x) for x in ax0.ravel()]
+    [x.set_ylim() for x in ax0.ravel()]
+    for idx, eg_glom_ind in enumerate(eg_glom_inds):
+        glom = included_gloms[eg_glom_ind]
+        if up_ind == 0:
+            ax0[idx, up_ind].set_ylabel(glom, rotation=90)
+            if idx == 0:
+                plot_tools.addScaleBars(ax0[idx, up_ind], dT=2, dF=0.25, T_value=0, F_value=-0.1)
+        if idx == 0:
+            trial_len = trial_response_by_stimulus[0].shape[2]
+            concat_len = concat_trial_response.shape[1]
+            y_val = 1.1
+            ax0[idx, up_ind].plot(np.linspace(trial_len/2,
+                                                concat_len-trial_len/2,
+                                                len(eg_trials)),
+                                    y_val * np.ones(len(eg_trials)),
+                                    'rv')
+        ax0[idx, up_ind].plot(concat_trial_response[eg_glom_ind, :], color=util.get_color_dict()[glom])
+
+fh0.savefig(os.path.join(save_directory, 'pgs_variance_eg_fly.svg'), transparent=True)
 
 
 # %% glom-glom correlation matrix, across all stims
@@ -169,7 +191,7 @@ ax1.tick_params(axis='both', which='major', labelsize=8)
 
 fh1.savefig(os.path.join(save_directory, 'pgs_variance_corrmat.svg'), transparent=True)
 
-fh2, ax2 = plt.subplots(2, 1, figsize=(1, 2), tight_layout=True)
+fh2, ax2 = plt.subplots(2, 1, figsize=(0.9, 2), tight_layout=True)
 sns.heatmap(glom_corr_df,
             ax=ax2[0],
             vmin=0, vmax=+1,
@@ -262,7 +284,7 @@ for f_ind in range(all_gain_by_trial.shape[-1]):
 frac_var_explained = np.stack(frac_var_explained, axis=-1)
 first_loadings = np.stack(first_loadings, axis=-1)
 
-fh3, ax3 = plt.subplots(1, 1, figsize=(1.5, 2))
+fh3, ax3 = plt.subplots(1, 1, figsize=(1.25, 2))
 ax3.spines['top'].set_visible(False)
 ax3.spines['right'].set_visible(False)
 ax3.errorbar(x=np.arange(1, 1+len(included_gloms)),
@@ -270,14 +292,14 @@ ax3.errorbar(x=np.arange(1, 1+len(included_gloms)),
              yerr=np.std(frac_var_explained, axis=-1) / np.sqrt(frac_var_explained.shape[-1]),
              color='k', marker='o')
 ax3.set_ylabel('Frac. var. explained')
-ax3.set_xlabel('Eigenvectors')
+ax3.set_xlabel('PCs')
 
 fh3.savefig(os.path.join(save_directory, 'pgs_variance_pca_fracvar.svg'), transparent=True)
 
 
 # %%
 
-fh4, ax4 = plt.subplots(1, 1, figsize=(2.75, 2))
+fh4, ax4 = plt.subplots(1, 1, figsize=(2.25, 2))
 ax4.spines['top'].set_visible(False)
 ax4.spines['right'].set_visible(False)
 ax4.bar(np.arange(len(included_gloms)), np.mean(first_loadings, axis=1),
@@ -285,7 +307,7 @@ ax4.bar(np.arange(len(included_gloms)), np.mean(first_loadings, axis=1),
 ax4.set_xticks(np.arange(len(included_gloms)))
 ax4.set_xticklabels(included_gloms, rotation=90)
 ax4.set_ylabel('Variance (norm)')
-ax4.set_title('First eigenvector')
+ax4.set_title('First PC')
 
 fh4.savefig(os.path.join(save_directory, 'pgs_variance_pca_glom_pc1.svg'), transparent=True)
 

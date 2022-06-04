@@ -212,6 +212,7 @@ def load_behavior(ID, process_behavior=True):
         # rmse_smooth = savgol_filter(rmse_ds, 21, 1)
         rmse_smooth = savgol_filter(behavior_data['rmse'], 21, 1)
         rmse_ds = resample(rmse_smooth, response_data.get('response').shape[1])
+        rmse_ds = savgol_filter(rmse_ds, 9, 1)
 
 
         # (1) RMS difference, mean per trial

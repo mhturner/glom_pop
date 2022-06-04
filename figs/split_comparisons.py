@@ -34,7 +34,7 @@ glom_mask_2_meanbrain = alignment.filter_glom_mask_by_name(mask=glom_mask_2_mean
 
 fh3, ax3 = plt.subplots(3, 30, figsize=(8, 6))
 [x.set_axis_off() for x in ax3.ravel()]
-[x.set_ylim([-0.1, 0.4]) for x in ax3.ravel()]
+[x.set_ylim([-0.1, 0.5]) for x in ax3.ravel()]
 
 # Response amps: split vs. chat scatter
 fh1, ax1 = plt.subplots(3, 1, figsize=(1.25, 3.5))
@@ -168,8 +168,8 @@ for g_ind, target_glom in enumerate(target_gloms):
         ax3[g_ind, s].plot(roi_data['time_vector'], np.mean(split_responses, axis=0)[s, :], color='k')
         ax3[g_ind, s].plot(roi_data['time_vector'], np.mean(all_chat_responses[chat_glom_ind, ...], axis=-1)[s, :], color=util.get_color_dict()[target_glom])
         if s == 0:
-            if g_ind == 0:
-                plot_tools.addScaleBars(ax3[g_ind, s], dT=2, dF=0.15, T_value=0, F_value=-0.05)
+            if g_ind == 2:
+                plot_tools.addScaleBars(ax3[g_ind, s], dT=2, dF=0.25, T_value=0, F_value=-0.05)
 
     fh0.savefig(os.path.join(save_directory, 'split_images_{}.svg'.format(target_glom)), transparent=True)
 
