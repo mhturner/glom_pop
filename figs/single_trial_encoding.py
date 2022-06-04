@@ -12,9 +12,8 @@ util.config_matplotlib()
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
 
-vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'))
 
-# %% Include all gloms and all flies
+# First include all gloms and all flies
 leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
 included_gloms = dataio.get_included_gloms()
 # sort by dendrogram leaves ordering
@@ -29,7 +28,7 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                           'include_in_analysis': True})
 
 
-# %%
+# %% Full model, all gloms
 
 ste = model.SingleTrialEncoding(data_series=matching_series, included_gloms=included_gloms)
 ste.evaluate_performance(
@@ -55,7 +54,6 @@ for t in range(n_rows):
         peak_point = start_pt + np.argmax(ste.eg_traces[start_trial+t, start_pt:end_pt])
         ax0[t].plot(np.arange(start_pt, end_pt), ste.eg_traces[start_trial+t, start_pt:end_pt], color=ste.colors[g_ind])
         ax0[t].plot(peak_point, ste.eg_traces[start_trial+t, peak_point], 'k.')
-    # ax0[t].set_title(str(ste.eg_stim_identity[start_trial+t]))
     print(str(ste.eg_stim_identity[start_trial+t]))
 
 fh0.savefig(os.path.join(save_directory, 'single_trial_traces.svg'))
@@ -87,7 +85,7 @@ ax1.spines['top'].set_visible(False)
 ax1.spines['right'].set_visible(False)
 
 # Confusion matrix
-fh2, ax2 = plt.subplots(1, 1, figsize=(2., 1.75))
+fh2, ax2 = plt.subplots(1, 1, figsize=(3, 2.5))
 sns.heatmap(mean_cmat, ax=ax2, vmin=0, vmax=1.0,
             cmap='Reds',
             cbar_kws={'label': 'Probability', 'ticks': [0, 0.5, 1.0]})
@@ -206,43 +204,25 @@ ax5[3].set_xlabel('Stimulus identity')
 fh5.supylabel('Performance')
 fh5.savefig(os.path.join(save_directory, 'single_trial_cluster_performance.svg'))
 
-# %% TODO: model performance with trial shuffling
-
-from visanalysis.analysis import imaging_data
-
-series = matching_series[0]
-series_number = series['series']
-file_path = series['file_name'] + '.hdf5'
-ID = imaging_data.ImagingDataObject(file_path,
-                                    series_number,
-                                    quiet=True)
-
-response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
-epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
-
-
-classify_data = ID.getResponseAmplitude(epoch_response_matrix, metric='max')[:, :, np.newaxis]
-tmp_trials = [classify_data[x, :, :] for x in range(classify_data.shape[0])]
-single_trial_responses = np.concatenate(tmp_trials, axis=-1)
-
-parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
-unique_parameter_values = np.unique(np.array(parameter_values, dtype='object'))
-# Encode param sets to integers in order of unique_parameter_values
-# ref: https://stackoverflow.com/questions/38749305/labelencoder-order-of-fit-for-a-pandas-df
-df = pd.DataFrame(data=np.array(parameter_values, dtype='object'), columns=['params'])
-df['encoded'] = df['params'].apply(lambda x: list(unique_parameter_values).index(x))
-
-# Filter trials to only include stims of interest
-#   Exclude last 2 (uniform flash)
-#   Exclude one direction of bidirectional stims
-#   Exclude spot on grating
-keep_stims = np.array([0, 2, 4, 6, 8, 10, 12, 14, 15, 16, 17, 18, 19, 20, 21])
-keep_inds = np.where([x in keep_stims for x in df['encoded'].values])[0]
-
-included_parameter_values = unique_parameter_values[keep_stims]
-
 # %%
 
+
+# %% Compare correlated vs shuffled
+# TODO: iterate over shuffles
+# TODO: measure trial corr before and after shuffle
+
+# FULL MODEL, UNSHUFFLED
+ste = model.SingleTrialEncoding(data_series=matching_series, included_gloms=included_gloms)
+ste.evaluate_performance(
+                         model_type='LogReg',
+                         iterations=100,
+                         pull_eg=1,
+                         classify_on_amplitude=True,
+                         random_state=np.random.RandomState(seed=0),
+                         shuffle_trials=False
+                         )
+
+# SHUFFLED TRIALS
 ste_shuffled = model.SingleTrialEncoding(data_series=matching_series, included_gloms=included_gloms)
 ste_shuffled.evaluate_performance(
                          model_type='LogReg',
@@ -252,41 +232,57 @@ ste_shuffled.evaluate_performance(
                          random_state=np.random.RandomState(seed=0),
                          shuffle_trials=True
                          )
-# %% Compare correlated vs shuffled
-# TODO: iterate over shuffles
-# TODO: measure trial corr before and after shuffle
+#  %% Shuffle analysis, plotting...
 
+# Overall performance (mean across all stims), for each fly
+fh0, ax0 = plt.subplots(1, 1, figsize=(2, 2))
+ax0.spines['top'].set_visible(False)
+ax0.spines['right'].set_visible(False)
+fly_mean_intact = np.mean(ste.performance, axis=1)  # mean across all stims. shape = n flies
+fly_mean_shuffle = np.mean(ste_shuffled.performance, axis=1)
+ax0.plot(fly_mean_intact, fly_mean_shuffle, 'k.', alpha=0.5) # each pt is fly
+ax0.errorbar(x=np.mean(fly_mean_intact), y=np.mean(fly_mean_shuffle),
+             xerr=np.std(fly_mean_intact)/np.sqrt(fly_mean_intact.shape[0]),
+             yerr=np.std(fly_mean_shuffle)/np.sqrt(fly_mean_shuffle.shape[0]), color='k', marker='o')
+ax0.plot([0, 0.55], [0, 0.55], 'k--')
+ax0.set_xlabel('Performance, unshuffled')
+ax0.set_ylabel('Performance, shuffled')
+
+fh0.savefig(os.path.join(save_directory, 'single_trial_shuffle_flies.svg'))
+# %%
+
+
+# Performance, by stim type
 col_names = [str(x) for x in ste.included_parameter_values]
-mean_cmat = pd.DataFrame(data=ste.cmats.mean(axis=-1), index=col_names, columns=col_names)
+mean_intact = np.mean(ste.performance, axis=0)
+err_intact = np.std(ste.performance, axis=0) / np.sqrt(ste.performance.shape[0])
 
-mean_diag = np.mean(ste.performance, axis=0)
-err_diag = np.std(ste.performance, axis=0) / np.sqrt(ste.performance.shape[0])
+mean_shuffle= np.mean(ste_shuffled.performance, axis=0)
+err_shuffle = np.std(ste_shuffled.performance, axis=0) / np.sqrt(ste_shuffled.performance.shape[0])
 
 # Performance per stim type
-fh1, ax1 = plt.subplots(1, 1, figsize=(4, 2.5))
-ax1.plot(col_names, mean_diag, 'ko')
+fh1, ax1 = plt.subplots(1, 1, figsize=(3.5, 2.5))
+ax1.plot(col_names, mean_intact, 'ko', label='Unshuffled')
 for d_ind in range(len(col_names)):
-    ax1.plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]], 'k-')
+    ax1.plot([d_ind, d_ind], [mean_intact[d_ind]-err_intact[d_ind], mean_intact[d_ind]+err_intact[d_ind]], 'k-')
 
-# SHUFFLED
-col_names = [str(x) for x in ste_shuffled.included_parameter_values]
-mean_cmat = pd.DataFrame(data=ste_shuffled.cmats.mean(axis=-1), index=col_names, columns=col_names)
-mean_diag = np.mean(ste_shuffled.performance, axis=0)
-err_diag = np.std(ste_shuffled.performance, axis=0) / np.sqrt(ste_shuffled.performance.shape[0])
-ax1.plot(col_names, mean_diag, 'ro')
+ax1.plot(col_names, mean_shuffle, 'ro', label='Shuffled')
 for d_ind in range(len(col_names)):
-    ax1.plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]], 'r-')
+    ax1.plot([d_ind, d_ind], [mean_shuffle[d_ind]-err_shuffle[d_ind], mean_shuffle[d_ind]+err_shuffle[d_ind]], 'r-')
 
 ax1.plot([0, len(ste.classifier_model.classes_)], [1/len(ste.classifier_model.classes_), 1/len(ste.classifier_model.classes_)], 'k--')
 ax1.set_xticks([])
 ax1.set_ylim([-0.1, 1.1])
 ax1.set_ylabel('Performance')
 ax1.set_xlabel('Stimulus identity')
-# ax1.tick_params(axis='y', labelsize=11)
-# ax1.tick_params(axis='x', labelsize=11, rotation=90)
 
 ax1.spines['top'].set_visible(False)
 ax1.spines['right'].set_visible(False)
+
+fh1.legend()
+
+fh1.savefig(os.path.join(save_directory, 'single_trial_shuffle_stims.svg'))
+
 
 
 # %%

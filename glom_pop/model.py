@@ -154,17 +154,7 @@ class SingleTrialEncoding():
             X = single_trial_responses[keep_inds, :]
             y = df['encoded'].values[keep_inds]
 
-            if shuffle_trials:
-                assert classify_on_amplitude, 'shuffle_trials only implemented for amplitude classification'
-                for stim_ind, stim in enumerate(np.unique(y)):
-                    matching_inds = np.where(y == stim)[0]
-                    subset = X[matching_inds, :]
-                    c_pre = np.nanmean(np.corrcoef(subset.T))
 
-                    idx = np.random.rand(*subset.shape).argsort(0)
-                    shuffled = subset[idx, np.arange(subset.shape[1])]
-                    X[matching_inds, :] = shuffled
-                    c_shuffle = np.nanmean(np.corrcoef(shuffled.T))
 
             if model_type == 'LogReg':
                 classifier_model = LogisticRegression(multi_class='multinomial', solver='lbfgs', fit_intercept=False)
@@ -178,6 +168,18 @@ class SingleTrialEncoding():
             y_test_all = []
             y_hat_all = []
             for it in range(iterations):
+                if shuffle_trials:
+                    assert classify_on_amplitude, 'shuffle_trials only implemented for amplitude classification'
+                    for stim_ind, stim in enumerate(np.unique(y)):
+                        matching_inds = np.where(y == stim)[0]
+                        subset = X[matching_inds, :]
+                        c_pre = np.nanmean(np.corrcoef(subset.T))
+
+                        idx = np.random.rand(*subset.shape).argsort(0)
+                        shuffled = subset[idx, np.arange(subset.shape[1])]
+                        X[matching_inds, :] = shuffled
+                        c_shuffle = np.nanmean(np.corrcoef(shuffled.T))
+
                 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10, random_state=random_state)
 
                 classifier_model.fit(X_train, y_train)
