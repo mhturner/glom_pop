@@ -5,50 +5,30 @@ from visanalysis.analysis import imaging_data, shared_analysis
 from scipy.signal import resample, savgol_filter
 from scipy.stats import ttest_1samp, ttest_rel
 from visanalysis.util import plot_tools
-# from skimage import filters
 import pandas as pd
 import glob
+import seaborn as sns
 
 from glom_pop import dataio, util, fictrac
 
 
 PROTOCOL_ID = 'ExpandingMovingSpot'
-# PROTOCOL_ID = 'LoomingSpot'
-
 
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
 data_directory = os.path.join(sync_dir, 'datafiles')
+ft_dir = os.path.join(sync_dir, 'behavior_tracking')
 
-if PROTOCOL_ID == 'ExpandingMovingSpot':
-    eg_series = ('2022-04-12', 1)  # ('2022-04-12', 1): good, punctuated movement bouts
-    target_series_metadata = {'protocol_ID': PROTOCOL_ID,
-                              'include_in_analysis': True,
-                              'diameter': 15.0,
-                              }
-    y_min = -0.15
-    y_max = 0.80
-    eg_trials = np.arange(30, 50)
+eg_series = ('2022-04-12', 1)  # ('2022-04-12', 1): good, punctuated movement bouts
+target_series_metadata = {'protocol_ID': PROTOCOL_ID,
+                          'include_in_analysis': True,
+                          'diameter': 15.0,
+                          }
+y_min = -0.15
+y_max = 0.80
+eg_trials = np.arange(30, 50)
 
-    included_gloms = ['LC11', 'LC21', 'LC18', 'LC6', 'LC26', 'LC17', 'LC12', 'LC15']
-
-
-elif PROTOCOL_ID == 'LoomingSpot':
-    # eg_series = ('2022-04-12', 6)  # ('2022-04-12', 2)
-    eg_series = ('2022-04-26', 5)  # ('2022-04-12', 2)
-    target_series_metadata = {'protocol_ID': PROTOCOL_ID,
-                              'include_in_analysis': True,
-                              'rv_ratio': 100.0,
-                              'center': [0, 0],
-                              }
-    y_min = -0.05
-    y_max = 0.35
-    eg_trials = np.arange(25, 45)
-    leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
-    included_gloms = dataio.get_included_gloms()
-    # sort by dendrogram leaves ordering
-    included_gloms = np.array(included_gloms)[leaves]
-
+included_gloms = ['LC11', 'LC21', 'LC18', 'LC6', 'LC26', 'LC17', 'LC12', 'LC15']
 
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
@@ -59,60 +39,8 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                   target_series_metadata=target_series_metadata,
                                                   target_groups=['aligned_response', 'behavior'])
 
-# %% Fictrac data analyze
-series_number = 1
-file_path = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/sync/datafiles/2022-04-12.hdf5'
-file_name = os.path.split(series['file_name'])[-1]
-ID = imaging_data.ImagingDataObject(file_path,
-                                    series_number,
-                                    quiet=True)
-
-# Get behavior data
-behavior_data = dataio.load_behavior(ID, process_behavior=True)
-
-# FT data:
-ft_dir = '/Users/mhturner/Desktop/'
-dir = os.path.join(ft_dir, 'series001')
-filename = os.path.split(glob.glob(os.path.join(dir, '*.dat'))[0])[-1]
-
-ft_data = pd.read_csv(os.path.join(dir, filename), header=None)
-sphere_radius = 4.5e-3 # in m
-fps = 50  # hz
-
-frame = ft_data.iloc[:, 0]
-xrot = ft_data.iloc[:, 5]
-yrot = ft_data.iloc[:, 6] * sphere_radius * fps * 1000 # fwd --> in mm/sec
-zrot = ft_data.iloc[:, 7]  * 180 / np.pi * fps # rot  --> deg/sec
-
-heading = ft_data.iloc[:, 16]
-direction = ft_data.iloc[:, 16] + ft_data.iloc[:, 17]
-
-speed = ft_data.iloc[:, 18]
-
-x_loc = ft_data.iloc[:, 14]
-y_loc = ft_data.iloc[:, 15]
-
-plt.plot(x_loc, y_loc)
 
 # %%
-xrot_filt = savgol_filter(xrot, 41, 3)
-yrot_filt = savgol_filter(yrot, 41, 3)
-zrot_filt = savgol_filter(zrot, 41, 3)
-
-timestamps = 1/50 * np.arange(0, len(frame))
-fh, ax = plt.subplots(3, 1, figsize=(16, 8))
-ax[0].plot(timestamps, yrot_filt, 'k')
-ax[1].plot(timestamps, zrot_filt, 'b')
-
-
-ax[2].plot(timestamps[:-1], behavior_data.get('rmse'), 'r')
-
-[x.set_xlim([100, 200]) for x in ax]
-
-# plt.hist(zrot_filt, 100)
-
-# %%
-
 for series in matching_series:
     series_number = series['series']
     file_path = series['file_name'] + '.hdf5'
@@ -121,28 +49,12 @@ for series in matching_series:
 
 
 # %%
-# eg fly figs...
-# fh0: snippet of movement and glom response traces
-fh0, ax0 = plt.subplots(2+len(included_gloms), 1, figsize=(5.5, 3))
-[x.set_ylim([y_min, y_max]) for x in ax0.ravel()]
-[util.clean_axes(x) for x in ax0.ravel()]
-[x.set_ylim() for x in ax0.ravel()]
-
-# fh1: image of fly on ball
-fh1, ax1 = plt.subplots(1, 1, figsize=(1.5, 1.25))
-ax1.set_axis_off()
-ax1.set_xlim([60, 300])
-ax1.set_ylim([200, 0])
-
-# fh2: overall movement trace, with threshold and classification shading
-fh2, ax2 = plt.subplots(1, 1, figsize=(3.5, 1.25))
-ax2.set_xlabel('Time (s)')
-ax2.set_ylabel('RMS image \ndifference (a.u.)')
 
 corr_with_running = []
 
 response_amps = []
 running_amps = []
+turning_amps = []
 all_behaving = []
 
 for s_ind, series in enumerate(matching_series):
@@ -168,6 +80,24 @@ for s_ind, series in enumerate(matching_series):
     new_beh_corr = np.array([np.corrcoef(behavior_data.get('running_amp'), response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
     corr_with_running.append(new_beh_corr)
 
+    # Fictrac analysis:
+    fps = 50  # Hz
+    ft_data = pd.read_csv(glob.glob(os.path.join(ft_dir,
+                                                 file_name.replace('-',''),
+                                                 'series{}'.format(str(series_number).zfill(3)),
+                                                 '*.dat'))[0], header=None)
+
+    frame = ft_data.iloc[:, 0]
+    zrot = ft_data.iloc[:, 7]  * 180 / np.pi * fps # rot  --> deg/sec
+    zrot_filt = savgol_filter(zrot, 41, 3)
+
+    zrot_ds = resample(zrot_filt, response_data.get('response').shape[1])
+    _, turning_response_matrix = ID.getEpochResponseMatrix(zrot_ds[np.newaxis, :],
+                                                           dff=False)
+
+    turning_amp = ID.getResponseAmplitude(turning_response_matrix, metric='mean')
+    turning_amps.append(turning_amp)
+
     # QC: check thresholding
     # fh, ax = plt.subplots(1, 2, figsize=(8, 4))
     # ax[0].plot(rmse_ds)
@@ -177,25 +107,15 @@ for s_ind, series in enumerate(matching_series):
     # ax[0].set_title('{}: {}'.format(file_name, series_number))
 
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
-        # # FT data:
-        # ft_dir = '/Users/mhturner/Desktop/'
-        # ft_data = pd.read_csv(glob.glob(os.path.join(ft_dir, 'series001', '*.dat'))[0], header=None)
-        #
-        # frame = ft_data.iloc[:, 0]
-        # heading = ft_data.iloc[:, 16]
-        # direction = ft_data.iloc[:, 16] + ft_data.iloc[:, 17]
-        # speed = ft_data.iloc[:, 18]
-        #
-        # direction = np.mod(direction, 2*np.pi)
-        # fh, ax = plt.subplots(2, 2, figsize=(16, 8))
-        # ax[0, 0].plot(frame, speed, 'b')
-        # ax[0, 1].plot(frame, direction, 'k')
-        #
-        # ax[1, 0].plot(behavior_data.get('rmse'), 'b')
+        # fh0: snippet of movement and glom response traces
+        fh0, ax0 = plt.subplots(3+len(included_gloms), 1, figsize=(5.5, 3.35))
+        [x.set_ylim([y_min, y_max]) for x in ax0.ravel()]
+        [util.clean_axes(x) for x in ax0.ravel()]
+        [x.set_ylim() for x in ax0.ravel()]
 
-        #
         concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in eg_trials], axis=1)
         concat_running = np.concatenate([behavior_data.get('running_response_matrix')[:, x, :] for x in eg_trials], axis=1)
+        concat_turning = np.concatenate([turning_response_matrix[:, x, :] for x in eg_trials], axis=1)
         concat_behaving = np.concatenate([behavior_data.get('behavior_binary_matrix')[:, x, :] for x in eg_trials], axis=1)
         concat_time = np.arange(0, concat_running.shape[1]) * ID.getAcquisitionMetadata('sample_period')
 
@@ -211,49 +131,96 @@ for s_ind, series in enumerate(matching_series):
                     'rv', markersize=4)
         ax0[0].set_ylim([0.25, 0.75])
         ax0[0].plot(concat_time, np.zeros_like(concat_time), color='w')
-        ax0[0].set_ylabel('Stim', rotation=0)
+        # ax0[0].set_ylabel('Stim', rotation=0)
 
         ax0[1].plot(concat_time, concat_running[0, :], color='k')
         ax0[1].set_ylim([concat_running.min(), concat_running.max()])
         ax0[1].set_ylabel('Movement', rotation=0)
 
+        ax0[2].plot(concat_time, concat_turning[0, :], color='k')
+        ax0[2].set_ylim([concat_turning.min(), concat_turning.max()])
+        ax0[2].set_ylabel('Rot.', rotation=0)
+        plot_tools.addScaleBars(ax0[2], dT=4, dF=200, T_value=-2, F_value=-100)
+
         for g_ind, glom in enumerate(included_gloms):
-            ax0[2+g_ind].set_ylabel(glom, rotation=0)
-            ax0[2+g_ind].fill_between(concat_time, concat_behaving[0, :], color='k', alpha=0.25, linewidth=0)
-            ax0[2+g_ind].plot(concat_time, concat_response[g_ind, :], color=util.get_color_dict()[glom])
-            ax0[2+g_ind].set_ylim([concat_response.min(), concat_response.max()])
+            ax0[3+g_ind].set_ylabel(glom, rotation=0)
+            ax0[3+g_ind].fill_between(concat_time, concat_behaving[0, :], color='k', alpha=0.25, linewidth=0)
+            ax0[3+g_ind].plot(concat_time, concat_response[g_ind, :], color=util.get_color_dict()[glom])
+            ax0[3+g_ind].set_ylim([concat_response.min(), concat_response.max()])
             if g_ind == 0:
-                plot_tools.addScaleBars(ax0[2+g_ind], dT=4, dF=0.25, T_value=-1, F_value=-0.1)
+                plot_tools.addScaleBars(ax0[3+g_ind], dT=4, dF=0.25, T_value=-1, F_value=-0.1)
 
-        # Image of fly on ball:
-        ax1.imshow(behavior_data['frame'], cmap='Greys_r')
+        # fh2: overall movement trace, with threshold and classification shading
+        fh2, ax2 = plt.subplots(2, 1, figsize=(4.5, 2))
 
-        # Fly movement traj with thresh and binary shading
-        tw_ax = ax2.twinx()
+        ax2[0].set_ylabel('RMS image \ndiff. (a.u.)')
+
+        tw_ax = ax2[0].twinx()
         tw_ax.fill_between(behavior_data['frame_times'][:len(behavior_data['binary_behavior'])],
                            behavior_data['binary_behavior'],
                            color=[0.5, 0.5, 0.5], alpha=0.5, linewidth=0.0)
-        ax2.axhline(behavior_data['binary_thresh'], color='r')
-        ax2.fill_between(behavior_data['frame_times'][:len(behavior_data['rmse_smooth'])],
+        ax2[0].axhline(behavior_data['binary_thresh'], color='r')
+        ax2[0].fill_between(behavior_data['frame_times'][:len(behavior_data['rmse_smooth'])],
                          behavior_data['rmse_smooth'], y2=0,
                          color='k')
         tw_ax.set_yticks([])
 
+        behavior_data['rmse_smooth'].shape
+        behavior_data['frame_times'].shape
+        zrot_filt.shape
+
+
+        ax2[1].plot(behavior_data['frame_times'][:zrot_filt.shape[0]], zrot_filt, color='k')
+        ax2[1].set_ylabel('Rot.\n($\degree$/sec)')
+        ax2[1].set_xlabel('Time (s)')
+        ax2[1].set_ylim([-250, 250])
+        ax2[1].set_yticks([-200, 0, 200])
+        ax2[0].set_xticks([])
+
 corr_with_running = np.vstack(corr_with_running)  # flies x gloms
 running_amps = np.vstack(running_amps)  # flies x trials
+turning_amps = np.vstack(turning_amps)  # flies x trials
 response_amps = np.dstack(response_amps)  # gloms x trials x flies
 
-ax2.spines['top'].set_visible(False)
-ax2.spines['right'].set_visible(False)
+[x.spines['top'].set_visible(False) for x in ax2]
+[x.spines['right'].set_visible(False) for x in ax2]
 tw_ax.spines['top'].set_visible(False)
 tw_ax.spines['right'].set_visible(False)
 
 fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
-fh1.savefig(os.path.join(save_directory, 'repeat_beh_{}_flyonball.svg'.format(PROTOCOL_ID)), transparent=True)
 fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
 
-# %%
+# %% Corr w turning
+trial_gain = response_amps / np.nanmean(response_amps, axis=1)[:, np.newaxis, :]
 
+rows = [0, 0, 0, 1, 1, 2, 2, 2]
+cols = [0, 1, 2, 0, 1, 0, 1, 2]
+fh, ax = plt.subplots(3, 3, figsize=(5, 4))
+[x.set_xlim([-150, 150]) for x in ax.ravel()]
+[x.set_ylim([0, 3.8]) for x in ax.ravel()]
+[x.spines['top'].set_visible(False) for x in ax.ravel()]
+[x.spines['right'].set_visible(False) for x in ax.ravel()]
+[x.set_axis_off() for x in ax.ravel()]
+[x.set_xticks([-100, 0, 100]) for x in ax.ravel()]
+[x.set_yticks([0, 1, 2, 3]) for x in ax.ravel()]
+for g_ind, glom in enumerate(included_gloms):
+    ax[rows[g_ind], cols[g_ind]].set_axis_on()
+    ax[rows[g_ind], cols[g_ind]].annotate(glom, (-140, 3))
+    ax[rows[g_ind], cols[g_ind]].axvline(x=0, color='k', alpha=0.5)
+    ax[rows[g_ind], cols[g_ind]].axhline(y=1, color='k', alpha=0.5)
+    ax[rows[g_ind], cols[g_ind]].scatter(turning_amps[:, :].ravel(), trial_gain[g_ind, :, :].T.ravel(),
+                      color=util.get_color_dict()[glom], marker='.')
+
+    if g_ind == 5:
+        pass
+    else:
+        ax[rows[g_ind], cols[g_ind]].set_xticklabels([])
+        ax[rows[g_ind], cols[g_ind]].set_yticklabels([])
+
+fh.supylabel('Trial gain (norm.)')
+fh.supxlabel('Trial average rotation ($\degree$/sec)')
+
+fh.savefig(os.path.join(save_directory, 'repeat_beh_{}_rotation_summary.svg'.format(PROTOCOL_ID)), transparent=True)
 
 # %% Summary plots
 
@@ -288,58 +255,7 @@ ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 ax2.spines['left'].set_visible(False)
 
-# put diff clusters in rows...
-rows = [0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3]
-cols = [0, 1, 2, 0, 1, 2, 3, 0, 1, 2, 0, 1, 2]
-fh4, ax4 = plt.subplots(4, 4, figsize=(4, 3.5))
-[x.set_axis_off() for x in ax4.ravel()]
-
-p_vals = []
-for g_ind, glom in enumerate(included_gloms):
-    beh = [np.nanmean(response_amps[g_ind, all_behaving[x], x]) for x in range(response_amps.shape[2])]
-    nonbeh = [np.nanmean(response_amps[g_ind, np.logical_not(all_behaving[x]), x]) for x in range(response_amps.shape[2])]
-
-    h, p = ttest_rel(beh, nonbeh, nan_policy='omit')
-    p_vals.append(p)
-
-    mean_beh = np.nanmean(beh)
-    err_beh = np.nanstd(beh) / np.sqrt(len(beh))
-    err_beh = np.nanstd(beh)
-
-    mean_nonbeh = np.nanmean(nonbeh)
-    err_nonbeh = np.nanstd(nonbeh) / np.sqrt(len(nonbeh))
-    err_nonbeh = np.nanstd(nonbeh)
-
-    ax4[rows[g_ind], cols[g_ind]].plot([0, 0.55], [0, 0.55], 'k-', alpha=0.5)
-    ax4[rows[g_ind], cols[g_ind]].plot(beh, nonbeh, color='k', alpha=0.5, marker='.', linestyle='none')
-    ax4[rows[g_ind], cols[g_ind]].plot(mean_beh, mean_nonbeh,
-                                       color=util.get_color_dict()[glom], marker='o', label=glom)
-
-    ax4[rows[g_ind], cols[g_ind]].plot([mean_beh-err_beh, mean_beh+err_beh],
-                                       [mean_nonbeh, mean_nonbeh],
-                                       color=util.get_color_dict()[glom], linestyle='-')
-    ax4[rows[g_ind], cols[g_ind]].plot([mean_beh, mean_beh],
-                                       [mean_nonbeh-err_nonbeh, mean_nonbeh+err_nonbeh],
-                                       color=util.get_color_dict()[glom], linestyle='-')
-
-    ax4[rows[g_ind], cols[g_ind]].set_axis_on()
-    ax4[rows[g_ind], cols[g_ind]].spines['top'].set_visible(False)
-    ax4[rows[g_ind], cols[g_ind]].spines['right'].set_visible(False)
-    ax4[rows[g_ind], cols[g_ind]].set_xticks([])
-    ax4[rows[g_ind], cols[g_ind]].set_yticks([])
-
-    if p < (0.05 / len(included_gloms)):
-        ax4[rows[g_ind], cols[g_ind]].annotate('*', (0, 0.45), fontsize=12)
-
-fh4.suptitle('Mean response amplitude (dF/F)')
-fh4.supxlabel('Behaving')
-fh4.supylabel('Not behaving')
-ax4[3, 0].set_xticks([0, 0.5])
-ax4[3, 0].set_yticks([0, 0.5])
-
 fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
-fh4.savefig(os.path.join(save_directory, 'repeat_beh_{}_binary.svg'.format(PROTOCOL_ID)), transparent=True)
-# %% Temporal relationship between behavior and response gain modulation...
 # %% (1) Response-weighted behavior
 window_size = 16  # sec
 
