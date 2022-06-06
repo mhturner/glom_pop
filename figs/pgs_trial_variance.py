@@ -7,6 +7,7 @@ import seaborn as sns
 from visanalysis.util import plot_tools
 from sklearn.metrics import explained_variance_score
 from scipy.optimize import least_squares
+from scipy.stats import pearsonr, zscore
 
 from glom_pop import dataio, util, model
 
@@ -217,8 +218,7 @@ ax2[1].set_title('Trial shuffled')
 fh2.savefig(os.path.join(save_directory, 'pgs_variance_cmatvsshuffle.svg'), transparent=True)
 
 # %% For flies w behavior tracking: corr between gain & behavior, for each stim and glom
-unique_parameter_values
-print(unique_parameter_values)
+
 df = pd.DataFrame(data=np.nanmean(r_gain_behavior, axis=-1),
                   index=included_gloms, columns=[str(s) for s in unique_parameter_values])
 
@@ -235,6 +235,8 @@ fh2.savefig(os.path.join(save_directory, 'pgs_variance_behcorr.svg'), transparen
 
 
 # %% Covariance analysis
+
+fh4, ax4 = plt.subplots(len(has_beh_inds), 1, figsize=(12, 6))
 
 def getPCs(data_matrix):
     """
@@ -259,30 +261,41 @@ def getPCs(data_matrix):
     return results_dict
 
 first_loadings = []
+first_pcs = []
 frac_var_explained = []
-for f_ind in range(all_gain_by_trial.shape[-1]):
+corr_vals = []
+z_beh = []
+z_proj = []
+for b_ind, f_ind in enumerate(has_beh_inds):
     gain_by_trial = all_gain_by_trial[..., f_ind]
-    if np.any(np.isnan(gain_by_trial)):
-        pass
-    else:
-        results_dict = getPCs(np.nan_to_num(gain_by_trial))
+    results_dict = getPCs(np.nan_to_num(gain_by_trial))
 
-        frac_var_explained.append(results_dict['frac_var'])
-        loadings = results_dict['eigenvalues'] * results_dict['eigenvectors']
-        # Note first pc scaled by variance in that direction
-        first_loadings.append(loadings[:, 0])
+    frac_var_explained.append(results_dict['frac_var'])
+    loadings = results_dict['eigenvalues'] * results_dict['eigenvectors']
+    # Note first pc scaled by variance in that direction
+    first_loadings.append(loadings[:, 0])
+    first_pcs.append(results_dict['eigenvectors'][:, 0])
 
-        if f_ind in has_beh_inds:
-            b_ind = np.where(f_ind == np.array(has_beh_inds))[0][0]
-            new_beh = all_beh[:, b_ind]
-            corr = []
-            for pc in range(results_dict['eigenvectors'].shape[-1]):
-                pc = results_dict['eigenvectors'][:, pc]
-                proj = np.dot(pc, gain_by_trial)
+    new_beh = all_beh[:, b_ind]
+    pc = results_dict['eigenvectors'][:, 0]
+    ax4[b_ind].bar(np.arange(len(included_gloms)), pc, color='k')
 
+    # some LC17 are excluded. Don't use this glom for projection...
+    nan_rows = np.any(np.isnan(gain_by_trial), axis=1)
+    proj = np.dot(pc[~nan_rows], gain_by_trial[~nan_rows, :])
+    ax4[b_ind].plot(new_beh, 'k')
+    twax = ax4[b_ind].twinx()
+    twax.plot(proj, 'b')
+    corr = np.corrcoef(new_beh, proj)[0, 1]
+    corr_vals.append(corr)
+    z_beh.append(zscore(new_beh))
+    z_proj.append(zscore(proj))
 
 frac_var_explained = np.stack(frac_var_explained, axis=-1)
 first_loadings = np.stack(first_loadings, axis=-1)
+avg_first_pc = np.nanmean(np.stack(first_pcs, axis=-1), axis=-1)
+z_beh = np.stack(z_beh, axis=-1)
+z_proj = np.stack(z_proj, axis=-1)
 
 fh3, ax3 = plt.subplots(1, 1, figsize=(1.25, 2))
 ax3.spines['top'].set_visible(False)
@@ -296,7 +309,33 @@ ax3.set_xlabel('PCs')
 
 fh3.savefig(os.path.join(save_directory, 'pgs_variance_pca_fracvar.svg'), transparent=True)
 
+# %%
 
+fh5, ax5 = plt.subplots(1, len(has_beh_inds), figsize=(8, 1))
+
+[x.spines['top'].set_visible(False) for x in ax5.ravel()]
+[x.spines['right'].set_visible(False) for x in ax5.ravel()]
+
+[x.set_xlim([1.1*np.nanmin(z_beh), 1.1*np.nanmax(z_beh)]) for x in ax5.ravel()]
+[x.set_ylim([1.1*np.nanmin(z_proj), 1.1*np.nanmax(z_proj)]) for x in ax5.ravel()]
+for b_ind in range(len(has_beh_inds)):
+    ax5[b_ind].axhline(y=0, color='k', alpha=0.5)
+    ax5[b_ind].axvline(x=0, color='k', alpha=0.5)
+    ax5[b_ind].plot(z_beh[:, b_ind], z_proj[:, b_ind], 'k.')
+    r, p = pearsonr(z_beh[:, b_ind], z_proj[:, b_ind])
+    ax5[b_ind].set_title('r = {:.2f}'.format(r))
+
+[x.set_xticks([-2, 0, 2, 4]) for x in ax5]
+[x.set_yticks([-2, 0, 2, 4]) for x in ax5]
+[x.set_xticklabels([]) for x in ax5[1:]]
+[x.set_yticklabels([]) for x in ax5[1:]]
+
+fh5.supxlabel('Behavior amplitude (z-score)')
+fh5.supylabel('Shared gain \nfactor (z-score)', ha='center')
+
+fh5.savefig(os.path.join(save_directory, 'pgs_variance_pc_beh_corr.svg'), transparent=True)
+
+np.mean(corr_vals)
 # %%
 
 fh4, ax4 = plt.subplots(1, 1, figsize=(2.25, 2))
@@ -310,5 +349,6 @@ ax4.set_ylabel('Variance (norm)')
 ax4.set_title('First PC')
 
 fh4.savefig(os.path.join(save_directory, 'pgs_variance_pca_glom_pc1.svg'), transparent=True)
+
 
 # %%

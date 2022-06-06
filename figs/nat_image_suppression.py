@@ -138,6 +138,7 @@ fh1.suptitle('Background speed ($\degree$/s)')
 fh1.savefig(os.path.join(save_directory, 'natimage_egfly_{}.svg'.format(included_gloms[eg_glom_ind])), transparent=True)
 
 # %% heatmaps for all gloms
+np.nanmax(np.nanmean(all_resp_mat, axis=-1).ravel())
 rows = [0, 0, 0, 1, 1, 2, 2, 2]
 cols = [0, 1, 2, 0, 1, 0, 1, 2]
 fh2, ax2 = plt.subplots(3, 3, figsize=(2.5, 3.5), tight_layout=True)
@@ -164,7 +165,7 @@ for g_ind, glom in enumerate(included_gloms):
         cbar=False
     sns.heatmap(df.T, ax=ax2[rows[g_ind], cols[g_ind]],
                 xticklabels=xticklabels, yticklabels=yticklabels,
-                vmin=0, vmax=0.35, cbar=cbar, cbar_ax=cbar_ax, cbar_kws=cbar_kws,
+                vmin=0, vmax=0.45, cbar=cbar, cbar_ax=cbar_ax, cbar_kws=cbar_kws,
                 rasterized=True, cmap='viridis')
     ax2[rows[g_ind], cols[g_ind]].set_title(glom, color=util.get_color_dict()[glom], fontsize=10, fontweight='bold')
 
