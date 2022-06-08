@@ -3,11 +3,11 @@ import os
 import matplotlib.pyplot as plt
 from visanalysis.analysis import imaging_data, shared_analysis
 from scipy.signal import resample, savgol_filter
-from scipy.stats import ttest_1samp, ttest_rel
+from scipy.stats import ttest_1samp
 from visanalysis.util import plot_tools
 import pandas as pd
 import glob
-import seaborn as sns
+from skimage import filters
 
 from glom_pop import dataio, util, fictrac
 
@@ -53,8 +53,8 @@ for series in matching_series:
 corr_with_running = []
 
 response_amps = []
-running_amps = []
-turning_amps = []
+# running_amps = []
+walking_amps = []
 all_behaving = []
 
 for s_ind, series in enumerate(matching_series):
@@ -65,38 +65,56 @@ for s_ind, series in enumerate(matching_series):
                                         series_number,
                                         quiet=True)
 
-    # Get behavior data
-    behavior_data = dataio.load_behavior(ID, process_behavior=True)
-
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
     epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
     response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
 
-    running_amps.append(behavior_data.get('running_amp'))
-    response_amps.append(response_amp)
-    all_behaving.append(behavior_data.get('behaving'))
-
-    new_beh_corr = np.array([np.corrcoef(behavior_data.get('running_amp'), response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
-    corr_with_running.append(new_beh_corr)
-
     # Fictrac analysis:
     fps = 50  # Hz
     ft_data = pd.read_csv(glob.glob(os.path.join(ft_dir,
-                                                 file_name.replace('-',''),
+                                                 file_name.replace('-', ''),
                                                  'series{}'.format(str(series_number).zfill(3)),
                                                  '*.dat'))[0], header=None)
 
     frame = ft_data.iloc[:, 0]
-    zrot = ft_data.iloc[:, 7]  * 180 / np.pi * fps # rot  --> deg/sec
-    zrot_filt = savgol_filter(zrot, 41, 3)
+    xrot = ft_data.iloc[:, 5] * 180 / np.pi * fps  # rot  --> deg/sec
+    yrot = ft_data.iloc[:, 6] * 180 / np.pi * fps  # rot  --> deg/sec
+    zrot = ft_data.iloc[:, 7] * 180 / np.pi * fps  # rot  --> deg/sec
 
-    zrot_ds = resample(zrot_filt, response_data.get('response').shape[1])
-    _, turning_response_matrix = ID.getEpochResponseMatrix(zrot_ds[np.newaxis, :],
+    xrot_filt = savgol_filter(xrot, 51, 3)
+    yrot_filt = savgol_filter(yrot, 51, 3)
+    zrot_filt = savgol_filter(zrot, 51, 3)
+
+    walking_amp = np.sqrt(xrot_filt**2 + yrot_filt**2 + zrot_filt**2)
+    walking_amp_ds = resample(walking_amp, response_data.get('response').shape[1])
+    walking_amp_ds = savgol_filter(walking_amp_ds, 9, 3)
+    thresh = filters.threshold_li(walking_amp_ds)
+    binary_behavior_ds = (walking_amp_ds > thresh).astype('int')
+    _, behavior_binary_matrix = ID.getEpochResponseMatrix(binary_behavior_ds[np.newaxis, :],
+                                                          dff=False)
+    #
+    # zrot_ds = resample(zrot_filt, response_data.get('response').shape[1])
+    _, walking_response_matrix = ID.getEpochResponseMatrix(walking_amp_ds[np.newaxis, :],
                                                            dff=False)
 
-    turning_amp = ID.getResponseAmplitude(turning_response_matrix, metric='mean')
-    turning_amps.append(turning_amp)
+    walking_amp = ID.getResponseAmplitude(walking_response_matrix, metric='mean')
+    walking_amps.append(walking_amp)
+    #
+    # # Get behavior data
+    # behavior_data = dataio.load_behavior(ID, process_behavior=True)
+
+
+
+    # running_amps.append(behavior_data.get('running_amp'))
+    response_amps.append(response_amp)
+    # all_behaving.append(behavior_data.get('behaving'))
+
+    # new_beh_corr = np.array([np.corrcoef(behavior_data.get('running_amp'), response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
+    new_beh_corr = np.array([np.corrcoef(walking_amp, response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
+    corr_with_running.append(new_beh_corr)
+
+
 
     # QC: check thresholding
     # fh, ax = plt.subplots(1, 2, figsize=(8, 4))
@@ -114,10 +132,11 @@ for s_ind, series in enumerate(matching_series):
         [x.set_ylim() for x in ax0.ravel()]
 
         concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in eg_trials], axis=1)
-        concat_running = np.concatenate([behavior_data.get('running_response_matrix')[:, x, :] for x in eg_trials], axis=1)
-        concat_turning = np.concatenate([turning_response_matrix[:, x, :] for x in eg_trials], axis=1)
-        concat_behaving = np.concatenate([behavior_data.get('behavior_binary_matrix')[:, x, :] for x in eg_trials], axis=1)
-        concat_time = np.arange(0, concat_running.shape[1]) * ID.getAcquisitionMetadata('sample_period')
+        # concat_running = np.concatenate([behavior_data.get('running_response_matrix')[:, x, :] for x in eg_trials], axis=1)
+        # concat_turning = np.concatenate([turning_response_matrix[:, x, :] for x in eg_trials], axis=1)
+        concat_walking = np.concatenate([walking_response_matrix[:, x, :] for x in eg_trials], axis=1)
+        concat_behaving = np.concatenate([behavior_binary_matrix[:, x, :] for x in eg_trials], axis=1)
+        concat_time = np.arange(0, concat_walking.shape[1]) * ID.getAcquisitionMetadata('sample_period')
 
         # Red triangles when stim hits center of screen (middle of trial)
         dt = np.diff(concat_time)[0]  # sec
@@ -133,14 +152,14 @@ for s_ind, series in enumerate(matching_series):
         ax0[0].plot(concat_time, np.zeros_like(concat_time), color='w')
         # ax0[0].set_ylabel('Stim', rotation=0)
 
-        ax0[1].plot(concat_time, concat_running[0, :], color='k')
-        ax0[1].set_ylim([concat_running.min(), concat_running.max()])
+        ax0[1].plot(concat_time, concat_walking[0, :], color='k')
+        ax0[1].set_ylim([concat_walking.min(), concat_walking.max()])
         ax0[1].set_ylabel('Movement', rotation=0)
-
-        ax0[2].plot(concat_time, concat_turning[0, :], color='k')
-        ax0[2].set_ylim([concat_turning.min(), concat_turning.max()])
-        ax0[2].set_ylabel('Rot.', rotation=0)
-        plot_tools.addScaleBars(ax0[2], dT=4, dF=200, T_value=-2, F_value=-100)
+        #
+        # ax0[2].plot(concat_time, concat_turning[0, :], color='k')
+        # ax0[2].set_ylim([concat_turning.min(), concat_turning.max()])
+        # ax0[2].set_ylabel('Rot.', rotation=0)
+        # plot_tools.addScaleBars(ax0[2], dT=4, dF=200, T_value=-2, F_value=-100)
 
         for g_ind, glom in enumerate(included_gloms):
             ax0[3+g_ind].set_ylabel(glom, rotation=0)
@@ -156,30 +175,26 @@ for s_ind, series in enumerate(matching_series):
         ax2[0].set_ylabel('RMS image \ndiff. (a.u.)')
 
         tw_ax = ax2[0].twinx()
-        tw_ax.fill_between(behavior_data['frame_times'][:len(behavior_data['binary_behavior'])],
-                           behavior_data['binary_behavior'],
-                           color=[0.5, 0.5, 0.5], alpha=0.5, linewidth=0.0)
-        ax2[0].axhline(behavior_data['binary_thresh'], color='r')
-        ax2[0].fill_between(behavior_data['frame_times'][:len(behavior_data['rmse_smooth'])],
-                         behavior_data['rmse_smooth'], y2=0,
-                         color='k')
-        tw_ax.set_yticks([])
-
-        behavior_data['rmse_smooth'].shape
-        behavior_data['frame_times'].shape
-        zrot_filt.shape
+        # tw_ax.fill_between(behavior_data['frame_times'][:len(behavior_data['binary_behavior'])],
+        #                    behavior_data['binary_behavior'],
+        #                    color=[0.5, 0.5, 0.5], alpha=0.5, linewidth=0.0)
+        # ax2[0].axhline(behavior_data['binary_thresh'], color='r')
+        # ax2[0].fill_between(behavior_data['frame_times'][:len(behavior_data['rmse_smooth'])],
+        #                  behavior_data['rmse_smooth'], y2=0,
+        #                  color='k')
+        # tw_ax.set_yticks([])
 
 
-        ax2[1].plot(behavior_data['frame_times'][:zrot_filt.shape[0]], zrot_filt, color='k')
-        ax2[1].set_ylabel('Rot.\n($\degree$/sec)')
-        ax2[1].set_xlabel('Time (s)')
-        ax2[1].set_ylim([-250, 250])
-        ax2[1].set_yticks([-200, 0, 200])
-        ax2[0].set_xticks([])
+        # ax2[1].plot(behavior_data['frame_times'][:zrot_filt.shape[0]], zrot_filt, color='k')
+        # ax2[1].set_ylabel('Rot.\n($\degree$/sec)')
+        # ax2[1].set_xlabel('Time (s)')
+        # ax2[1].set_ylim([-250, 250])
+        # ax2[1].set_yticks([-200, 0, 200])
+        # ax2[0].set_xticks([])
 
 corr_with_running = np.vstack(corr_with_running)  # flies x gloms
-running_amps = np.vstack(running_amps)  # flies x trials
-turning_amps = np.vstack(turning_amps)  # flies x trials
+# running_amps = np.vstack(running_amps)  # flies x trials
+# turning_amps = np.vstack(turning_amps)  # flies x trials
 response_amps = np.dstack(response_amps)  # gloms x trials x flies
 
 [x.spines['top'].set_visible(False) for x in ax2]
@@ -187,8 +202,8 @@ response_amps = np.dstack(response_amps)  # gloms x trials x flies
 tw_ax.spines['top'].set_visible(False)
 tw_ax.spines['right'].set_visible(False)
 
-fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
-fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
+# fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
+# fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
 
 # %% Corr w turning
 trial_gain = response_amps / np.nanmean(response_amps, axis=1)[:, np.newaxis, :]
@@ -255,7 +270,7 @@ ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 ax2.spines['left'].set_visible(False)
 
-fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
+# fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
 # %% (1) Response-weighted behavior
 window_size = 16  # sec
 

@@ -7,7 +7,7 @@ import os
 from glom_pop import dataio, util
 from scipy.stats import ttest_rel
 from skimage.io import imread
-from flystim import image
+# from flystim import image
 import ast
 from scipy.interpolate import interp1d
 
@@ -89,7 +89,8 @@ eg_glom_ind = 0
 
 # mean response trace for timing illustration
 eg_saccade_inds = [1, 4, 5, 6, 7, 9, 11]
-tags = 'abcdefghijk'
+eg_saccade_inds = np.arange(12)
+tags = 'abcdefghijklmn'
 fh0, ax0 = plt.subplots(1, 1, figsize=(2.5, 1.5))
 ax0.set_ylim([-0.1, 0.45])
 ax0.spines['top'].set_visible(False)
@@ -104,14 +105,17 @@ ax0.set_ylabel('Response (dF/F)')
 ax0.plot(response_data['time_vector']-ID.getRunParameters('pre_time'), np.mean(all_responses[eg_glom_ind, :, :, eg_fly_ind], axis=0),
          color=util.get_color_dict()[included_gloms[eg_glom_ind]], linewidth=2)
 
-fh1, ax1 = plt.subplots(1, len(eg_saccade_inds), figsize=(2.75, 1.5))
+# fh1, ax1 = plt.subplots(1, len(eg_saccade_inds), figsize=(2.75, 1.5))
+fh1, ax1 = plt.subplots(1, 2, figsize=(6.75, 2.5))
 [x.set_ylim([-0.1, 0.5]) for x in ax1.ravel()]
 [x.set_axis_off() for x in ax1.ravel()]
-for ind, si in enumerate(eg_saccade_inds):
-    ax1[ind].axhline(y=0, color='k', alpha=0.5)
-    ax1[ind].plot(response_data['time_vector'], all_responses[eg_glom_ind, si, :, eg_fly_ind],
-                  color=util.get_color_dict()[included_gloms[eg_glom_ind]])
-    ax1[ind].set_title(tags[ind])
+for ind, si in enumerate(eg_saccade_inds[0:1]):
+    # ax1[ind].axhline(y=0, color='k', alpha=0.5)
+    # ax1[0].plot(response_data['time_vector'], all_responses[eg_glom_ind, si, :, eg_fly_ind],
+    #               color=util.get_color_dict()[included_gloms[eg_glom_ind]])
+    ax1[0].plot(response_data['time_vector'], all_responses[eg_glom_ind, si, :, eg_fly_ind],
+                )
+    # ax1[ind].set_title(tags[ind])
     if ind == 0:
         plot_tools.addScaleBars(ax1[ind], dT=2, dF=0.25, T_value=-0.1, F_value=-0.08)
 
