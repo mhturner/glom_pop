@@ -182,60 +182,39 @@ def has_behavior_data(ID):
     return has_behavior
 
 
-def load_behavior(ID, process_behavior=True):
-    """
-    Load behavior data from h5 file. If process_behavior, also return
-    processed behavior data, for each trial.
+def load_fictrac_data(ID, ft_data_path, process_behavior=True, fps=50):
+    ft_data = pd.read_csv(ft_data_path, header=None)
+    response_data = load_responses(ID, response_set_name='glom', get_voxel_responses=False)
 
+    frame = ft_data.iloc[:, 0]
+    xrot = ft_data.iloc[:, 5] * 180 / np.pi * fps  # rot  --> deg/sec
+    yrot = ft_data.iloc[:, 6] * 180 / np.pi * fps  # rot  --> deg/sec
+    zrot = ft_data.iloc[:, 7] * 180 / np.pi * fps  # rot  --> deg/sec
 
-    """
-    behavior_data = {}
-    with h5py.File(ID.file_path, 'r') as experiment_file:
-        find_partial = functools.partial(h5io.find_series, sn=ID.series_number)
-        epoch_run_group = experiment_file.visititems(find_partial)
-        behavior_group = epoch_run_group.require_group('behavior')
+    xrot_filt = savgol_filter(xrot, 151, 3)
+    yrot_filt = savgol_filter(yrot, 151, 3)
+    zrot_filt = savgol_filter(zrot, 151, 3)
 
-        behavior_data['binary_behavior'] = behavior_group.get('binary_behavior')[:]
-        behavior_data['binary_thresh'] = np.asarray(behavior_group.get('binary_thresh'))
-        behavior_data['cropped_frame'] = behavior_group.get('cropped_frame')[:]
-        behavior_data['frame'] = behavior_group.get('frame')[:]
-        behavior_data['frame_times'] = behavior_group.get('frame_times')[:]
-        behavior_data['rmse'] = behavior_group.get('rmse')[:]
+    walking_mag = np.sqrt(xrot_filt**2 + yrot_filt**2 + zrot_filt**2)
+    walking_mag_ds = resample(walking_mag, response_data.get('response').shape[1])
+    thresh = filters.threshold_li(walking_mag_ds)
+    binary_behavior_ds = (walking_mag_ds > thresh).astype('int')
+    _, behavior_binary_matrix = ID.getEpochResponseMatrix(binary_behavior_ds[np.newaxis, :],
+                                                          dff=False)
+    _, walking_response_matrix = ID.getEpochResponseMatrix(walking_mag_ds[np.newaxis, :],
+                                                           dff=False)
 
-    if process_behavior:
-        response_data = load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+    is_behaving = ID.getResponseAmplitude(behavior_binary_matrix, metric='mean') > 0.25
+    walking_amp = ID.getResponseAmplitude(walking_response_matrix, metric='mean')
 
-        # downsample behavior from video rate (50 Hz) to imaging rate
-        # smooth behavior trace.
-        #   Window size about 200 msec, 1st order polynomial
-        #   Keeps rapid onsets/offsets pretty well but makes bouts more obvious and continuous
-        # rmse_smooth = savgol_filter(rmse_ds, 21, 1)
-        rmse_smooth = savgol_filter(behavior_data['rmse'], 21, 1)
-        rmse_ds = resample(rmse_smooth, response_data.get('response').shape[1])
-        rmse_ds = savgol_filter(rmse_ds, 9, 1)
-
-
-        # (1) RMS difference, mean per trial
-        _, running_response_matrix = ID.getEpochResponseMatrix(rmse_ds[np.newaxis, :],
-                                                               dff=False)
-        # shape = 1 x trials
-        running_amp = ID.getResponseAmplitude(running_response_matrix, metric='mean')
-
-        # (2) classify each trial as behaving / not behaving
-        thresh = filters.threshold_li(rmse_ds)
-        binary_behavior_ds = (rmse_ds > thresh).astype('int')
-        _, behavior_binary_matrix = ID.getEpochResponseMatrix(binary_behavior_ds[np.newaxis, :],
-                                                              dff=False)
-        # Categorize trial as behaving or nonbehaving
-        beh_per_trial = np.mean(behavior_binary_matrix[0, :, :], axis=1)
-        behaving = beh_per_trial > 0.5
-
-        behavior_data['rmse_smooth'] = rmse_smooth  # lp filtered RMS difference, for each video frame
-        behavior_data['behaving'] = behaving  # bool array: n trials
-        behavior_data['running_amp'] = running_amp  # time-averaged RMS difference for each trial
-        behavior_data['behavior_binary_matrix'] = behavior_binary_matrix  # is_behaving binary at each time point, for each trial
-        behavior_data['running_response_matrix'] = running_response_matrix  # RMS difference over time, for each trial
-
+    behavior_data = {'walking_mag': walking_mag,  # n video frames
+                     'walking_mag_ds': walking_mag_ds,  # n imaging frames
+                     'behavior_binary_matrix': behavior_binary_matrix,  # 1 x trials x time
+                     'walking_response_matrix': walking_response_matrix,  # 1 x trials x time
+                     'walking_amp': walking_amp,  # n trials
+                     'is_behaving': is_behaving,  # n trials
+                     'thresh': thresh
+                     }
     return behavior_data
 
 

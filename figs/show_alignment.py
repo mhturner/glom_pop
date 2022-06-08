@@ -71,6 +71,15 @@ util.make_glom_map(ax=ax[2],
                    z_val=None,
                    highlight_names='all',
                    colors='glasbey')
+# %%
+fh, ax = plt.subplots(1, 1, figsize=(3, 2))
+ax.set_axis_off()
+util.make_glom_map(ax=ax,
+                   glom_map=glom_mask_2_meanbrain,
+                   z_val=None,
+                   highlight_names='all')
+
+fh.savefig(os.path.join(save_directory, 'alignment_gloms.svg'), transparent=True)
 
 # %%
 # Show z slices of meanbrain, template, & glom map for alignment
@@ -169,7 +178,7 @@ box1_xy = (55, 10)
 box2_xy = (30, 110)
 box3_xy = (120, 5)
 
-fh, ax = plt.subplots(2, 1, figsize=(3, 2.75))
+fh, ax = plt.subplots(2, 1, figsize=(2.0, 2.0))
 [x.set_axis_off() for x in ax]
 ax[0].imshow(meanbrain_red[:, :, 5:15].mean(axis=2).T, cmap=cmap, vmax=np.quantile(meanbrain_red.numpy(), 0.99))
 rect1 = Rectangle(box1_xy, dx, dy, linewidth=2, edgecolor='m', facecolor='none')
@@ -190,7 +199,7 @@ fh.savefig(os.path.join(save_directory, 'alignment_areas.svg'), transparent=True
 brain_directory = os.path.join(sync_dir, 'anatomical_brains')
 file_paths = glob.glob(os.path.join(brain_directory, '*_anatomical.nii'))
 
-fh, ax = plt.subplots(3, len(matching_series)+1, figsize=(11, 2.75))
+fh, ax = plt.subplots(3, len(matching_series)+1, figsize=(8, 2.0))
 # [x.set_axis_off() for x in ax.ravel()]
 bar_length = 10 / meanbrain_red.spacing[0]  # um -> pix
 ax[0, 0].imshow(meanbrain_red[box1_xy[0]:box1_xy[0]+dx, box1_xy[1]:box1_xy[1]+dy, 10].T, cmap=cmap)

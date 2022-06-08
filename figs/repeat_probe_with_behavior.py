@@ -4,43 +4,64 @@ import matplotlib.pyplot as plt
 from visanalysis.analysis import imaging_data, shared_analysis
 from scipy.signal import resample, savgol_filter
 from scipy.stats import ttest_1samp
+from scipy.interpolate import interp1d
 from statsmodels.stats.multitest import multipletests
 from visanalysis.util import plot_tools
 import pandas as pd
 import glob
 from skimage import filters
 
-from glom_pop import dataio, util, fictrac
+from glom_pop import dataio, util
 
 
-# TODO: check FT tracking for 04-12, 5. Got screwed up somehow...
-
-PROTOCOL_ID = 'ExpandingMovingSpot'
+# PROTOCOL_ID = 'ExpandingMovingSpot'
+PROTOCOL_ID = 'LoomingSpot'
 
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
 data_directory = os.path.join(sync_dir, 'datafiles')
 ft_dir = os.path.join(sync_dir, 'behavior_tracking')
 
-eg_series = ('2022-04-12', 1)  # ('2022-04-12', 1): good, punctuated movement bouts
-target_series_metadata = {'protocol_ID': PROTOCOL_ID,
-                          'include_in_analysis': True,
-                          'diameter': 15.0,
-                          }
-y_min = -0.15
-y_max = 0.80
-eg_trials = np.arange(30, 50)
+if PROTOCOL_ID == 'ExpandingMovingSpot':
+    eg_series = ('2022-04-12', 1)  # ('2022-04-12', 1): good, punctuated movement bouts
+    target_series_metadata = {'protocol_ID': PROTOCOL_ID,
+                              'include_in_analysis': True,
+                              'diameter': 15.0,
+                              }
+    y_min = -0.15
+    y_max = 0.80
+    eg_trials = np.arange(30, 50)
 
-included_gloms = ['LC11', 'LC21', 'LC18', 'LC6', 'LC26', 'LC17', 'LC12', 'LC15']
+    included_gloms = ['LC11', 'LC21', 'LC18', 'LC6', 'LC26', 'LC17', 'LC12', 'LC15']
 
-included_vals = dataio.get_glom_vals_from_names(included_gloms)
+    included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
-matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
-                                                  target_fly_metadata={'driver_1': 'ChAT-T2A',
-                                                                       'indicator_1': 'Syt1GCaMP6f',
-                                                                       'indicator_2': 'TdTomato'},
-                                                  target_series_metadata=target_series_metadata,
-                                                  target_groups=['aligned_response', 'behavior'])
+    matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
+                                                      target_fly_metadata={'driver_1': 'ChAT-T2A',
+                                                                           'indicator_1': 'Syt1GCaMP6f',
+                                                                           'indicator_2': 'TdTomato'},
+                                                      target_series_metadata=target_series_metadata,
+                                                      target_groups=['aligned_response', 'behavior'])
+elif PROTOCOL_ID == 'LoomingSpot':
+    eg_series = ('2022-04-04', 2)
+    target_series_metadata = {'protocol_ID': PROTOCOL_ID,
+                              'include_in_analysis': True,
+                              'rv_ratio': 100.0,
+                              'center': [0, 0],
+                              }
+    y_min = -0.05
+    y_max = 0.35
+    eg_trials = np.arange(0, 20)
+    included_gloms = ['LC6', 'LC26', 'LPLC2', 'LC4', 'LPLC1', 'LC9', 'LC17', 'LC12']
+
+    included_vals = dataio.get_glom_vals_from_names(included_gloms)
+
+    matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
+                                                      target_fly_metadata={'driver_1': 'ChAT-T2A',
+                                                                           'indicator_1': 'Syt1GCaMP6f',
+                                                                           'indicator_2': 'TdTomato'},
+                                                      target_series_metadata=target_series_metadata,
+                                                      target_groups=['aligned_response', 'behavior'])
 
 
 # %%
@@ -71,50 +92,33 @@ for s_ind, series in enumerate(matching_series):
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
     epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
     response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
-
-    # Fictrac analysis:
-    fps = 50  # Hz
-    ft_data = pd.read_csv(glob.glob(os.path.join(ft_dir,
-                                                 file_name.replace('-', ''),
-                                                 'series{}'.format(str(series_number).zfill(3)),
-                                                 '*.dat'))[0], header=None)
-
-    frame = ft_data.iloc[:, 0]
-    xrot = ft_data.iloc[:, 5] * 180 / np.pi * fps  # rot  --> deg/sec
-    yrot = ft_data.iloc[:, 6] * 180 / np.pi * fps  # rot  --> deg/sec
-    zrot = ft_data.iloc[:, 7] * 180 / np.pi * fps  # rot  --> deg/sec
-
-    xrot_filt = savgol_filter(xrot, 151, 3)
-    yrot_filt = savgol_filter(yrot, 151, 3)
-    zrot_filt = savgol_filter(zrot, 151, 3)
-
-    walking_mag = np.sqrt(xrot_filt**2 + yrot_filt**2 + zrot_filt**2)
-    walking_mag_ds = resample(walking_mag, response_data.get('response').shape[1])
-    time_ds = ID.getAcquisitionMetadata('sample_period') * np.arange(response_data.get('response').shape[1])
-    thresh = filters.threshold_li(walking_mag_ds)
-    binary_behavior_ds = (walking_mag_ds > thresh).astype('int')
-    _, behavior_binary_matrix = ID.getEpochResponseMatrix(binary_behavior_ds[np.newaxis, :],
-                                                          dff=False)
-    _, walking_response_matrix = ID.getEpochResponseMatrix(walking_mag_ds[np.newaxis, :],
-                                                           dff=False)
-
-    walking_amp = ID.getResponseAmplitude(walking_response_matrix, metric='mean')
-
-    walking_amps.append(walking_amp)
     response_amps.append(response_amp)
 
-    new_beh_corr = np.array([np.corrcoef(walking_amp, response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
+    # # Fictrac data:
+    ft_data_path = glob.glob(os.path.join(ft_dir,
+                                          file_name.replace('-', ''),
+                                          'series{}'.format(str(series_number).zfill(3)),
+                                          '*.dat'))[0]
+    behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
+                                             process_behavior=True, fps=50)
+    walking_amps.append(behavior_data.get('walking_amp'))
+
+    new_beh_corr = np.array([np.corrcoef(behavior_data.get('walking_amp'), response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
     corr_with_running.append(new_beh_corr)
 
-    # QC: check thresholding
+    # # QC: check thresholding
     fh, ax = plt.subplots(1, 2, figsize=(8, 4))
-    ax[0].plot(walking_mag_ds)
-    ax[0].axhline(thresh, color='r')
-    ax[1].hist(walking_mag_ds, 100)
-    ax[1].axvline(thresh, color='r')
+    behavior_data.get('walking_mag_ds')
+    ax[0].plot(behavior_data.get('walking_mag_ds'))
+    ax[0].axhline(behavior_data.get('thresh'), color='r')
+    ax[1].hist(behavior_data.get('walking_mag_ds'), 100)
+    ax[1].axvline(behavior_data.get('thresh'), color='r')
     ax[0].set_title('{}: {}'.format(file_name, series_number))
 
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
+        trial_time = ID.getStimulusTiming(plot_trace_flag=False)['stimulus_start_times'] - ID.getRunParameters('pre_time')
+        f_interp_behaving = interp1d(trial_time, behavior_data.get('is_behaving')[0, :], kind='previous', bounds_error=False, fill_value=np.nan)
+
         # fh0: snippet of movement and glom response traces
         fh0, ax0 = plt.subplots(2+len(included_gloms), 1, figsize=(5.5, 3.35))
         [x.set_ylim([y_min, y_max]) for x in ax0.ravel()]
@@ -122,9 +126,9 @@ for s_ind, series in enumerate(matching_series):
         [x.set_ylim() for x in ax0.ravel()]
 
         concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in eg_trials], axis=1)
-        concat_walking = np.concatenate([walking_response_matrix[:, x, :] for x in eg_trials], axis=1)
-        concat_behaving = np.concatenate([behavior_binary_matrix[:, x, :] for x in eg_trials], axis=1)
+        concat_walking = np.concatenate([behavior_data.get('walking_response_matrix')[:, x, :] for x in eg_trials], axis=1)
         concat_time = np.arange(0, concat_walking.shape[1]) * ID.getAcquisitionMetadata('sample_period')
+        concat_behaving = f_interp_behaving(trial_time[eg_trials][0]+concat_time)
 
         # Red triangles when stim hits center of screen (middle of trial)
         dt = np.diff(concat_time)[0]  # sec
@@ -141,27 +145,26 @@ for s_ind, series in enumerate(matching_series):
 
         ax0[1].plot(concat_time, concat_walking[0, :], color='k')
         ax0[1].set_ylim([concat_walking.min(), concat_walking.max()])
-        ax0[1].set_ylabel('Movement', rotation=0)
+        ax0[1].set_ylabel('Walking', rotation=0)
 
         for g_ind, glom in enumerate(included_gloms):
             ax0[2+g_ind].set_ylabel(glom, rotation=0)
-            ax0[2+g_ind].fill_between(concat_time, concat_behaving[0, :], color='k', alpha=0.25, linewidth=0)
+            ax0[2+g_ind].fill_between(concat_time, concat_behaving, color='k', alpha=0.25, linewidth=0)
             ax0[2+g_ind].plot(concat_time, concat_response[g_ind, :], color=util.get_color_dict()[glom])
             ax0[2+g_ind].set_ylim([concat_response.min(), concat_response.max()])
             if g_ind == 0:
                 plot_tools.addScaleBars(ax0[2+g_ind], dT=4, dF=0.25, T_value=-1, F_value=-0.1)
 
         # fh2: overall movement trace, with threshold and classification shading
+        time_ds = ID.getAcquisitionMetadata('sample_period') * np.arange(response_data.get('response').shape[1])
         fh2, ax2 = plt.subplots(1, 1, figsize=(4.5, 2))
-
-        ax2.set_ylabel('Walking mag.')
-
+        ax2.set_ylabel('Walking amp.')
         tw_ax = ax2.twinx()
         tw_ax.fill_between(time_ds,
-                           binary_behavior_ds,
+                           f_interp_behaving(time_ds),
                            color=[0.5, 0.5, 0.5], alpha=0.5, linewidth=0.0)
-        ax2.axhline(thresh, color='r')
-        ax2.fill_between(time_ds, walking_mag_ds, y2=0,
+        ax2.axhline(behavior_data.get('thresh'), color='r')
+        ax2.plot(time_ds, behavior_data.get('walking_mag_ds'),
                          color='k')
         tw_ax.set_yticks([])
 
@@ -176,51 +179,8 @@ ax2.spines['right'].set_visible(False)
 tw_ax.spines['top'].set_visible(False)
 tw_ax.spines['right'].set_visible(False)
 
-# fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
-# fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
-# %%
-
-walking_amp_ds = resample(walking_dist_ds, response_data.get('response').shape[1])
-# thresh = filters.threshold_li(walking_dist_ds)
-thresh = np.quantile(walking_dist_ds, 0.99)
-thresh
-fh, ax = plt.subplots(1, 1, figsize=(4, 4))
-ax.hist(walking_dist_ds, 100)
-ax.set_yscale('log')
-ax.axvline(x=thresh, color='r')
-
-
-# %% Corr w turning
-trial_gain = response_amps / np.nanmean(response_amps, axis=1)[:, np.newaxis, :]
-
-rows = [0, 0, 0, 1, 1, 2, 2, 2]
-cols = [0, 1, 2, 0, 1, 0, 1, 2]
-fh, ax = plt.subplots(3, 3, figsize=(5, 4))
-[x.set_xlim([-150, 150]) for x in ax.ravel()]
-[x.set_ylim([0, 3.8]) for x in ax.ravel()]
-[x.spines['top'].set_visible(False) for x in ax.ravel()]
-[x.spines['right'].set_visible(False) for x in ax.ravel()]
-[x.set_axis_off() for x in ax.ravel()]
-[x.set_xticks([-100, 0, 100]) for x in ax.ravel()]
-[x.set_yticks([0, 1, 2, 3]) for x in ax.ravel()]
-for g_ind, glom in enumerate(included_gloms):
-    ax[rows[g_ind], cols[g_ind]].set_axis_on()
-    ax[rows[g_ind], cols[g_ind]].annotate(glom, (-140, 3))
-    ax[rows[g_ind], cols[g_ind]].axvline(x=0, color='k', alpha=0.5)
-    ax[rows[g_ind], cols[g_ind]].axhline(y=1, color='k', alpha=0.5)
-    ax[rows[g_ind], cols[g_ind]].scatter(turning_amps[:, :].ravel(), trial_gain[g_ind, :, :].T.ravel(),
-                      color=util.get_color_dict()[glom], marker='.')
-
-    if g_ind == 5:
-        pass
-    else:
-        ax[rows[g_ind], cols[g_ind]].set_xticklabels([])
-        ax[rows[g_ind], cols[g_ind]].set_yticklabels([])
-
-fh.supylabel('Trial gain (norm.)')
-fh.supxlabel('Trial average rotation ($\degree$/sec)')
-
-fh.savefig(os.path.join(save_directory, 'repeat_beh_{}_rotation_summary.svg'.format(PROTOCOL_ID)), transparent=True)
+fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
+fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
 
 # %% Summary plots
 
@@ -253,14 +213,50 @@ for g_ind, glom in enumerate(included_gloms):
     if h[g_ind]:
         ax2.annotate('*', (0.5, g_ind), fontsize=12)
 
-
 ax2.set_yticks([])
 ax2.set_xlabel('Corr. with behavior (r)')
 ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 ax2.spines['left'].set_visible(False)
 
-# fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
+fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
+
+
+# %% OLD STUFF
+
+# Corr w turning
+trial_gain = response_amps / np.nanmean(response_amps, axis=1)[:, np.newaxis, :]
+
+rows = [0, 0, 0, 1, 1, 2, 2, 2]
+cols = [0, 1, 2, 0, 1, 0, 1, 2]
+fh, ax = plt.subplots(3, 3, figsize=(5, 4))
+[x.set_xlim([-150, 150]) for x in ax.ravel()]
+[x.set_ylim([0, 3.8]) for x in ax.ravel()]
+[x.spines['top'].set_visible(False) for x in ax.ravel()]
+[x.spines['right'].set_visible(False) for x in ax.ravel()]
+[x.set_axis_off() for x in ax.ravel()]
+[x.set_xticks([-100, 0, 100]) for x in ax.ravel()]
+[x.set_yticks([0, 1, 2, 3]) for x in ax.ravel()]
+for g_ind, glom in enumerate(included_gloms):
+    ax[rows[g_ind], cols[g_ind]].set_axis_on()
+    ax[rows[g_ind], cols[g_ind]].annotate(glom, (-140, 3))
+    ax[rows[g_ind], cols[g_ind]].axvline(x=0, color='k', alpha=0.5)
+    ax[rows[g_ind], cols[g_ind]].axhline(y=1, color='k', alpha=0.5)
+    ax[rows[g_ind], cols[g_ind]].scatter(turning_amps[:, :].ravel(), trial_gain[g_ind, :, :].T.ravel(),
+                      color=util.get_color_dict()[glom], marker='.')
+
+    if g_ind == 5:
+        pass
+    else:
+        ax[rows[g_ind], cols[g_ind]].set_xticklabels([])
+        ax[rows[g_ind], cols[g_ind]].set_yticklabels([])
+
+fh.supylabel('Trial gain (norm.)')
+fh.supxlabel('Trial average rotation ($\degree$/sec)')
+
+fh.savefig(os.path.join(save_directory, 'repeat_beh_{}_rotation_summary.svg'.format(PROTOCOL_ID)), transparent=True)
+
+
 # %% (1) Response-weighted behavior
 window_size = 16  # sec
 
