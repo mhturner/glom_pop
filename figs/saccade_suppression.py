@@ -20,10 +20,6 @@ transform_directory = os.path.join(sync_dir, 'transforms', 'meanbrain_template')
 images_dir = os.path.join(dataio.get_config_file()['images_dir'], 'vh_tif')
 whitened_dir = os.path.join(dataio.get_config_file()['images_dir'], 'vh_tif')
 
-leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
-included_gloms = dataio.get_included_gloms()
-# sort by dendrogram leaves ordering
-included_gloms = np.array(included_gloms)[leaves]
 # Include only small spot responder gloms
 included_gloms = ['LC11', 'LC21', 'LC18', 'LC6', 'LC26', 'LC17', 'LC12', 'LC15']
 included_vals = dataio.get_glom_vals_from_names(included_gloms)

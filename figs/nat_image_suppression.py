@@ -23,10 +23,6 @@ images_dir = os.path.join(dataio.get_config_file()['images_dir'], 'vh_tif')
 whitened_dir = os.path.join(dataio.get_config_file()['images_dir'], 'vh_tif')
 ft_dir = os.path.join(sync_dir, 'behavior_tracking')
 
-leaves = np.load(os.path.join(save_directory, 'cluster_leaves_list.npy'))
-included_gloms = dataio.get_included_gloms()
-# sort by dendrogram leaves ordering
-included_gloms = np.array(included_gloms)[leaves]
 # Include only small spot responder gloms
 included_gloms = ['LC11', 'LC21', 'LC18', 'LC6', 'LC26', 'LC17', 'LC12', 'LC15']
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
@@ -483,9 +479,8 @@ for g_ind, glom in enumerate(included_gloms):
 fh1.savefig(os.path.join(save_directory, 'natimage_direction_polar.svg'), transparent=True)
 
 
-# %% Behavior modulation along obique angles
+# %% Behavior modulation
 all_responses = []
-target_angles = [45, 135, 225, 315]
 for s_ind, series in enumerate(matching_series):
     series_number = series['series']
     file_path = series['file_name'] + '.hdf5'
@@ -529,11 +524,10 @@ all_responses = np.stack(all_responses, axis=-1)
 
 
 # %%
-eg_glom_inds = [0, 3, 6]
 
 popmean = np.nanmean(all_responses, axis=-1)
 
-fh0, ax0 = plt.subplots(len(included_gloms) + 1, len(target_angles), figsize=(2, 4))
+fh0, ax0 = plt.subplots(len(included_gloms) + 1, len(target_angles), figsize=(4, 6))
 fh0.suptitle('Background direction')
 [plot_tools.cleanAxes(x) for x in ax0[0, :]]
 [x.spines['bottom'].set_visible(False) for x in ax0.ravel()]
