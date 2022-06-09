@@ -3,12 +3,10 @@ import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import ants
-
 from glom_pop import util, alignment, dataio
 from visanalysis.analysis.shared_analysis import filterDataFiles
 from visanalysis.analysis import imaging_data
 from visanalysis.util import plot_tools
-from scipy.stats import ttest_ind, ttest_1samp
 
 util.config_matplotlib()
 
@@ -17,7 +15,6 @@ save_directory = dataio.get_config_file()['save_directory']
 transform_directory = os.path.join(sync_dir, 'transforms', 'meanbrain_template')
 
 target_gloms = ['LC18', 'LC9', 'LC4']
-# target_gloms = ['LC9']
 
 chat_response_amplitudes = np.load(os.path.join(save_directory, 'chat_response_amplitudes.npy'))
 all_chat_responses = np.load(os.path.join(save_directory, 'chat_responses.npy'))
@@ -31,13 +28,12 @@ glom_mask_2_meanbrain = ants.image_read(os.path.join(transform_directory, 'glom_
 glom_mask_2_meanbrain = alignment.filter_glom_mask_by_name(mask=glom_mask_2_meanbrain,
                                                            vpn_types=vpn_types,
                                                            included_gloms=included_gloms)
-
-fh3, ax3 = plt.subplots(3, 30, figsize=(8, 6))
+fh3, ax3 = plt.subplots(3, 1, figsize=(7, 4))
 [x.set_axis_off() for x in ax3.ravel()]
-[x.set_ylim([-0.1, 0.5]) for x in ax3.ravel()]
+[x.set_ylim([-0.1, 0.45]) for x in ax3.ravel()]
 
 # Response amps: split vs. chat scatter
-fh1, ax1 = plt.subplots(3, 1, figsize=(1.25, 3.5))
+fh1, ax1 = plt.subplots(1, 3, figsize=(4.5, 1.75), tight_layout=True)
 for g_ind, target_glom in enumerate(target_gloms):
     chat_glom_ind = np.where(np.array(included_gloms) == target_glom)[0][0]
     # Images of split + chat
@@ -49,8 +45,6 @@ for g_ind, target_glom in enumerate(target_gloms):
     ax0[0].set_ylim([180, 0])
     ax0[1].set_xlim([60, 160])
     ax0[1].set_ylim([90, 0])
-
-
 
     util.make_glom_map(ax=ax0[0],
                        glom_map=glom_mask_2_meanbrain,
@@ -150,29 +144,41 @@ for g_ind, target_glom in enumerate(target_gloms):
     ax1[g_ind].plot(xx, yy, 'k--')
 
     corr = np.corrcoef(mean_chat_amp, mean_split_amp)[1, 0]
-    ax1[g_ind].annotate('r = {:.2f}'.format(corr), (0.65*np.max(xx), 0.02))
+    ax1[g_ind].annotate('r = {:.2f}'.format(corr), (0.55*np.max(xx), 0.1*np.max(yy)))
     ax1[g_ind].set_xlim(left=0)
     ax1[g_ind].set_ylim(bottom=0)
     ax1[g_ind].spines['top'].set_visible(False)
     ax1[g_ind].spines['right'].set_visible(False)
 
-    if g_ind == 2:
-        ax1[g_ind].set_xlabel('ChAT response \n (dF/F)')
-    elif g_ind == 1:
-        ax1[g_ind].set_ylabel('Split response (dF/F)')
+    if g_ind == 1:
+        ax1[g_ind].set_xlabel('ChAT response (dF/F)')
+    elif g_ind == 0:
+        ax1[g_ind].set_ylabel('Split-Gal4 \nresponse (dF/F)')
 
     mean_split_responses = split_responses.mean(axis=0)
     sem_split_responses = split_responses.std(axis=0) / split_responses.shape[0]
 
-    for s in range(30):
-        ax3[g_ind, s].plot(roi_data['time_vector'], np.mean(split_responses, axis=0)[s, :], color='k')
-        ax3[g_ind, s].plot(roi_data['time_vector'], np.mean(all_chat_responses[chat_glom_ind, ...], axis=-1)[s, :], color=util.get_color_dict()[target_glom])
-        if s == 0:
-            if g_ind == 2:
-                plot_tools.addScaleBars(ax3[g_ind, s], dT=2, dF=0.25, T_value=0, F_value=-0.05)
+    ax3[g_ind].plot(concat_time,
+                    np.mean(individual_split_concat, axis=0),
+                    color='k',
+                    label='Split-Gal4' if g_ind == 0 else None)
+    ax3[g_ind].plot(concat_time,
+                    np.mean(individual_chat_concat, axis=0),
+                    color=util.get_color_dict()[target_glom],
+                    label='ChAT-Gal4' if g_ind == 0 else None)
+    if g_ind == 2:
+        plot_tools.addScaleBars(ax3[g_ind], dT=2, dF=0.25, T_value=0, F_value=-0.05)
+
+    # for s in range(30):
+    #     ax3[g_ind, s].plot(roi_data['time_vector'], np.mean(split_responses, axis=0)[s, :], color='k')
+    #     ax3[g_ind, s].plot(roi_data['time_vector'], np.mean(all_chat_responses[chat_glom_ind, ...], axis=-1)[s, :], color=util.get_color_dict()[target_glom])
+    #     if s == 0:
+    #         if g_ind == 2:
+    #             plot_tools.addScaleBars(ax3[g_ind, s], dT=2, dF=0.25, T_value=0, F_value=-0.05)
 
     fh0.savefig(os.path.join(save_directory, 'split_images_{}.svg'.format(target_glom)), transparent=True)
 
+fh3.legend()
 fh1.savefig(os.path.join(save_directory, 'split_amp_scatter.svg'), transparent=True)
 fh3.savefig(os.path.join(save_directory, 'split_amp_traces.svg'), transparent=True)
 # %%

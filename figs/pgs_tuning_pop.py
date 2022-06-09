@@ -200,7 +200,7 @@ ax0.invert_yaxis()
 
 
 # Plot mean concatenated responses
-fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(6, 6))
+fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(8.75, 6))
 [util.clean_axes(x) for x in ax1.ravel()]
 
 fh1.subplots_adjust(wspace=0.00, hspace=0.00)
