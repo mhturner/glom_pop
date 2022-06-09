@@ -1,3 +1,6 @@
+# Get TBars, and which cell owns them, for each glomerulus mask
+# mhturner@stanford.edu
+
 library(nat.flybrains)
 library(nat.jrcbrains)
 library(nat.h5reg)
@@ -7,21 +10,22 @@ library(bioimagetools)
 
 options(warn=1)
 
-# Input arg Brain template comparison space: JFRC2, JRC2018
-comparison_space <- commandArgs(trailingOnly = TRUE)
-
-data_dir = '/oak/stanford/groups/trc/data/Max/flynet/data'
+data_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/sync/template_brain'
+save_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/glom_pop/sync/template_brain/tbars_in_gloms'
 
 t0 = Sys.time()
 
 # Load glom map
 res = 0.38 # um/voxel of atlas
-ito_atlas <- bioimagetools::readTIF(file.path(data_dir, 'template_brains', 'ito_2018.tif'), as.is=TRUE)
-branson_atlas <- bioimagetools::readTIF(file.path(data_dir, 'template_brains', '2018_999_atlas.tif'), as.is=TRUE)
+glom_map <- bioimagetools::readTIF(file.path(data_dir, 'glom_mask_4_r.tif'), as.is=TRUE)
 
 
+
+cypher = sprintf("MATCH (n :`hemibrain_Element`) WHERE distance(point({x:100, y:200, z:300}), n.location) < 100  AND n.type = 'pre'  return ID(n), n.type, n",
+                   id2json(bodyids),
+                   all_segments.json)
 # Init results matrices
-branson_count_matrix <- matrix(0, max(branson_atlas), max(branson_atlas))
+branson_count_matrix <- matrix(0, max(glom_map), max(branson_atlas))
 branson_tbar_matrix <- matrix(0, max(branson_atlas), max(branson_atlas))
 branson_weighted_tbar_matrix <- matrix(0, max(branson_atlas), max(branson_atlas))
 
@@ -31,13 +35,16 @@ ito_weighted_tbar_matrix <- matrix(0, max(ito_atlas), max(ito_atlas))
 
 syn_mask <- array(0, dim=dim(ito_atlas))
 
-# Load neuron / body IDs
-all_body_ids =  read.csv(file.path(data_dir, 'body_ids.csv'), header = FALSE)
-# all_body_ids = sample_n(all_body_ids, 350) # testing
+# get synapses in PVLP/PLP
+syn_data = neuprint_get_synapses((), roi=c('PVLP(L)', 'PLP(L)'), chunk=TRUE, progress=TRUE, remove.autapses=TRUE)
+for (g_ind in 1:max(glom_map)){
 
-# split into chunks for less gigantic neuprint calls
-# chunks = split(all_body_ids[,1], ceiling(seq_along(all_body_ids[,1])/100)) # testing
-chunks = split(all_body_ids[,1], ceiling(seq_along(all_body_ids[,1])/1000))
+
+
+
+
+
+} # end g_ind
 
 for (c_ind in 1:length(chunks)){
   body_ids = neuprint_ids(chunks[[c_ind]])
@@ -145,15 +152,6 @@ for (c_ind in 1:length(chunks)){
 } # end chunks
 
 # Save conn matrices and syn mask
-write.csv(branson_count_matrix, file.path(data_dir, 'hemi_2_atlas', paste(comparison_space, 'branson_cellcount_matrix.csv', sep='_')))
-write.csv(branson_tbar_matrix, file.path(data_dir, 'hemi_2_atlas', paste(comparison_space, 'branson_tbar_matrix.csv', sep='_')))
-write.csv(branson_weighted_tbar_matrix, file.path(data_dir, 'hemi_2_atlas', paste(comparison_space, 'branson_weighted_tbar_matrix.csv', sep='_')))
-
-write.csv(ito_count_matrix, file.path(data_dir, 'hemi_2_atlas', paste(comparison_space, 'ito_cellcount_matrix.csv', sep='_')))
-write.csv(ito_tbar_matrix, file.path(data_dir, 'hemi_2_atlas', paste(comparison_space, 'ito_tbar_matrix.csv', sep='_')))
-write.csv(ito_weighted_tbar_matrix, file.path(data_dir, 'hemi_2_atlas', paste(comparison_space, 'ito_weighted_tbar_matrix.csv', sep='_')))
-
-print(sprintf('Syn_mask max. = %s', max(syn_mask))) # Print max Tbar count in synmask. writeTIF auto scales it to 16bit range. Annoying.
-writeTIF(syn_mask, file.path(data_dir, 'hemi_2_atlas', paste(comparison_space, 'synmask.tif', sep='_')))
+write.csv(branson_count_matrix, file.path(save_dir, 'hemi_2_atlas', 'branson_cellcount_matrix.csv'))
 
 Sys.time() - t0

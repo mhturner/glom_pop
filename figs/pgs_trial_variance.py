@@ -35,7 +35,13 @@ included_gloms = dataio.get_included_gloms()
 # sort by dendrogram leaves ordering
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
+# %%
 
+for series in np.array(matching_series)[has_beh_inds]:
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    print('{}: {}'.format(file_name, series_number))
 # %%
 all_cmats = []
 all_cmats_shuffled = []
@@ -96,20 +102,20 @@ for s_ind, series in enumerate(matching_series):
 
     if dataio.has_behavior_data(ID):
         has_beh_inds.append(s_ind)
-        print('HAS BEHAVIOR')
-        behavior_data = dataio.load_behavior(ID, process_behavior=True)
-
-        r_gain_behavior_new = np.zeros((len(included_gloms), len(pull_inds)))
-        r_gain_behavior_new[:] = np.nan
-        all_beh.append(behavior_data['running_amp'][0, :])
-        for up, pind in enumerate(pull_inds):
-            beh = behavior_data['running_amp'][0, pind]  # for all trials of this stim type
-            for g_ind, glom in enumerate(included_gloms):
-                gn = gain_by_stim[g_ind, up, :]
-                r = np.corrcoef(beh, gn)[0, 1]
-                r_gain_behavior_new[g_ind, up] = r
-
-        r_gain_behavior.append(r_gain_behavior_new)
+        # print('HAS BEHAVIOR')
+        # behavior_data = dataio.load_behavior(ID, process_behavior=True)
+        #
+        # r_gain_behavior_new = np.zeros((len(included_gloms), len(pull_inds)))
+        # r_gain_behavior_new[:] = np.nan
+        # all_beh.append(behavior_data['running_amp'][0, :])
+        # for up, pind in enumerate(pull_inds):
+        #     beh = behavior_data['running_amp'][0, pind]  # for all trials of this stim type
+        #     for g_ind, glom in enumerate(included_gloms):
+        #         gn = gain_by_stim[g_ind, up, :]
+        #         r = np.corrcoef(beh, gn)[0, 1]
+        #         r_gain_behavior_new[g_ind, up] = r
+        #
+        # r_gain_behavior.append(r_gain_behavior_new)
 
     all_gain_by_trial.append(gain_by_trial)
     print('--------')

@@ -8,6 +8,7 @@ from scipy.stats import ttest_rel
 import seaborn as sns
 import pandas as pd
 import ants
+import matplotlib
 
 
 util.config_matplotlib()
@@ -114,11 +115,19 @@ fh0, ax0 = plt.subplots(len(target_grate_periods), len(target_grate_rates), figs
 [x.set_yticks([]) for x in ax0.ravel()]
 [x.set_ylim([-0.15, 0.75]) for x in ax0.ravel()]
 
+cmap = matplotlib.cm.get_cmap('cool')
+tf = np.meshgrid(target_grate_rates)
+mg = np.meshgrid(target_grate_rates, target_grate_periods)
+all_tf = np.unique((mg[0] / mg[1]).ravel())
+
 for gr_ind, gr in enumerate(target_grate_rates):
     for gp_ind, gp in enumerate(target_grate_periods):
         tf = gr / gp  # deg/sec / deg = 1/sec
+
+        # color = cmap(tf / all_tf.max())
+        color = cmap(np.log2(tf) / np.log2(all_tf.max()))
         lbl = '{:.0f} Hz'.format(tf) if (gr_ind+gp_ind) == 0 else '{:.1f}'.format(tf).rstrip('0').rstrip('.')
-        ax0[gp_ind, gr_ind].annotate(lbl, (0.5, 0.4), ha='center', color=[0.5, 0.5, 0.5], fontsize=8)
+        ax0[gp_ind, gr_ind].annotate(lbl, (0.5, 0.4), ha='center', color=color, fontsize=8)
 
         ax0[gp_ind, gr_ind].axhline(0, color=[0.5, 0.5, 0.5], alpha=0.5)
         ax0[gp_ind, gr_ind].plot(response_data['time_vector'],
@@ -143,6 +152,7 @@ for gr_ind, gr in enumerate(target_grate_rates):
 fh0.supylabel('Spatial period ($\degree$)')
 fh0.suptitle('Speed ($\degree$/s)')
 fh0.savefig(os.path.join(save_directory, 'surround_grating_{}_meantrace.svg'.format(included_gloms[eg_glom])), transparent=True)
+
 
 # %% Schematic figs...
 # glom map inset for highlighted glom

@@ -95,10 +95,7 @@ for s_ind, series in enumerate(matching_series):
     response_amps.append(response_amp)
 
     # # Fictrac data:
-    ft_data_path = glob.glob(os.path.join(ft_dir,
-                                          file_name.replace('-', ''),
-                                          'series{}'.format(str(series_number).zfill(3)),
-                                          '*.dat'))[0]
+    ft_data_path = dataio.get_ft_datapath(ID, ft_dir)
     behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
                                              response_len = response_data.get('response').shape[1],
                                              process_behavior=True, fps=50)
@@ -109,7 +106,6 @@ for s_ind, series in enumerate(matching_series):
 
     # # QC: check thresholding
     # fh, ax = plt.subplots(1, 2, figsize=(8, 4))
-    # behavior_data.get('walking_mag_ds')
     # ax[0].plot(behavior_data.get('walking_mag_ds'))
     # ax[0].axhline(behavior_data.get('thresh'), color='r')
     # ax[1].hist(behavior_data.get('walking_mag_ds'), 100)
@@ -182,6 +178,8 @@ tw_ax.spines['right'].set_visible(False)
 
 fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
 fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
+# %%
+
 
 # %% Summary plots
 
@@ -195,7 +193,6 @@ p_vals = []
 for g_ind, glom in enumerate(included_gloms):
     t_result = ttest_1samp(corr_with_running[:, g_ind], popmean=0, nan_policy='omit')
     p_vals.append(t_result.pvalue)
-
 
     y_mean = np.nanmean(corr_with_running[:, g_ind])
     y_err = np.nanstd(corr_with_running[:, g_ind]) / np.sqrt(corr_with_running.shape[0])

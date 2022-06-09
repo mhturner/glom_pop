@@ -7,7 +7,9 @@ import functools
 import inspect
 import os
 import shutil
+import glob
 
+import matplotlib.pyplot as plt
 import h5py
 import numpy as np
 import pandas as pd
@@ -174,15 +176,24 @@ def overwrite_dataset(group, name, data):
     group.create_dataset(name, data=data)
 
 
-def has_behavior_data(ID):
-    with h5py.File(ID.file_path, 'r') as experiment_file:
-        find_partial = functools.partial(h5io.find_series, sn=ID.series_number)
-        epoch_run_group = experiment_file.visititems(find_partial)
-        has_behavior = 'behavior' in list(epoch_run_group.keys())
-    return has_behavior
+def get_ft_datapath(ID, ft_dir):
+    series_number = ID.series_number
+    file_name = os.path.split(ID.file_path)[-1].split('.')[0]
+    look_path = os.path.join(ft_dir,
+                             file_name.replace('-', ''),
+                             'series{}'.format(str(series_number).zfill(3)))
+    glob_res = glob.glob(os.path.join(look_path, '*.dat'))
+    if len(glob_res) == 0:
+        return False
+    elif len(glob_res) > 1:
+        print('Warning! Multiple FT .dat files found at {}'.format(look_path))
+        return glob_res[0]
+    elif len(glob_res) == 1:
+        return glob_res[0]
 
 
-def load_fictrac_data(ID, ft_data_path, response_len, process_behavior=True, fps=50):
+
+def load_fictrac_data(ID, ft_data_path, response_len, process_behavior=True, fps=50, show_qc=True):
     ft_data = pd.read_csv(ft_data_path, header=None)
 
     frame = ft_data.iloc[:, 0]
@@ -214,6 +225,14 @@ def load_fictrac_data(ID, ft_data_path, response_len, process_behavior=True, fps
                      'is_behaving': is_behaving,  # n trials
                      'thresh': thresh
                      }
+
+    if show_qc:
+        fh, ax = plt.subplots(1, 2, figsize=(8, 4))
+        ax[0].plot(walking_mag_ds)
+        ax[0].axhline(thresh, color='r')
+        ax[1].hist(walking_mag_ds, 100)
+        ax[1].axvline(thresh, color='r')
+        ax[0].set_title('{}: {}'.format(os.path.split(ID.file_path)[-1], ID.series_number))
     return behavior_data
 
 
