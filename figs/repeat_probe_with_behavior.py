@@ -14,8 +14,8 @@ from skimage import filters
 from glom_pop import dataio, util
 
 
-# PROTOCOL_ID = 'ExpandingMovingSpot'
-PROTOCOL_ID = 'LoomingSpot'
+PROTOCOL_ID = 'ExpandingMovingSpot'
+# PROTOCOL_ID = 'LoomingSpot'
 
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
@@ -100,6 +100,7 @@ for s_ind, series in enumerate(matching_series):
                                           'series{}'.format(str(series_number).zfill(3)),
                                           '*.dat'))[0]
     behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
+                                             response_len = response_data.get('response').shape[1],
                                              process_behavior=True, fps=50)
     walking_amps.append(behavior_data.get('walking_amp'))
 
@@ -107,13 +108,13 @@ for s_ind, series in enumerate(matching_series):
     corr_with_running.append(new_beh_corr)
 
     # # QC: check thresholding
-    fh, ax = plt.subplots(1, 2, figsize=(8, 4))
-    behavior_data.get('walking_mag_ds')
-    ax[0].plot(behavior_data.get('walking_mag_ds'))
-    ax[0].axhline(behavior_data.get('thresh'), color='r')
-    ax[1].hist(behavior_data.get('walking_mag_ds'), 100)
-    ax[1].axvline(behavior_data.get('thresh'), color='r')
-    ax[0].set_title('{}: {}'.format(file_name, series_number))
+    # fh, ax = plt.subplots(1, 2, figsize=(8, 4))
+    # behavior_data.get('walking_mag_ds')
+    # ax[0].plot(behavior_data.get('walking_mag_ds'))
+    # ax[0].axhline(behavior_data.get('thresh'), color='r')
+    # ax[1].hist(behavior_data.get('walking_mag_ds'), 100)
+    # ax[1].axvline(behavior_data.get('thresh'), color='r')
+    # ax[0].set_title('{}: {}'.format(file_name, series_number))
 
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
         trial_time = ID.getStimulusTiming(plot_trace_flag=False)['stimulus_start_times'] - ID.getRunParameters('pre_time')
@@ -157,7 +158,7 @@ for s_ind, series in enumerate(matching_series):
 
         # fh2: overall movement trace, with threshold and classification shading
         time_ds = ID.getAcquisitionMetadata('sample_period') * np.arange(response_data.get('response').shape[1])
-        fh2, ax2 = plt.subplots(1, 1, figsize=(4.5, 2))
+        fh2, ax2 = plt.subplots(1, 1, figsize=(4.5, 1.5))
         ax2.set_ylabel('Walking amp.')
         tw_ax = ax2.twinx()
         tw_ax.fill_between(time_ds,
@@ -185,7 +186,7 @@ fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROT
 # %% Summary plots
 
 # For each fly: corr between trial amplitude and trial behavior amount
-fh2, ax2 = plt.subplots(1, 1, figsize=(2, 2.4))
+fh2, ax2 = plt.subplots(1, 1, figsize=(2, 2.6))
 ax2.axvline(0, color='k', alpha=0.50)
 ax2.set_xlim([-0.8, 0.8])
 ax2.invert_yaxis()

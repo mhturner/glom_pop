@@ -182,9 +182,8 @@ def has_behavior_data(ID):
     return has_behavior
 
 
-def load_fictrac_data(ID, ft_data_path, process_behavior=True, fps=50):
+def load_fictrac_data(ID, ft_data_path, response_len, process_behavior=True, fps=50):
     ft_data = pd.read_csv(ft_data_path, header=None)
-    response_data = load_responses(ID, response_set_name='glom', get_voxel_responses=False)
 
     frame = ft_data.iloc[:, 0]
     xrot = ft_data.iloc[:, 5] * 180 / np.pi * fps  # rot  --> deg/sec
@@ -196,7 +195,7 @@ def load_fictrac_data(ID, ft_data_path, process_behavior=True, fps=50):
     zrot_filt = savgol_filter(zrot, 151, 3)
 
     walking_mag = np.sqrt(xrot_filt**2 + yrot_filt**2 + zrot_filt**2)
-    walking_mag_ds = resample(walking_mag, response_data.get('response').shape[1])
+    walking_mag_ds = resample(walking_mag, response_len)
     thresh = filters.threshold_li(walking_mag_ds)
     binary_behavior_ds = (walking_mag_ds > thresh).astype('int')
     _, behavior_binary_matrix = ID.getEpochResponseMatrix(binary_behavior_ds[np.newaxis, :],
