@@ -98,22 +98,7 @@ print(ste.included_parameter_values)
 fh1.savefig(os.path.join(save_directory, 'single_trial_performance.svg'))
 fh2.savefig(os.path.join(save_directory, 'single_trial_confusion.svg'))
 
-
-# %% logistic regression cartoon schematics
-
-xx = np.linspace(-20, 20, 100)
-yy = 1 / (1+np.exp(-xx))
-
-fh3, ax3 = plt.subplots(1, 1, figsize=(1.0, 0.75))
-ax3.plot(xx, yy, color='k', linewidth=2)
-ax3.set_xlabel('$\hat{y}$', fontsize=11)
-ax3.set_ylabel('p', fontsize=11)
-ax3.set_xticks([])
-ax3.set_yticks([])
-ax3.spines['top'].set_visible(False)
-ax3.spines['right'].set_visible(False)
-
-fh3.savefig(os.path.join(save_directory, 'single_trial_log_cartoon.png'), bbox_inches='tight')
+np.mean(ste.performance, axis=0).mean()
 
 
 # %% For LogReg: weight matrix
@@ -204,12 +189,14 @@ ax5[3].set_xlabel('Stimulus identity')
 fh5.supylabel('Performance')
 fh5.savefig(os.path.join(save_directory, 'single_trial_cluster_performance.svg'))
 
-# %%
-
 
 # %% Compare correlated vs shuffled
-# TODO: iterate over shuffles
-# TODO: measure trial corr before and after shuffle
+
+# Go back to using all gloms
+included_gloms = dataio.get_included_gloms()
+# sort by dendrogram leaves ordering
+included_gloms = np.array(included_gloms)[leaves]
+included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
 # FULL MODEL, UNSHUFFLED
 ste = model.SingleTrialEncoding(data_series=matching_series, included_gloms=included_gloms)
@@ -262,15 +249,19 @@ err_shuffle = np.std(ste_shuffled.performance, axis=0) / np.sqrt(ste_shuffled.pe
 
 # Performance per stim type
 fh1, ax1 = plt.subplots(1, 1, figsize=(3.5, 2.5))
-ax1.plot(col_names, mean_intact, 'ko', label='Unshuffled')
+ax1.bar(np.arange(0, len(mean_intact)), mean_intact,
+        color=[0.5, 0.5, 0.5], label='Unshuffled')
 for d_ind in range(len(col_names)):
-    ax1.plot([d_ind, d_ind], [mean_intact[d_ind]-err_intact[d_ind], mean_intact[d_ind]+err_intact[d_ind]], 'k-')
+    ax1.plot([d_ind, d_ind], [mean_intact[d_ind]-err_intact[d_ind], mean_intact[d_ind]+err_intact[d_ind]],
+             color=[0.5, 0.5, 0.5], linestyle='-', linewidth=2)
 
-ax1.plot(col_names, mean_shuffle, 'ro', label='Shuffled')
+ax1.bar(np.arange(0, len(mean_shuffle)), mean_shuffle,
+        color=[0.75, 0.2, 0], label='Shuffled')
 for d_ind in range(len(col_names)):
-    ax1.plot([d_ind, d_ind], [mean_shuffle[d_ind]-err_shuffle[d_ind], mean_shuffle[d_ind]+err_shuffle[d_ind]], 'r-')
+    ax1.plot([d_ind, d_ind], [mean_shuffle[d_ind]-err_shuffle[d_ind], mean_shuffle[d_ind]+err_shuffle[d_ind]],
+             color=[0.75, 0.2, 0], linestyle='-', linewidth=2)
 
-ax1.plot([0, len(ste.classifier_model.classes_)], [1/len(ste.classifier_model.classes_), 1/len(ste.classifier_model.classes_)], 'k--')
+ax1.axhline(y=1/len(ste_clust.classifier_model.classes_), color='k', zorder=10)
 ax1.set_xticks([])
 ax1.set_ylim([-0.1, 1.1])
 ax1.set_ylabel('Performance')

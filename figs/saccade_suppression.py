@@ -32,6 +32,13 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                           'include_in_analysis': True,
                                                                           'saccade_sample_period': 0.25,
                                                                           })
+
+for series in np.array(matching_series):
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    print('{}: {}'.format(file_name, series_number))
+
 # %%
 
 all_response_gains = []
