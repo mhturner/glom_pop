@@ -221,6 +221,11 @@ ste_shuffled.evaluate_performance(
                          )
 #  %% Shuffle analysis, plotting...
 
+np.mean(ste.performance, axis=1).mean()
+np.mean(ste_shuffled.performance, axis=1).mean()
+
+(np.mean(ste.performance, axis=1).mean() - np.mean(ste_shuffled.performance, axis=1).mean()) / np.mean(ste.performance, axis=1).mean()
+
 # Overall performance (mean across all stims), for each fly
 fh0, ax0 = plt.subplots(1, 1, figsize=(2, 2))
 ax0.spines['top'].set_visible(False)
