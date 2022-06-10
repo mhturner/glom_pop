@@ -84,8 +84,6 @@ for s_ind, series in enumerate(matching_series):
 
 
     glom_avg_resp = np.mean(trial_averages, axis=(1,2))
-    # peak response time, for each glom (across all stim conditions)
-    peak_time = response_data['time_vector'][np.argmax(glom_avg_resp, axis=1)] - ID.getRunParameters('pre_time')
 
     resp_amp = ID.getResponseAmplitude(trial_averages, metric='max')  # glom x saccade time x beh/nonbeh
     # gain := response amp / amp for last saccade time. Norm is done *within each behavioral condition*
@@ -110,45 +108,6 @@ for s_ind, series in enumerate(matching_series):
 all_response_gains = np.stack(all_response_gains, axis=-1)
 all_response_amps = np.stack(all_response_amps, axis=-1)
 all_responses = np.stack(all_responses, axis=-1)
-# %% eg glom and fly traces
-eg_fly_ind = 4
-eg_glom_ind = 0
-
-# mean response trace for timing illustration
-eg_saccade_inds = [0, 5, 7, 9, 11]
-# eg_saccade_inds = np.arange(12)
-tags = 'abcdefghijklmn'
-fh0, ax0 = plt.subplots(1, 1, figsize=(2.5, 1.5))
-ax0.set_ylim([-0.1, 0.45])
-ax0.spines['top'].set_visible(False)
-ax0.spines['right'].set_visible(False)
-for ind, si in enumerate(eg_saccade_inds):
-    xval = target_saccade_times[si]
-    ax0.plot([xval, xval], [0, 0.4], color='k', linestyle='--')
-    ax0.annotate(tags[ind], (xval, 0.41), ha='center')
-ax0.axhline(y=0, color='k', alpha=0.5)
-ax0.set_xlabel('Time (sec)')
-ax0.set_ylabel('Response (dF/F)')
-ax0.plot(response_data['time_vector']-ID.getRunParameters('pre_time'), np.mean(all_responses[eg_glom_ind, :, 0, :, eg_fly_ind], axis=0),
-         color=util.get_color_dict()[included_gloms[eg_glom_ind]], linewidth=2, label='behaving')
-ax0.plot(response_data['time_vector']-ID.getRunParameters('pre_time'), np.mean(all_responses[eg_glom_ind, :, 1, :, eg_fly_ind], axis=0),
-         color=util.get_color_dict()[included_gloms[eg_glom_ind]], linewidth=2, label='nonbehaving', alpha=0.5)
-
-fh1, ax1 = plt.subplots(1, len(eg_saccade_inds), figsize=(8, 1.5))
-[x.set_ylim([-0.1, 0.5]) for x in ax1.ravel()]
-[x.set_axis_off() for x in ax1.ravel()]
-for ind, si in enumerate(eg_saccade_inds):
-    ax1[ind].axhline(y=0, color='k', alpha=0.5)
-    ax1[ind].plot(response_data['time_vector'], all_responses[eg_glom_ind, si, 0, :, eg_fly_ind],
-                  color=util.get_color_dict()[included_gloms[eg_glom_ind]])
-    ax1[ind].plot(response_data['time_vector'], all_responses[eg_glom_ind, si, 1, :, eg_fly_ind],
-                  color=util.get_color_dict()[included_gloms[eg_glom_ind]], alpha=0.5)
-    ax1[ind].set_title(tags[ind])
-    if ind == 0:
-        plot_tools.addScaleBars(ax1[ind], dT=2, dF=0.25, T_value=-0.1, F_value=-0.08)
-
-fh0.savefig(os.path.join(save_directory, 'saccade_timing_{}.svg'.format(included_gloms[eg_glom_ind])), transparent=True)
-fh1.savefig(os.path.join(save_directory, 'saccade_traces_{}.svg'.format(included_gloms[eg_glom_ind])), transparent=True)
 
 # %% Stim schematic
 
@@ -173,61 +132,77 @@ ax2.set_xlabel('Time (s)')
 ax2.set_ylabel('Background \nposition ($\degree$)')
 fh2.savefig(os.path.join(save_directory, 'saccade_schematic.svg'), transparent=True)
 
+# %% eg glom and fly traces
+eg_fly_ind = 4
+eg_glom_ind = 0
 
-# %% Summary data: probe response gain as a fxn of saccade time
+eg_saccade_inds = np.arange(0, 12, 2)
+fh1, ax1 = plt.subplots(2, len(eg_saccade_inds), figsize=(4, 3))
+[x.set_ylim([-0.1, 0.5]) for x in ax1.ravel()]
+[x.set_axis_off() for x in ax1.ravel()]
+for ind, si in enumerate(eg_saccade_inds):
+    xval = ID.getRunParameters('pre_time') + target_saccade_times[si]
+    ax1[0, ind].plot([xval, xval], [0, 0.5], color='y', linestyle='-', alpha=1, linewidth=1, zorder=10)
+    ax1[0, ind].axhline(y=0, color='k', alpha=0.5)
+    ax1[0, ind].plot(response_data['time_vector'], all_responses[eg_glom_ind, si, 0, :, eg_fly_ind],
+                  color=util.get_color_dict()[included_gloms[eg_glom_ind]], alpha=1.0, linewidth=2,
+                  label='Behaving' if ind == 0 else '')
 
+    xval = ID.getRunParameters('pre_time') + target_saccade_times[si]
+    ax1[1, ind].plot([xval, xval], [0, 0.5], color='y', linestyle='-', alpha=1, linewidth=1, zorder=10)
+    ax1[1, ind].axhline(y=0, color='k', alpha=0.5)
+    ax1[1, ind].plot(response_data['time_vector'], all_responses[eg_glom_ind, si, 1, :, eg_fly_ind],
+                  color=util.get_color_dict()[included_gloms[eg_glom_ind]], alpha=0.5, linewidth=2,
+                  label='Nonbehaving' if ind == 0 else '')
+    if ind == 0:
+        plot_tools.addScaleBars(ax1[0, ind], dT=2, dF=0.25, T_value=-0.1, F_value=-0.08)
+
+fh1.legend()
+fh1.savefig(os.path.join(save_directory, 'saccade_traces_{}.svg'.format(included_gloms[eg_glom_ind])), transparent=True)
+
+# %%
 # Response onset := peak slope of mean response across all stims, animals
-onset_inds = [np.argmax(np.diff(np.mean(all_responses[x, :, :, :], axis=(0, 2)))) for x in range(len(included_gloms))]
-
-rows = [0, 0, 0, 1, 1, 2, 2, 2]
-cols = [0, 1, 2, 0, 1, 0, 1, 2]
-
-mean_response_gain = np.mean(all_response_gains, axis=-1)
-sem_response_gain = np.std(all_response_gains, axis=-1) / np.sqrt(all_response_gains.shape[-1])
-
-fh3, ax3 = plt.subplots(3, 3, figsize=(4.5, 3.5))
-[x.set_ylim([0.2, 1.8]) for x in ax3.ravel()]
+onset_inds = [np.argmax(np.diff(np.mean(all_responses[x, :, :, :, :], axis=(0, 1, 3)))) for x in range(len(included_gloms))]
+tt = response_data['time_vector'] - ID.getRunParameters('pre_time')
+# Norm by: last saccade response, nonbehaving condition
+all_response_amps_normed = all_response_amps / all_response_amps[:, -1, 1, :][:, np.newaxis, np.newaxis, :]
+popmean = np.nanmean(all_response_amps_normed, axis=-1)
+poperr = np.nanstd(all_response_amps_normed, axis=-1) / np.sqrt(all_response_amps.shape[-1])
+fh3, ax3 = plt.subplots(3, 3, figsize=(5, 4), tight_layout=True)
 [x.set_axis_off() for x in ax3.ravel()]
+[x.set_xlim([-2, 2]) for x in ax3.ravel()]
+
 for g_ind, glom in enumerate(included_gloms):
     # indication of response onset time
-    tt = response_data['time_vector'] - ID.getRunParameters('pre_time')
-    ax3[rows[g_ind], cols[g_ind]].axvline(x=tt[onset_inds[g_ind]],
-                                          color='k', alpha=0.5, linestyle=':')
-
+    onset_time = tt[onset_inds[g_ind]]
+    ax3[rows[g_ind], cols[g_ind]].axvline(x=0, color='k', alpha=0.5, linestyle='-', linewidth=1)
     ax3[rows[g_ind], cols[g_ind]].axhline(y=1, color='k', alpha=0.5)
-    ax3[rows[g_ind], cols[g_ind]].errorbar(x=target_saccade_times,
-                        y=mean_response_gain[g_ind, :, 0],
-                        yerr=sem_response_gain[g_ind, :, 0],
-                        color=util.get_color_dict()[glom],
-                        linewidth=2, alpha=1)
-    ax3[rows[g_ind], cols[g_ind]].errorbar(x=target_saccade_times,
-                        y=mean_response_gain[g_ind, :, 1],
-                        yerr=sem_response_gain[g_ind, :, 1],
-                        color=util.get_color_dict()[glom],
-                        linewidth=2, alpha=0.5)
+    ax3[rows[g_ind], cols[g_ind]].errorbar(x=target_saccade_times-onset_time,
+                                           y=popmean[g_ind, :, 0],
+                                           yerr=poperr[g_ind, :, 0],
+                                           color=util.get_color_dict()[glom],
+                                           alpha=1.0,
+                                           label='Behaving' if g_ind == 0 else '')
+
+    ax3[rows[g_ind], cols[g_ind]].errorbar(x=target_saccade_times-onset_time,
+                                           y=popmean[g_ind, :, 1],
+                                           yerr=poperr[g_ind, :, 1],
+                                           color=util.get_color_dict()[glom],
+                                           alpha=0.5,
+                                           label='Nonbehaving' if g_ind == 0 else '')
+    ax3[rows[g_ind], cols[g_ind]].set_axis_on()
     ax3[rows[g_ind], cols[g_ind]].set_title(glom)
+    ax3[rows[g_ind], cols[g_ind]].set_ylim(bottom=0)
+    ax3[rows[g_ind], cols[g_ind]].spines['top'].set_visible(False)
+    ax3[rows[g_ind], cols[g_ind]].spines['right'].set_visible(False)
 
 
-
-    if g_ind == 5:
-        ax3[rows[g_ind], cols[g_ind]].set_axis_on()
-        ax3[rows[g_ind], cols[g_ind]].set_ylabel('Visually-driven response gain')
-        ax3[rows[g_ind], cols[g_ind]].set_xlabel('Saccade time (s)')
-        ax3[rows[g_ind], cols[g_ind]].spines['top'].set_visible(False)
-        ax3[rows[g_ind], cols[g_ind]].spines['right'].set_visible(False)
-    else:
-        ax3[rows[g_ind], cols[g_ind]].set_axis_off()
-
-
-
-
-
+fh3.supylabel('Response gain')
+fh3.supxlabel('Relative Saccade time (s)')
+fh3.legend()
 fh3.savefig(os.path.join(save_directory, 'saccade_gain_summary.svg'), transparent=True)
 
 
-
-
-# %%
 
 
 # %%
