@@ -1,14 +1,13 @@
 from visanalysis.analysis import imaging_data, shared_analysis
 from visanalysis.util import plot_tools
 import matplotlib.pyplot as plt
-from matplotlib.colors import to_rgba
 import numpy as np
 import os
-import glob
+
 from glom_pop import dataio, util
 from scipy.stats import ttest_rel
-from skimage.io import imread
-from flystim import image
+
+# from flystim import image
 import pandas as pd
 import seaborn as sns
 import PIL
@@ -347,7 +346,7 @@ for series in matching_series:
 
 all_responses = []
 response_amps = []
-for s_ind, series in enumerate(matching_series):
+for s_ind, series in enumerate(matching_series[:-1]):
     series_number = series['series']
     file_path = series['file_name'] + '.hdf5'
     file_name = os.path.split(series['file_name'])[-1]
@@ -372,7 +371,7 @@ for s_ind, series in enumerate(matching_series):
     all_responses.append(trial_averages)
     response_amps.append(ID.getResponseAmplitude(trial_averages))
 
-    if False:  # plot individual fly responses, QC
+    if True:  # plot individual fly responses, QC
         fh0, ax0 = plt.subplots(len(included_gloms), len(target_angles), figsize=(3, 4))
         fh0.suptitle('{}: {}'.format(file_name, series_number))
         [plot_tools.cleanAxes(x) for x in ax0.ravel()]
@@ -436,38 +435,42 @@ fh0.savefig(os.path.join(save_directory, 'natimage_direction_eggloms.svg'), tran
 # %% Summary: polar plots
 rows = [0, 0, 0, 1, 1, 2, 2, 2]
 cols = [0, 1, 2, 0, 1, 0, 1, 2]
-fh1, ax1 = plt.subplots(3, 3, figsize=(4, 4), subplot_kw={'projection': 'polar'})
+fh1, ax1 = plt.subplots(3, 3, figsize=(5, 5), subplot_kw={'projection': 'polar'})
 [x.set_axis_off() for x in ax1.ravel()]
 [x.spines['polar'].set_visible(False) for x in ax1.ravel()]
-mean_tuning = []
-for f_ind in range(len(matching_series)):
+fly_tuning = []
+for f_ind in range(len(matching_series[:-1])):
     dir_tuning = ID.getResponseAmplitude(all_responses[:, :, :, f_ind])  # glom x dir
-    mean_tuning.append(dir_tuning)
+    fly_tuning.append(dir_tuning)
 
     for g_ind, glom in enumerate(included_gloms):
         dir_resp = dir_tuning[g_ind, :]
         plot_resp = np.append(dir_resp, dir_resp[0])
         plot_dir = np.append(target_angles, target_angles[0])
+fly_tuning = np.stack(fly_tuning, axis=-1)  # glom x dir x fly
 
-mean_tuning = np.nanmean(np.stack(mean_tuning, axis=-1), axis=-1)  # glom x dir
-
-# Plot mean dir tuning across flies, for beh vs. nonbeh trials
+# Plot dir tuning across flies
 for g_ind, glom in enumerate(included_gloms):
     ax1[rows[g_ind], cols[g_ind]].set_axis_on()
     plot_dir = np.append(target_angles, target_angles[0])
 
-    #
-    plot_resp = np.append(mean_tuning[g_ind, :], mean_tuning[g_ind, 0])
-    ax1[rows[g_ind], cols[g_ind]].plot(np.deg2rad(plot_dir), plot_resp,
-                    color=util.get_color_dict()[glom], linewidth=2, marker='.',
-                    linestyle='-')
+    # Wrap last angle around to complete the circle for visualization
+    plot_fly_resp = np.vstack([fly_tuning[g_ind, :, :], fly_tuning[g_ind, 0, :]])
+    resp_mean = np.nanmean(plot_fly_resp, axis=1)
+    resp_err = np.nanstd(plot_fly_resp, axis=1) / np.sqrt(plot_fly_resp.shape[-1])
+
+    ax1[rows[g_ind], cols[g_ind]].errorbar(x=np.deg2rad(plot_dir),
+                                           y=resp_mean,
+                                           yerr=resp_err,
+                                           color=util.get_color_dict()[glom], linewidth=2, marker='.',
+                                           linestyle='-')
 
     if g_ind == 0:
         pass
     else:
         ax1[rows[g_ind], cols[g_ind]].set_xticklabels([])
 
-    y_lim = np.ceil(np.max(mean_tuning[g_ind, ...]) / 0.1) * 0.1
+    y_lim = np.ceil(np.max(resp_mean) / 0.1) * 0.1
     ax1[rows[g_ind], cols[g_ind]].set_ylim([0, y_lim])
     ax1[rows[g_ind], cols[g_ind]].set_yticks([0, y_lim/2, y_lim])
     yticklabels = ['', '', '{:.1f}'.format(y_lim)]
@@ -477,8 +480,65 @@ for g_ind, glom in enumerate(included_gloms):
                                            ha='center', rotation=0, fontsize=9, color='k')
 
 fh1.savefig(os.path.join(save_directory, 'natimage_direction_polar.svg'), transparent=True)
+# %%
+fh, ax = plt.subplots(1, len(included_gloms), figsize=(8, 1.5))
+for f_ind in range(len(matching_series)-1):
+    dir_tuning = ID.getResponseAmplitude(all_responses[:, :, :, f_ind])  # glom x dir
+    horiz = dir_tuning[:, 0] + dir_tuning[:, 4]
+    vert = dir_tuning[:, 2] + dir_tuning[:, 6]
 
 
+all_responses.shape
+for g_ind, glom in enumerate(included_gloms):
+    ax[g_ind].plot(horiz[g_ind], vert[g_ind], 'o')
+
+# %% Summary: OSI
+# Sum responses to opposite directions. To compute vector sum, make it so that vector space goes from 0-180
+
+def get_vec_magnitude(responses, directions):
+    ori_angles = np.array(directions[:4]) * 2
+    ori_responses = responses[:4] + responses[4:]
+    L = np.abs(np.sum(ori_responses * np.exp(2j*np.radians(ori_angles))) / np.sum(ori_responses))
+    return L
+
+
+osi = []
+mags = []
+for f_ind in range(len(matching_series)-1):
+    dir_tuning = ID.getResponseAmplitude(all_responses[:, :, :, f_ind])  # glom x dir
+    new_mag = [get_vec_magnitude(dir_tuning[x, :], target_angles) for x in range(dir_tuning.shape[0])]
+    ori_responses = dir_tuning[:, :4] + dir_tuning[:, 4:]
+    new_osi = (ori_responses[:, 2] - ori_responses[:, 0]) / ori_responses[:, 2]
+    osi.append(new_osi)
+    mags.append(new_mag)
+
+
+osi = np.stack(osi, axis=-1)
+mags = np.stack(mags, axis=-1)
+
+fh, ax = plt.subplots(1, 2, figsize=(6, 2))
+for g_ind, glom in enumerate(included_gloms):
+    ax[0].plot(g_ind * np.ones_like(osi[g_ind, :]),
+            osi[g_ind, :],
+            color=util.get_color_dict()[glom],
+            marker='o',
+            linestyle='None')
+
+    ax[1].plot(g_ind * np.ones_like(mags[g_ind, :]),
+            mags[g_ind, :],
+            color=util.get_color_dict()[glom],
+            marker='o',
+            linestyle='None')
+
+
+from scipy.stats import ttest_1samp
+from statsmodels.stats.multitest import multipletests
+mags.shape
+np.mean(mags, axis=1)
+res = ttest_1samp(mags, popmean=0, axis=1)
+res.pvalue
+h, p_corrected, _, _ = multipletests(res.pvalue, alpha=0.05, method='holm')
+p_corrected
 # %% Behavior modulation
 all_responses = []
 for s_ind, series in enumerate(matching_series):
