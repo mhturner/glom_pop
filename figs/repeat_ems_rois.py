@@ -24,7 +24,7 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                   target_series_metadata={'protocol_ID': 'ExpandingMovingSpot',
                                                                           'diameter': 15.0})
 
-
+matching_series
 # %%
 y_min = -0.1
 y_max = 0.3

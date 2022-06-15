@@ -137,6 +137,7 @@ eg_fly_ind = 4
 eg_glom_ind = 0
 
 eg_saccade_inds = np.arange(0, 12, 2)
+
 fh1, ax1 = plt.subplots(2, len(eg_saccade_inds), figsize=(4, 3))
 [x.set_ylim([-0.1, 0.5]) for x in ax1.ravel()]
 [x.set_axis_off() for x in ax1.ravel()]
