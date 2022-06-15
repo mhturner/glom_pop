@@ -2,20 +2,16 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from visanalysis.analysis import imaging_data, shared_analysis
-from scipy.signal import resample, savgol_filter
 from scipy.stats import ttest_1samp
 from scipy.interpolate import interp1d
+from scipy.stats import spearmanr
 from statsmodels.stats.multitest import multipletests
 from visanalysis.util import plot_tools
-import pandas as pd
-import glob
-from skimage import filters
-
 from glom_pop import dataio, util
 
 
-PROTOCOL_ID = 'ExpandingMovingSpot'
-# PROTOCOL_ID = 'LoomingSpot'
+# PROTOCOL_ID = 'ExpandingMovingSpot'
+PROTOCOL_ID = 'LoomingSpot'
 
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
@@ -97,11 +93,11 @@ for s_ind, series in enumerate(matching_series):
     # # Fictrac data:
     ft_data_path = dataio.get_ft_datapath(ID, ft_dir)
     behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
-                                             response_len = response_data.get('response').shape[1],
-                                             process_behavior=True, fps=50)
+                                             response_len=response_data.get('response').shape[1],
+                                             process_behavior=True, fps=50, exclude_thresh=300)
     walking_amps.append(behavior_data.get('walking_amp'))
+    new_beh_corr = np.array([spearmanr(behavior_data.get('walking_amp')[0, :], response_amp[x, :]).correlation for x in range(len(included_gloms))])
 
-    new_beh_corr = np.array([np.corrcoef(behavior_data.get('walking_amp'), response_amp[x, :])[0, 1] for x in range(len(included_gloms))])
     corr_with_running.append(new_beh_corr)
 
     # # QC: check thresholding
@@ -212,11 +208,10 @@ for g_ind, glom in enumerate(included_gloms):
         ax2.annotate('*', (0.5, g_ind), fontsize=12)
 
 ax2.set_yticks([])
-ax2.set_xlabel('Corr. with behavior (r)')
+ax2.set_xlabel(r'Corr. with behavior ($\rho$)')
 ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 ax2.spines['left'].set_visible(False)
-
 fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
 
 

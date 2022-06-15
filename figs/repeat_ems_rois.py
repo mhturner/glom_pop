@@ -59,7 +59,7 @@ for s_ind, series in enumerate(matching_series):
                                           '*.dat'))[0]
     behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
                                              response_len,
-                                             process_behavior=True, fps=50)
+                                             process_behavior=True, fps=50, exclude_thresh=300)
     walking_amps.append(behavior_data.get('walking_amp'))
 
     new_beh_corr = np.array([np.corrcoef(behavior_data.get('walking_amp'), response_amp[x, :])[0, 1] for x in range(response_amp.shape[0])])

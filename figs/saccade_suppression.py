@@ -62,8 +62,8 @@ for s_ind, series in enumerate(matching_series):
     # Load behavior data
     ft_data_path = dataio.get_ft_datapath(ID, ft_dir)
     behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
-                                             response_len = response_data.get('response').shape[1],
-                                             process_behavior=True, fps=50)
+                                             response_len=response_data.get('response').shape[1],
+                                             process_behavior=True, fps=50, exclude_thresh=300)
     behaving_trials = np.where(behavior_data.get('is_behaving')[0])[0]
     nonbehaving_trials = np.where(~behavior_data.get('is_behaving')[0])[0]
 

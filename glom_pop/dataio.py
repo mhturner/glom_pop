@@ -193,7 +193,8 @@ def get_ft_datapath(ID, ft_dir):
 
 
 
-def load_fictrac_data(ID, ft_data_path, response_len, process_behavior=True, fps=50, show_qc=True):
+def load_fictrac_data(ID, ft_data_path, response_len, process_behavior=True, fps=50, exclude_thresh=None, show_qc=True):
+    # exclude_thresh: deg per sec
     ft_data = pd.read_csv(ft_data_path, header=None)
 
     frame = ft_data.iloc[:, 0]
@@ -207,6 +208,10 @@ def load_fictrac_data(ID, ft_data_path, response_len, process_behavior=True, fps
 
     walking_mag = np.sqrt(xrot_filt**2 + yrot_filt**2 + zrot_filt**2)
     walking_mag_ds = resample(walking_mag, response_len)
+    if exclude_thresh is not None:
+        # Filter walking mag to remove timepoints when tracking is lost
+        walking_mag_ds[walking_mag_ds > exclude_thresh] = 0
+
     thresh = filters.threshold_li(walking_mag_ds)
     binary_behavior_ds = (walking_mag_ds > thresh).astype('int')
     _, behavior_binary_matrix = ID.getEpochResponseMatrix(binary_behavior_ds[np.newaxis, :],

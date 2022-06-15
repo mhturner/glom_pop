@@ -6,74 +6,75 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix, explained_variance_score
+from sklearn.metrics import confusion_matrix
 from scipy.signal import detrend
 from scipy.stats import zscore
-from scipy.optimize import least_squares
 
 from visanalysis.analysis import imaging_data
 from glom_pop import dataio, util
 
 
-class SharedGainModel():
-    def __init__(self, ID, epoch_response_matrix):
-        unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
-        # Param values for each trial, encoded as indices
-        parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
-        pull_inds = [np.where([pv == up for pv in parameter_values])[0] for up in unique_parameter_values]
+class SingleTrialEncoding_onefly():
+    def __init__(self, ID, included_gloms):
+        self.ID = ID
+        self.included_gloms = included_gloms
+        self.included_vals = dataio.get_glom_vals_from_names(included_gloms)
+
+    def prep_model(self):
+        # Load response data
+        response_data = dataio.load_responses(self.ID, response_set_name='glom', get_voxel_responses=False)
+
+        # Only select gloms in included_gloms
+        glom_size_threshold = 10
+        # response_matrix: shape=(gloms, time)
+        response_matrix = np.zeros((len(self.included_gloms), response_data.get('response').shape[1]))
+        for glom_ind, included_glom in enumerate(self.included_gloms):
+            new_glom_size = np.sum(response_data.get('mask') == self.included_vals[glom_ind])
+
+            if new_glom_size > glom_size_threshold:
+                pull_ind = np.where(self.included_vals[glom_ind] == response_data.get('mask_vals'))[0][0]
+                response_matrix[glom_ind, :] = response_data.get('response')[pull_ind, :]
+            else:  # Exclude because this glom, in this fly, is too tiny
+                pass
+        response_matrix = np.stack(response_matrix, axis=0)
+
+        # Detrend (remove ~linear bleach) & z-score
+        response_matrix = detrend(response_matrix, axis=-1)
+        response_matrix = zscore(response_matrix, axis=-1, nan_policy='omit')
+
+        # split it up into epoch_response_matrix
+        # shape = (gloms, trials, timepoints)
+        time_vector, epoch_response_matrix = self.ID.getEpochResponseMatrix(response_matrix, dff=False)
+        # Classifier model doesn't like nans
+        epoch_response_matrix[np.where(np.isnan(epoch_response_matrix))] = 0
+
+        # classify_on_amplitude:
+        classify_data = self.ID.getResponseAmplitude(epoch_response_matrix, metric='max')[:, :, np.newaxis]
+
+        parameter_values = [list(pd.values()) for pd in self.ID.getEpochParameterDicts()]
+        self.unique_parameter_values = np.unique(np.array(parameter_values, dtype='object'))
+        # Encode param sets to integers in order of unique_parameter_values
+        # ref: https://stackoverflow.com/questions/38749305/labelencoder-order-of-fit-for-a-pandas-df
         df = pd.DataFrame(data=np.array(parameter_values, dtype='object'), columns=['params'])
-        df['encoded'] = df['params'].apply(lambda x: list(unique_parameter_values).index(x))
-        self.stim_inds = df['encoded'].values
 
-        self.response_amplitude = ID.getResponseAmplitude(epoch_response_matrix, metric='max')  # gloms x trials
+        # x: response matrix
+        #    shape = trials x (concatenated glom responses)
+        tmp_trials = [classify_data[x, :, :] for x in range(classify_data.shape[0])]
+        self.x = np.concatenate(tmp_trials, axis=-1)
 
-        # gloms x stim IDs:
-        self.mean_tuning = np.vstack([np.nanmean(self.response_amplitude[:, pi], axis=-1) for pi in pull_inds]).T
-        self.n_gloms = self.response_amplitude.shape[0]
-        self.n_trials = self.response_amplitude.shape[1]
+        # y: stim encoding for each trial
+        self.y = df['params'].apply(lambda x: list(self.unique_parameter_values).index(x)).values
 
-    def fit_model(self, K=3):
-        self.K = K
-        W0 = np.random.normal(size=(self.n_gloms, K))
-        M0 = np.random.normal(size=(K, self.n_trials))
-        X0 = np.hstack([np.reshape(W0, -1), np.reshape(M0, -1)])
+        self.classifier_model = LogisticRegression(multi_class='multinomial', solver='lbfgs', fit_intercept=False)
 
-        res_lsq = least_squares(self.get_err, X0,
-                                args=(self.stim_inds, self.response_amplitude))
-        self.W_fit = np.reshape(res_lsq.x[:(self.n_gloms * K)], (self.n_gloms, K))
-        self.M_fit = np.reshape(res_lsq.x[(self.n_gloms * K):], (K, self.n_trials))
+    def train_test_model(self, train_inds, test_inds):
+        self.classifier_model.fit(self.x[train_inds, :],
+                                  self.y[train_inds])
+        self.y_hat = self.classifier_model.predict(self.x[test_inds, :])
+        self.y_true = self.y[test_inds]
 
-    def evaluate_performance(self):
-        y_hat = self.predict_trial_responses(self.stim_inds, self.W_fit, self.M_fit, self.mean_tuning)
-
-        r2 = [explained_variance_score(self.response_amplitude[g_ind, :], y_hat[g_ind, :]) for g_ind in range(self.n_gloms)]
-
-        results = {'y_hat': y_hat,
-                   'r2': r2}
-
-        return results
-
-    def get_err(self, X, stim_inds, y):
-        W = np.reshape(X[:(self.n_gloms * self.K)], (self.n_gloms, self.K))
-        M = np.reshape(X[(self.n_gloms * self.K):], (self.K, self.n_trials))
-        y_hat = self.predict_trial_responses(self.stim_inds, W, M, self.mean_tuning)
-        return np.reshape(y, -1) - np.reshape(y_hat, -1)
-
-    def predict_trial_responses(self, stim_inds, W, M, mean_tuning):
-        """
-
-        :stim_ind: stim_inds (1 x trials)
-        :W: gloms x modulators
-        :M: modulators x trials
-        :mean_tuning: gloms x stim IDs
-
-        """
-        # f(stim_inds, mean_tuning): n_gloms x n_trials. Mean tuning response
-        deterministic_resp = np.vstack([mean_tuning[:, stim_ind] for stim_ind in stim_inds]).T
-        r = deterministic_resp * np.exp(W @ M)
-
-        # r, shape = (gloms x trials)
-        return r
+        self.performance = np.sum(self.y_hat == self.y_true) / self.y_true.shape[0]
+        self.cmat = confusion_matrix(self.y_true, self.y_hat, normalize='true')
 
 
 class SingleTrialEncoding():
@@ -86,10 +87,16 @@ class SingleTrialEncoding():
     def evaluate_performance(self, model_type='LogReg',
                              iterations=20, pull_eg=0,
                              classify_on_amplitude=True, random_state=None,
-                             shuffle_trials=False):
+                             shuffle_trials=False,
+                             stim_set=None):
 
         self.cmats = []
         self.overall_performances = []
+        if stim_set is None:
+            self.stim_set = 'PGS'
+        else:
+            self.stim_set = stim_set
+
         for s_ind, series in enumerate(self.data_series):
             series_number = series['series']
             file_path = series['file_name'] + '.hdf5'
@@ -143,18 +150,22 @@ class SingleTrialEncoding():
             df = pd.DataFrame(data=np.array(parameter_values, dtype='object'), columns=['params'])
             df['encoded'] = df['params'].apply(lambda x: list(unique_parameter_values).index(x))
 
-            # Filter trials to only include stims of interest
-            #   Exclude last 2 (uniform flash)
-            #   Exclude one direction of bidirectional stims
-            #   Exclude spot on grating
-            keep_stims = np.array([0, 2, 4, 6, 8, 10, 12, 14, 15, 16, 17, 18, 19, 20, 21])
-            keep_inds = np.where([x in keep_stims for x in df['encoded'].values])[0]
+            if self.stim_set == 'PGS':
+                # Filter trials to only include stims of interest
+                #   Exclude last 2 (uniform flash)
+                #   Exclude one direction of bidirectional stims
+                #   Exclude spot on grating
+                keep_stims = np.array([0, 2, 4, 6, 8, 10, 12, 14, 15, 16, 17, 18, 19, 20, 21])
+                keep_inds = np.where([x in keep_stims for x in df['encoded'].values])[0]
 
-            included_parameter_values = unique_parameter_values[keep_stims]
-            X = single_trial_responses[keep_inds, :]
-            y = df['encoded'].values[keep_inds]
-
-
+                included_parameter_values = unique_parameter_values[keep_stims]
+                X = single_trial_responses[keep_inds, :]
+                y = df['encoded'].values[keep_inds]
+            else:  # Decode all stims presented
+                pass
+                included_parameter_values = unique_parameter_values
+                X = single_trial_responses
+                y = df['encoded'].values
 
             if model_type == 'LogReg':
                 classifier_model = LogisticRegression(multi_class='multinomial', solver='lbfgs', fit_intercept=False)
