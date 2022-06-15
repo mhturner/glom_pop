@@ -125,29 +125,88 @@ sns.heatmap(np.mean(np.stack(confusion_matrix_nonbehaving, axis=-1), axis=-1), v
 
 # %%
 fh, ax = plt.subplots(1, 1, figsize=(8, 4))
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
 mean_overall = np.mean(p_by_stim, axis=0)
 err_overall = np.std(p_by_stim, axis=0) / np.sqrt(p_by_stim.shape[0])
 ax.errorbar(x=np.arange(6),
             y=mean_overall,
             yerr=err_overall,
-            color='k', marker='o', linestyle='None')
+            color='k', marker='o', linestyle='None', label='All trials')
 
 mean_beh = np.mean(p_by_stim_beh, axis=0)
 err_beh = np.std(p_by_stim_beh, axis=0) / np.sqrt(p_by_stim_beh.shape[0])
 ax.errorbar(x=np.arange(6),
             y=mean_beh,
             yerr=err_beh,
-            color='g', marker='o', linestyle='None')
+            color='g', marker='o', linestyle='None', label='Walking')
 
 mean_nonbeh = np.mean(p_by_stim_nonbeh, axis=0)
 err_nonbeh = np.std(p_by_stim_nonbeh, axis=0) / np.sqrt(p_by_stim_nonbeh.shape[0])
 ax.errorbar(x=np.arange(6),
             y=mean_nonbeh,
             yerr=err_nonbeh,
-            color='r', marker='o', linestyle='None')
+            color='r', marker='o', linestyle='None', label='Stationary')
 
 ax.set_ylim([0, 1])
 ax.axhline(y=1/6, color=[0.5, 0.5, 0.5])
+ax.set_ylabel('Performace')
+fh.legend()
+
+
+# %%
+all_responses = []
+for s_ind, series in enumerate(matching_series):
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    ID = imaging_data.ImagingDataObject(file_path,
+                                        series_number,
+                                        quiet=True)
+    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
+    ft_data_path = dataio.get_ft_datapath(ID, ft_dir)
+    if ft_data_path:  # Only when has behavior
+        behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
+                                                 response_len=response_data.get('response').shape[1],
+                                                 process_behavior=True, fps=50, exclude_thresh=300, show_qc=True)
+
+        behaving_trials = np.where(behavior_data.get('is_behaving')[0])[0]
+        nonbehaving_trials = np.where(~behavior_data.get('is_behaving')[0])[0]
+
+        parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
+        unique_parameter_values = np.unique(np.array(parameter_values, dtype='object'))
+        epoch_inds = [np.where([pv == up for pv in parameter_values])[0] for up in unique_parameter_values]
+
+        trial_averages = np.zeros((len(included_gloms), len(unique_parameter_values), 2, epoch_response_matrix.shape[-1]))  # glom x stim x beh/nonbeh x time
+        trial_averages[:] = np.nan
+        for u_ind, up in enumerate(unique_parameter_values):
+            pull_beh_inds = [x for x in epoch_inds[u_ind] if x in behaving_trials]
+            pull_nonbeh_inds = [x for x in epoch_inds[u_ind] if x in nonbehaving_trials]
+
+            trial_averages[:, u_ind, 0, :] = np.nanmean(epoch_response_matrix[:, pull_beh_inds, :], axis=1)
+            trial_averages[:, u_ind, 1, :] = np.nanmean(epoch_response_matrix[:, pull_nonbeh_inds, :], axis=1)
+
+        all_responses.append(trial_averages)
+
+all_responses = np.stack(all_responses, axis=-1)  # glom x stim x beh/nonbeh x time x fly
+all_responses.shape
+# %%
+fh, ax = plt.subplots(len(included_gloms), 6, figsize=(8, 8))
+[x.set_ylim([-0.1, 0.5]) for x in ax.ravel()]
+[util.clean_axes(x) for x in ax.ravel()]
+for u_ind, up in enumerate(unique_parameter_values):
+    for g_ind, glom in enumerate(included_gloms):
+        ax[g_ind, u_ind].plot(np.nanmean(all_responses[g_ind, u_ind, 0, :, :], axis=-1), color=util.get_color_dict()[glom])
+        ax[g_ind, u_ind].plot(np.nanmean(all_responses[g_ind, u_ind, 1, :, :], axis=-1), color=util.get_color_dict()[glom], alpha=0.5)
+
+
+# %%
+
+np.nanmean(all_responses[:, u_ind, 0, :, :], axis=-1).shape
+
+
+
 
 
 
