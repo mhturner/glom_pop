@@ -41,7 +41,12 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                           'grate_rate': [20, 40, 80, 160, 320],
                                                                           # 'spot_speed': [-100, 100]
                                                                           })
-
+for series in matching_series:
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    print('{}: {}'.format(file_name, series_number))
+# %%
 target_grate_rates = [20.,  40.,  80., 160., 320.]
 target_grate_periods = [5., 10., 20., 40.]
 

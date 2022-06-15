@@ -109,6 +109,7 @@ for s_ind, series in enumerate(matching_series):
     # ax[0].set_title('{}: {}'.format(file_name, series_number))
 
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
+    # if True:
         trial_time = ID.getStimulusTiming(plot_trace_flag=False)['stimulus_start_times'] - ID.getRunParameters('pre_time')
         f_interp_behaving = interp1d(trial_time, behavior_data.get('is_behaving')[0, :], kind='previous', bounds_error=False, fill_value=np.nan)
 
@@ -212,7 +213,7 @@ ax2.set_xlabel(r'Corr. with behavior ($\rho$)')
 ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 ax2.spines['left'].set_visible(False)
-fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
+# fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
 
 
 # %% OLD STUFF

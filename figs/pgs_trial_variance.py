@@ -338,28 +338,6 @@ fh2.savefig(os.path.join(save_directory, 'pgs_variance_behcorr.svg'), transparen
 
 fh4, ax4 = plt.subplots(len(has_beh_inds), 1, figsize=(12, 6))
 
-# def getPCs(data_matrix):
-#     """
-#     data_matrix shape = gloms x features (e.g. gloms x time, or gloms x response amplitudes)
-#     """
-#
-#     mean_sub = data_matrix - data_matrix.mean(axis=1)[:, np.newaxis]
-#     C = np.cov(mean_sub)
-#     evals, evecs = np.linalg.eig(C)
-#
-#     # For modes where loadings are all negative, swap the sign
-#     for m in range(evecs.shape[1]):
-#         if np.all(np.sign(evecs[:, m]) < 0):
-#             evecs[:, m] = -evecs[:, m]
-#
-#     frac_var = evals / evals.sum()
-#
-#     results_dict = {'eigenvalues': evals,
-#                     'eigenvectors': evecs,
-#                     'frac_var': frac_var}
-#
-#     return results_dict
-
 first_pcs = []
 frac_var_explained = []
 z_beh = []
@@ -401,7 +379,27 @@ ax3.set_xlabel('PCs')
 
 fh3.savefig(os.path.join(save_directory, 'pgs_variance_pca_fracvar.svg'), transparent=True)
 
-corr_vals
+ #%%
+fh4, ax4 = plt.subplots(1, 1, figsize=(3.25, 2.0))
+ax4.spines['top'].set_visible(False)
+ax4.spines['right'].set_visible(False)
+mean_pc1 = np.mean(first_pcs, axis=-1)
+err_pc1 = np.std(first_pcs, axis=-1) / np.sqrt(first_pcs.shape[-1])
+ax4.bar(x=included_gloms,
+        height=mean_pc1,
+        color='k')
+plt.xticks(rotation=90)
+ax4.errorbar(x=included_gloms,
+            y=mean_pc1,
+            yerr=err_pc1,
+            color='k',
+            linestyle='None')
+
+
+ax4.set_title('First PC')
+fh4.savefig(os.path.join(save_directory, 'pgs_variance_pca_pc1.svg'), transparent=True)
+
+
 # %%
 
 fh5, ax5 = plt.subplots(1, len(has_beh_inds), figsize=(7, 1))

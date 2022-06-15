@@ -191,7 +191,7 @@ for s_ind, series in enumerate(matching_series):
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
     epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
-    resp_mat = np.zeros((len(included_gloms), len(image_names), 2, epoch_response_matrix.shape[-1]))
+    resp_mat = np.zeros((len(included_gloms), len(image_names), len(image_speeds), 2, epoch_response_matrix.shape[-1]))
     resp_mat[:] = np.nan
 
     # Load behavior data
@@ -205,47 +205,55 @@ for s_ind, series in enumerate(matching_series):
         nonbehaving_trials = np.where(~behavior_data.get('is_behaving')[0])[0]
 
         for im_ind, image_name in enumerate(image_names):
-            erm_selected, matching_inds = shared_analysis.filterTrials(epoch_response_matrix,
-                                                                       ID,
-                                                                       query={'current_filter_flag': 3,
-                                                                              'current_image_speed': 40,
-                                                                              'current_image': image_name},
-                                                                       return_inds=True)
-            behaving_inds = np.array([x for x in matching_inds if x in behaving_trials])
-            if len(behaving_inds) >= 1:
-                resp_mat[:, im_ind, 0, :] = np.nanmean(epoch_response_matrix[:, behaving_inds, :], axis=1)  # each trial average: gloms x time
+            for spd_ind, image_speed in enumerate(image_speeds):
+                erm_selected, matching_inds = shared_analysis.filterTrials(epoch_response_matrix,
+                                                                           ID,
+                                                                           query={'current_filter_flag': 0,
+                                                                                  'current_image_speed': image_speed,
+                                                                                  'current_image': image_name},
+                                                                           return_inds=True)
+                behaving_inds = np.array([x for x in matching_inds if x in behaving_trials])
+                if len(behaving_inds) >= 1:
+                    resp_mat[:, im_ind, spd_ind, 0, :] = np.nanmean(epoch_response_matrix[:, behaving_inds, :], axis=1)  # each trial average: gloms x time
 
-            nonbehaving_inds = np.array([x for x in matching_inds if x in nonbehaving_trials])
-            if len(nonbehaving_inds) >= 1:
-                resp_mat[:, im_ind, 1, :] = np.nanmean(epoch_response_matrix[:, nonbehaving_inds, :], axis=1)  # each trial average: gloms x time
+                nonbehaving_inds = np.array([x for x in matching_inds if x in nonbehaving_trials])
+                if len(nonbehaving_inds) >= 1:
+                    resp_mat[:, im_ind, spd_ind, 1, :] = np.nanmean(epoch_response_matrix[:, nonbehaving_inds, :], axis=1)  # each trial average: gloms x time
 
         all_resp_mat.append(resp_mat)
 
     print('-----')
-all_resp_mat = np.stack(all_resp_mat, axis=-1)  # shape = (gloms, images, behaving/nonbehaving, time, flies)
+all_resp_mat = np.stack(all_resp_mat, axis=-1)  # shape = (gloms, images, speeds, behaving/nonbehaving, time, flies)
+
+# %%
 
 # %%
 # resp +/- behavior
-
-fh1, ax1 = plt.subplots(1, 3, figsize=(3, 1))
-[x.set_ylim([-0.15, 0.8]) for x in ax1.ravel()]
+eg_glom_ind = 0
+fh1, ax1 = plt.subplots(len(included_gloms), len(image_speeds), figsize=(3, 8))
+[x.set_ylim([-0.15, 0.4]) for x in ax1.ravel()]
 [x.spines['bottom'].set_visible(False) for x in ax1.ravel()]
 [x.spines['left'].set_visible(False) for x in ax1.ravel()]
 [x.spines['right'].set_visible(False) for x in ax1.ravel()]
 [x.spines['top'].set_visible(False) for x in ax1.ravel()]
 [x.set_xticks([]) for x in ax1.ravel()]
 [x.set_yticks([]) for x in ax1.ravel()]
-for im_ind, image_name in enumerate(image_names):
-    ax1[im_ind].axhline(y=0, color='k', alpha=0.5)
-    ax1[im_ind].plot(response_data['time_vector'],
-                      np.nanmean(all_resp_mat[eg_glom_ind, im_ind, 0, :, :], axis=-1),
-                      color=util.get_color_dict()[included_gloms[eg_glom_ind]])
-    ax1[im_ind].plot(response_data['time_vector'],
-                      np.nanmean(all_resp_mat[eg_glom_ind, im_ind, 1, :, :], axis=-1),
-                      color=util.get_color_dict()[included_gloms[eg_glom_ind]], alpha=0.5)
+for g_ind, glom in enumerate(included_gloms):
+    for spd_ind, speed in enumerate(image_speeds):
+        ax1[g_ind, spd_ind].axhline(y=0, color='k', alpha=0.5)
+        ax1[g_ind, spd_ind].plot(response_data['time_vector'],
+                          np.nanmean(all_resp_mat[g_ind, :, spd_ind, 0, :, :], axis=(0, 2)),
+                          color=util.get_color_dict()[included_gloms[g_ind]],
+                          label='walking' if g_ind + spd_ind == 0 else '')
+        ax1[g_ind, spd_ind].plot(response_data['time_vector'],
+                          np.nanmean(all_resp_mat[g_ind, :, spd_ind, 1, :, :], axis=(0, 2)),
+                          color=util.get_color_dict()[included_gloms[g_ind]], alpha=0.5,
+                          label='stationary' if g_ind + spd_ind == 0 else '')
 
-    if im_ind == 0:
-        plot_tools.addScaleBars(ax1[im_ind], dT=2, dF=0.25, T_value=-0.1, F_value=-0.08)
+
+        if spd_ind == 0:
+            plot_tools.addScaleBars(ax1[0, spd_ind], dT=2, dF=0.25, T_value=-0.1, F_value=-0.08)
+fh1.legend()
 
 # %% Get filtered images for fig. panels
 image_names = np.unique([x.replace('whitened_', '') for x in np.unique(np.array(ID.getEpochParameters('stim0_image_name')))])
@@ -329,303 +337,6 @@ ax3[3, 0].set_xlabel('Spatial freq. (cpd)')
 fh3.supylabel('Power')
 fh3.savefig(os.path.join(save_directory, 'natimage_spectra.svg'), transparent=True)
 
-
-# %% (2) 8 DIRECTIONS
-target_angles = [0, 45, 90, 135, 180, 225, 270, 315]
-
-matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
-                                                  target_fly_metadata={'driver_1': 'ChAT-T2A',
-                                                                       'indicator_1': 'Syt1GCaMP6f',
-                                                                       'indicator_2': 'TdTomato'},
-                                                  target_series_metadata={'protocol_ID': 'NaturalImageSuppression',
-                                                                          'include_in_analysis': True,
-                                                                          'image_speed': [160],
-                                                                          'background_direction': target_angles,
-                                                                          'image_index': [0, 5, 15],
-                                                                          })
-for series in matching_series:
-    series_number = series['series']
-    file_path = series['file_name'] + '.hdf5'
-    file_name = os.path.split(series['file_name'])[-1]
-    print('{}: {}'.format(file_name, series_number))
-# %%
-
-all_responses = []
-response_amps = []
-for s_ind, series in enumerate(matching_series[:-1]):
-    series_number = series['series']
-    file_path = series['file_name'] + '.hdf5'
-    file_name = os.path.split(series['file_name'])[-1]
-    ID = imaging_data.ImagingDataObject(file_path,
-                                        series_number,
-                                        quiet=True)
-
-
-    # Load response data
-    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
-    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
-
-    trial_averages = np.zeros((len(included_gloms), len(target_angles), epoch_response_matrix.shape[-1]))
-    trial_averages[:] = np.nan
-    for ang_ind, ang in enumerate(target_angles):
-        erm_selected, matching_inds = shared_analysis.filterTrials(epoch_response_matrix,
-                                                                   ID,
-                                                                   query={'current_background_direction': ang},
-                                                                   return_inds=True)
-
-        trial_averages[:, ang_ind, :] = np.nanmean(erm_selected, axis=1)  # each trial average: gloms x params x time
-    all_responses.append(trial_averages)
-    response_amps.append(ID.getResponseAmplitude(trial_averages))
-
-    if True:  # plot individual fly responses, QC
-        fh0, ax0 = plt.subplots(len(included_gloms), len(target_angles), figsize=(3, 4))
-        fh0.suptitle('{}: {}'.format(file_name, series_number))
-        [plot_tools.cleanAxes(x) for x in ax0.ravel()]
-        [x.set_ylim([-0.1, 0.3]) for x in ax0.ravel()]
-        for ang_ind, ang in enumerate(target_angles):
-            ax0[0, ang_ind].set_title('{}$\degree$'.format(ang), rotation=45)
-            for g_ind, glom in enumerate(included_gloms):
-                ax0[g_ind, ang_ind].plot(trial_averages[g_ind, ang_ind, :], color='k', linewidth=1)
-
-            # if g_ind == 0:
-            #     ax0[gr_ind, gp_ind].set_title('{:.0f}'.format(ang))
-
-# Stack accumulated responses
-# The glom order here is included_gloms
-all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, coh, dir, time, fly)
-response_amps = np.stack(response_amps, axis=-1)  # (glom, image, speed, filter, fly)
-
-# stats across animals
-mean_responses = np.nanmean(all_responses, axis=-1)  # (glom, rate, period, time)
-sem_responses = np.nanstd(all_responses, axis=-1) / np.sqrt(all_responses.shape[-1])  # (glom, grate, period, time)
-std_responses = np.nanstd(all_responses, axis=-1)  # (glom, grate, period, time)
-# %% eg fly/glom
-
-eg_fly_ind = 1
-# eg_glom_ind = 0
-eg_glom_inds = [0, 3, 6]
-fh0, ax0 = plt.subplots(len(eg_glom_inds) + 1, len(target_angles), figsize=(5, 4))
-fh0.suptitle('Background direction')
-[plot_tools.cleanAxes(x) for x in ax0[0, :]]
-[x.spines['bottom'].set_visible(False) for x in ax0.ravel()]
-[x.spines['left'].set_visible(False) for x in ax0.ravel()]
-[x.spines['right'].set_visible(False) for x in ax0.ravel()]
-[x.spines['top'].set_visible(False) for x in ax0.ravel()]
-[x.set_yticks([]) for x in ax0.ravel()]
-[x.set_xticks([]) for x in ax0.ravel()]
-[x.set_ylim([-0.1, 0.25]) for x in ax0[1:, :].ravel()]
-
-for ang_ind, ang in enumerate(target_angles):
-    ax0[0, ang_ind].set_title('{}$\degree$'.format(ang), rotation=0)
-    rot_image = PIL.Image.fromarray(img_orig).rotate(ang, expand=False)
-    ax0[0, ang_ind].imshow(rot_image, cmap='Greys_r', vmax=200)  # brighten for fig display
-    ax0[0, ang_ind].set_xlim([image_width/2 - 0.8*screen_width/2, image_width/2 + 0.8*screen_width/2])
-    ax0[0, ang_ind].set_ylim([image_height/2 - screen_height/2, image_height/2 + screen_height/2])
-    ax0[0, ang_ind].quiver(image_width/2, image_height/2,
-                           np.cos(np.radians(ang)), np.sin(np.radians(ang)),
-                           color='y', scale=3, width=0.05, headwidth=4)
-
-    for idx, g_ind in enumerate(eg_glom_inds):
-        ax0[idx+1, ang_ind].axhline(color='k', alpha=0.5)
-        ax0[idx+1, ang_ind].plot(response_data['time_vector'],
-                                 all_responses[g_ind, ang_ind, :, eg_fly_ind],
-                                 color=util.get_color_dict()[included_gloms[g_ind]], linewidth=2)
-
-        if ang_ind == 0:
-            ax0[idx+1, ang_ind].set_ylabel(included_gloms[g_ind])
-
-plot_tools.addScaleBars(ax0[1, 0], dT=2, dF=0.25, T_value=-0.1, F_value=-0.08)
-
-fh0.savefig(os.path.join(save_directory, 'natimage_direction_eggloms.svg'), transparent=True)
-
-# %% Summary: polar plots
-rows = [0, 0, 0, 1, 1, 2, 2, 2]
-cols = [0, 1, 2, 0, 1, 0, 1, 2]
-fh1, ax1 = plt.subplots(3, 3, figsize=(5, 5), subplot_kw={'projection': 'polar'})
-[x.set_axis_off() for x in ax1.ravel()]
-[x.spines['polar'].set_visible(False) for x in ax1.ravel()]
-fly_tuning = []
-for f_ind in range(len(matching_series[:-1])):
-    dir_tuning = ID.getResponseAmplitude(all_responses[:, :, :, f_ind])  # glom x dir
-    fly_tuning.append(dir_tuning)
-
-    for g_ind, glom in enumerate(included_gloms):
-        dir_resp = dir_tuning[g_ind, :]
-        plot_resp = np.append(dir_resp, dir_resp[0])
-        plot_dir = np.append(target_angles, target_angles[0])
-fly_tuning = np.stack(fly_tuning, axis=-1)  # glom x dir x fly
-
-# Plot dir tuning across flies
-for g_ind, glom in enumerate(included_gloms):
-    ax1[rows[g_ind], cols[g_ind]].set_axis_on()
-    plot_dir = np.append(target_angles, target_angles[0])
-
-    # Wrap last angle around to complete the circle for visualization
-    plot_fly_resp = np.vstack([fly_tuning[g_ind, :, :], fly_tuning[g_ind, 0, :]])
-    resp_mean = np.nanmean(plot_fly_resp, axis=1)
-    resp_err = np.nanstd(plot_fly_resp, axis=1) / np.sqrt(plot_fly_resp.shape[-1])
-
-    ax1[rows[g_ind], cols[g_ind]].errorbar(x=np.deg2rad(plot_dir),
-                                           y=resp_mean,
-                                           yerr=resp_err,
-                                           color=util.get_color_dict()[glom], linewidth=2, marker='.',
-                                           linestyle='-')
-
-    if g_ind == 0:
-        pass
-    else:
-        ax1[rows[g_ind], cols[g_ind]].set_xticklabels([])
-
-    y_lim = np.ceil(np.max(resp_mean) / 0.1) * 0.1
-    ax1[rows[g_ind], cols[g_ind]].set_ylim([0, y_lim])
-    ax1[rows[g_ind], cols[g_ind]].set_yticks([0, y_lim/2, y_lim])
-    yticklabels = ['', '', '{:.1f}'.format(y_lim)]
-    ax1[rows[g_ind], cols[g_ind]].set_yticklabels(yticklabels)
-
-    ax1[rows[g_ind], cols[g_ind]].annotate(glom, (np.deg2rad(90), 0.9*y_lim),
-                                           ha='center', rotation=0, fontsize=9, color='k')
-
-fh1.savefig(os.path.join(save_directory, 'natimage_direction_polar.svg'), transparent=True)
-# %%
-fh, ax = plt.subplots(1, len(included_gloms), figsize=(8, 1.5))
-for f_ind in range(len(matching_series)-1):
-    dir_tuning = ID.getResponseAmplitude(all_responses[:, :, :, f_ind])  # glom x dir
-    horiz = dir_tuning[:, 0] + dir_tuning[:, 4]
-    vert = dir_tuning[:, 2] + dir_tuning[:, 6]
-
-
-all_responses.shape
-for g_ind, glom in enumerate(included_gloms):
-    ax[g_ind].plot(horiz[g_ind], vert[g_ind], 'o')
-
-# %% Summary: OSI
-# Sum responses to opposite directions. To compute vector sum, make it so that vector space goes from 0-180
-
-def get_vec_magnitude(responses, directions):
-    ori_angles = np.array(directions[:4]) * 2
-    ori_responses = responses[:4] + responses[4:]
-    L = np.abs(np.sum(ori_responses * np.exp(2j*np.radians(ori_angles))) / np.sum(ori_responses))
-    return L
-
-
-osi = []
-mags = []
-for f_ind in range(len(matching_series)-1):
-    dir_tuning = ID.getResponseAmplitude(all_responses[:, :, :, f_ind])  # glom x dir
-    new_mag = [get_vec_magnitude(dir_tuning[x, :], target_angles) for x in range(dir_tuning.shape[0])]
-    ori_responses = dir_tuning[:, :4] + dir_tuning[:, 4:]
-    new_osi = (ori_responses[:, 2] - ori_responses[:, 0]) / ori_responses[:, 2]
-    osi.append(new_osi)
-    mags.append(new_mag)
-
-
-osi = np.stack(osi, axis=-1)
-mags = np.stack(mags, axis=-1)
-
-fh, ax = plt.subplots(1, 2, figsize=(6, 2))
-for g_ind, glom in enumerate(included_gloms):
-    ax[0].plot(g_ind * np.ones_like(osi[g_ind, :]),
-            osi[g_ind, :],
-            color=util.get_color_dict()[glom],
-            marker='o',
-            linestyle='None')
-
-    ax[1].plot(g_ind * np.ones_like(mags[g_ind, :]),
-            mags[g_ind, :],
-            color=util.get_color_dict()[glom],
-            marker='o',
-            linestyle='None')
-
-
-from scipy.stats import ttest_1samp
-from statsmodels.stats.multitest import multipletests
-mags.shape
-np.mean(mags, axis=1)
-res = ttest_1samp(mags, popmean=0, axis=1)
-res.pvalue
-h, p_corrected, _, _ = multipletests(res.pvalue, alpha=0.05, method='holm')
-p_corrected
-# %% Behavior modulation
-all_responses = []
-for s_ind, series in enumerate(matching_series):
-    series_number = series['series']
-    file_path = series['file_name'] + '.hdf5'
-    file_name = os.path.split(series['file_name'])[-1]
-    ID = imaging_data.ImagingDataObject(file_path,
-                                        series_number,
-                                        quiet=True)
-
-
-    # Load response data
-    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
-    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
-
-    # Load behavior data
-    ft_data_path = dataio.get_ft_datapath(ID, ft_dir)
-    if ft_data_path:
-        behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
-                                                 response_len = response_data.get('response').shape[1],
-                                                 process_behavior=True, fps=50, exclude_thresh=300)
-
-        behaving_trials = np.where(behavior_data.get('is_behaving')[0])[0]
-        nonbehaving_trials = np.where(~behavior_data.get('is_behaving')[0])[0]
-
-    trial_averages = np.zeros((len(included_gloms), len(target_angles), 2, epoch_response_matrix.shape[-1]))
-    trial_averages[:] = np.nan
-    for ang_ind, ang in enumerate(target_angles):
-        erm_selected, matching_inds = shared_analysis.filterTrials(epoch_response_matrix,
-                                                                   ID,
-                                                                   query={'current_background_direction': ang},
-                                                                   return_inds=True)
-        behaving_inds = np.array([x for x in matching_inds if x in behaving_trials])
-        if len(behaving_inds) >= 1:
-            trial_averages[:, ang_ind, 0, :] = np.nanmean(epoch_response_matrix[:, behaving_inds, :], axis=1)  # each trial average: gloms x time
-
-        nonbehaving_inds = np.array([x for x in matching_inds if x in nonbehaving_trials])
-        if len(nonbehaving_inds) >= 1:
-            trial_averages[:, ang_ind, 1, :] = np.nanmean(epoch_response_matrix[:, nonbehaving_inds, :], axis=1)  # each trial average: gloms x time
-    all_responses.append(trial_averages)
-
-all_responses = np.stack(all_responses, axis=-1)
-
-
-# %%
-
-popmean = np.nanmean(all_responses, axis=-1)
-
-fh0, ax0 = plt.subplots(len(included_gloms) + 1, len(target_angles), figsize=(4, 6))
-fh0.suptitle('Background direction')
-[plot_tools.cleanAxes(x) for x in ax0[0, :]]
-[x.spines['bottom'].set_visible(False) for x in ax0.ravel()]
-[x.spines['left'].set_visible(False) for x in ax0.ravel()]
-[x.spines['right'].set_visible(False) for x in ax0.ravel()]
-[x.spines['top'].set_visible(False) for x in ax0.ravel()]
-[x.set_yticks([]) for x in ax0.ravel()]
-[x.set_xticks([]) for x in ax0.ravel()]
-[x.set_ylim([-0.1, 0.3]) for x in ax0[1:, :].ravel()]
-for ang_ind, ang in enumerate(target_angles):
-    ax0[0, ang_ind].set_title('{}$\degree$'.format(ang), rotation=0)
-    rot_image = PIL.Image.fromarray(img_orig).rotate(ang, expand=False)
-    ax0[0, ang_ind].imshow(rot_image, cmap='Greys_r', vmax=200)  # brighten for fig display
-    ax0[0, ang_ind].set_xlim([image_width/2 - 0.8*screen_width/2, image_width/2 + 0.8*screen_width/2])
-    ax0[0, ang_ind].set_ylim([image_height/2 - screen_height/2, image_height/2 + screen_height/2])
-    ax0[0, ang_ind].quiver(image_width/2, image_height/2,
-                           np.cos(np.radians(ang)), np.sin(np.radians(ang)),
-                           color='y', scale=3, width=0.05, headwidth=4)
-
-    for g_ind, glom in enumerate(included_gloms):
-        ax0[g_ind+1, ang_ind].axhline(color='k', alpha=0.5)
-        ax0[g_ind+1, ang_ind].plot(response_data['time_vector'],
-                                 popmean[g_ind, ang_ind, 0, :],
-                                 color=util.get_color_dict()[included_gloms[g_ind]], linewidth=2,
-                                 label='Behaving' if (g_ind + ang_ind) == 0 else '_')
-        ax0[g_ind+1, ang_ind].plot(response_data['time_vector'],
-                                 popmean[g_ind, ang_ind, 1, :],
-                                 color=util.get_color_dict()[included_gloms[g_ind]], linewidth=1,
-                                 label='Nonbehaving' if (g_ind + ang_ind) == 0 else '_')
-
-fh0.legend()
-# %%
 
 
 
