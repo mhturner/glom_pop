@@ -83,8 +83,6 @@ for s_ind, series in enumerate(matching_series):
             trial_averages[:, st_ind, 1, :] = np.nanmean(epoch_response_matrix[:, nonbehaving_inds, :], axis=1)  # each trial average: gloms x time
 
 
-    glom_avg_resp = np.mean(trial_averages, axis=(1,2))
-
     resp_amp = ID.getResponseAmplitude(trial_averages, metric='max')  # glom x saccade time x beh/nonbeh
     # gain := response amp / amp for last saccade time. Norm is done *within each behavioral condition*
     norm_val = resp_amp[:, -1, :]  # last saccade time, basically at the end of the trial, well after the response has ended
@@ -133,12 +131,13 @@ ax2.set_ylabel('Background \nposition ($\degree$)')
 fh2.savefig(os.path.join(save_directory, 'saccade_schematic.svg'), transparent=True)
 
 # %% eg glom and fly traces
-eg_fly_ind = 4
-eg_glom_ind = 0
+eg_fly_ind = 2
+eg_glom_ind = 0   # 0, LC11
+included_gloms[4]
 
-eg_saccade_inds = np.arange(0, 12, 2)
+eg_saccade_inds = np.arange(0, 12, 1)
 
-fh1, ax1 = plt.subplots(2, len(eg_saccade_inds), figsize=(4, 3))
+fh1, ax1 = plt.subplots(2, len(eg_saccade_inds), figsize=(8, 3))
 [x.set_ylim([-0.1, 0.5]) for x in ax1.ravel()]
 [x.set_axis_off() for x in ax1.ravel()]
 for ind, si in enumerate(eg_saccade_inds):
@@ -204,6 +203,119 @@ fh3.legend()
 fh3.savefig(os.path.join(save_directory, 'saccade_gain_summary.svg'), transparent=True)
 
 
+# %% No behavior split:
 
+
+target_saccade_times = np.arange(0, 3, 0.25)
+
+all_response_gains = []
+all_response_amps = []
+all_responses = []
+for s_ind, series in enumerate(matching_series):
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    ID = imaging_data.ImagingDataObject(file_path,
+                                        series_number,
+                                        quiet=True)
+
+    # Load response data
+    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+
+    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
+
+    trial_averages = np.zeros((len(included_gloms), len(target_saccade_times), epoch_response_matrix.shape[-1]))
+    trial_averages[:] = np.nan
+    for st_ind, st in enumerate(target_saccade_times):
+        _, matching_inds = shared_analysis.filterTrials(epoch_response_matrix,
+                                                                   ID,
+                                                                   query={'current_saccade_time': st},
+                                                                   return_inds=True)
+
+        trial_averages[:, st_ind, :] = np.nanmean(epoch_response_matrix[:, matching_inds, :], axis=1)  # each trial average: gloms x time
+
+
+    resp_amp = ID.getResponseAmplitude(trial_averages, metric='max')  # glom x saccade time
+    # gain := response amp / amp for last saccade time. Norm is done *within each behavioral condition*
+    norm_val = resp_amp[:, -1]  # last saccade time, basically at the end of the trial, well after the response has ended
+    response_gain = resp_amp / norm_val[:, np.newaxis]  # gloms x saccade times
+    all_response_gains.append(response_gain)
+    all_responses.append(trial_averages)
+    all_response_amps.append(resp_amp)
+
+    if True: # Plot ind fly responses. QC
+        eg_saccade_inds = np.arange(0, len(target_saccade_times), 1)
+        fh, ax = plt.subplots(len(included_gloms), len(eg_saccade_inds), figsize=(8, 4))
+        fh.suptitle('{}: {}'.format(file_name, series_number))
+        [x.set_ylim([-0.1, 0.5]) for x in ax.ravel()]
+        [x.set_axis_off() for x in ax.ravel()]
+        for g_ind, glom in enumerate(included_gloms):
+            for ind, si in enumerate(eg_saccade_inds):
+                ax[g_ind, ind].plot(response_data['time_vector'], trial_averages[g_ind, si, :], color=util.get_color_dict()[glom])
+
+
+all_response_gains = np.stack(all_response_gains, axis=-1)
+all_response_amps = np.stack(all_response_amps, axis=-1)
+all_responses = np.stack(all_responses, axis=-1)
+
+
+# %% eg glom and fly traces
+eg_fly_ind = 4
+eg_glom_ind = 2   # 0, LC11
+included_gloms[4]
+
+eg_saccade_inds = np.arange(0, 12, 1)
+
+fh1, ax1 = plt.subplots(2, len(eg_saccade_inds), figsize=(8, 3))
+[x.set_ylim([-0.1, 0.5]) for x in ax1.ravel()]
+[x.set_axis_off() for x in ax1.ravel()]
+for ind, si in enumerate(eg_saccade_inds):
+    xval = ID.getRunParameters('pre_time') + target_saccade_times[si]
+    ax1[0, ind].plot([xval, xval], [0, 0.5], color='y', linestyle='-', alpha=1, linewidth=1, zorder=10)
+    ax1[0, ind].axhline(y=0, color='k', alpha=0.5)
+    ax1[0, ind].plot(response_data['time_vector'], all_responses[eg_glom_ind, si, :, eg_fly_ind],
+                  color=util.get_color_dict()[included_gloms[eg_glom_ind]], alpha=1.0, linewidth=2)
+
+    if ind == 0:
+        plot_tools.addScaleBars(ax1[0, ind], dT=2, dF=0.25, T_value=-0.1, F_value=-0.08)
+
+# fh1.savefig(os.path.join(save_directory, 'saccade_traces_{}.svg'.format(included_gloms[eg_glom_ind])), transparent=True)
 
 # %%
+rows = [0, 0, 0, 1, 1, 2, 2, 2]
+cols = [0, 1, 2, 0, 1, 0, 1, 2]
+
+# Response onset := peak slope of mean response across all stims, animals
+all_responses.shape
+onset_inds = [np.argmax(np.diff(np.mean(all_responses[x, :, :, :], axis=(0, 2)))) for x in range(len(included_gloms))]
+tt = response_data['time_vector'] - ID.getRunParameters('pre_time')
+# Norm by: last saccade response, nonbehaving condition
+all_response_amps_normed = all_response_amps / all_response_amps[:, -1, :][:, np.newaxis, :]
+popmean = np.nanmean(all_response_amps_normed, axis=-1)
+poperr = np.nanstd(all_response_amps_normed, axis=-1) / np.sqrt(all_response_amps.shape[-1])
+fh3, ax3 = plt.subplots(3, 3, figsize=(5, 4), tight_layout=True)
+[x.set_axis_off() for x in ax3.ravel()]
+[x.set_xlim([-2, 2]) for x in ax3.ravel()]
+
+for g_ind, glom in enumerate(included_gloms):
+    # indication of response onset time
+    onset_time = tt[onset_inds[g_ind]]
+    ax3[rows[g_ind], cols[g_ind]].axvline(x=0, color='k', alpha=0.5, linestyle='-', linewidth=1)
+    ax3[rows[g_ind], cols[g_ind]].axhline(y=1, color='k', alpha=0.5)
+    ax3[rows[g_ind], cols[g_ind]].errorbar(x=target_saccade_times-onset_time,
+                                           y=popmean[g_ind, :],
+                                           yerr=poperr[g_ind, :],
+                                           color=util.get_color_dict()[glom],
+                                           alpha=1.0)
+
+    ax3[rows[g_ind], cols[g_ind]].set_axis_on()
+    ax3[rows[g_ind], cols[g_ind]].set_title(glom)
+    ax3[rows[g_ind], cols[g_ind]].set_ylim(bottom=0)
+    ax3[rows[g_ind], cols[g_ind]].spines['top'].set_visible(False)
+    ax3[rows[g_ind], cols[g_ind]].spines['right'].set_visible(False)
+
+
+fh3.supylabel('Response gain')
+fh3.supxlabel('Relative Saccade time (s)')
+# fh3.legend()
+# fh3.savefig(os.path.join(save_directory, 'saccade_gain_summary.svg'), transparent=True)
