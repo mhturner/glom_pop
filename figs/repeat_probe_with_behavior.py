@@ -9,8 +9,8 @@ from statsmodels.stats.multitest import multipletests
 from visanalysis.util import plot_tools
 from glom_pop import dataio, util
 
-PROTOCOL_ID = 'ExpandingMovingSpot'
-# PROTOCOL_ID = 'LoomingSpot'
+# PROTOCOL_ID = 'ExpandingMovingSpot'
+PROTOCOL_ID = 'LoomingSpot'
 
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
@@ -249,7 +249,7 @@ ax2.set_xlabel(r'Corr. with behavior ($\rho$)')
 ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 ax2.spines['left'].set_visible(False)
-# fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
+fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
 
 
 # %% OLD STUFF

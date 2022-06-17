@@ -72,8 +72,6 @@ for s_ind, series in enumerate(matching_series):
         p_nonbeh = []
         cmats_nonbeh = []
         for it in range(iterations):
-            # train on all trials
-            # train_inds = np.random.choice(np.arange(n_trials), int((frac_train * n_trials)))
 
             # (1) Test on all trials:
             train_inds = np.random.choice(np.arange(n_trials), int((frac_train * n_trials)))
@@ -216,21 +214,23 @@ for u_ind, up in enumerate(unique_parameter_values):
 # z score each individual glom, across all conditions and stims
 
 all_response_amps = np.stack([ID.getResponseAmplitude(all_responses[..., x], metric='max') for x in range(all_responses.shape[-1])], axis=-1)
-mean_sub = all_response_amps - np.nanmean(all_response_amps, axis=(1, 2))[:, np.newaxis, np.newaxis, :]
-scored = mean_sub / np.nanstd(all_response_amps, axis=(1, 2))[:, np.newaxis, np.newaxis, :]  # glom, stim, beh, fly
-fly_avg_scored = np.nanmean(scored, axis=-1)  # shape = gloms x stims x beh
-fly_err_scored = np.nanstd(scored, axis=-1) / np.sqrt(scored.shape[-1])
+all_response_amps.shape
+normed = all_response_amps / np.nanmax(all_response_amps, axis=(1, 2))[:, np.newaxis, np.newaxis, :]
+# mean_sub = all_response_amps - np.nanmean(all_response_amps, axis=(1, 2))[:, np.newaxis, np.newaxis, :]
+# scored = mean_sub / np.nanstd(all_response_amps, axis=(1, 2))[:, np.newaxis, np.newaxis, :]  # glom, stim, beh, fly
+fly_avg_scored = np.nanmean(normed, axis=-1)  # shape = gloms x stims x beh
+fly_err_scored = np.nanstd(normed, axis=-1) / np.sqrt(normed.shape[-1])
 # %%
 fh, ax = plt.subplots(6, 1, figsize=(5, 10), tight_layout=True)
 beh_gloms = np.mean(fly_avg_scored[:, :, 0], axis=1)
 nonbeh_gloms = np.mean(fly_avg_scored[:, :, 1], axis=1)
-[x.set_ylim([-2, 2.5]) for x in ax]
+[x.set_ylim([-0.1, 1.1]) for x in ax]
 [x.spines['right'].set_visible(False) for x in ax]
 [x.spines['top'].set_visible(False) for x in ax]
 for s in range(6):
     ax[s].set_title(unique_parameter_values[s][0])
     sort_inds = np.argsort(fly_avg_scored[:, s, 1])[::-1]
-    ax[s].axhline(y=0, color=[0.5, 0.5, 0.5], alpha=0.5)
+    # ax[s].axhline(y=0, color=[0.5, 0.5, 0.5], alpha=0.5)
     ax[s].errorbar(x=np.arange(len(included_gloms)),
                    y=fly_avg_scored[:, s, 0][sort_inds],
                    yerr=fly_err_scored[:, s, 0][sort_inds],
@@ -243,18 +243,66 @@ for s in range(6):
 
     ax[s].set_xticks(np.arange(len(included_gloms)))
     ax[s].set_xticklabels(included_gloms[sort_inds], rotation=90);
-fh.supylabel('Response amp (z-score)')
+fh.supylabel('Response amp (norm.)')
 
 
 # %%
 from sklearn.decomposition import PCA
 from scipy.stats import zscore
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 
 trial_amps_z = [zscore(x, axis=1) for x in trial_amps]
 X = np.hstack(trial_amps_z).T
 Y_stim_codes = np.hstack(stim_codes)
 Y_beh_codes = np.hstack(behaving_codes)
 
+X[np.isnan(X)] = 0
+
+frac_train = 0.9
+iterations = 100
+n_trials = len(Y_beh_codes)
+clf = LinearDiscriminantAnalysis()
+p_all = []
+p_beh = []
+p_nonbeh = []
+for it in range(iterations):
+
+    # (1) Test on all trials:
+    train_inds = np.random.choice(np.arange(n_trials), int((frac_train * n_trials)))
+    test_inds = np.array([x for x in np.arange(n_trials) if x not in train_inds])
+    clf.fit(X[train_inds, :], Y_stim_codes[train_inds])
+    p_all.append(clf.score(X[test_inds, :], Y_stim_codes[test_inds]))
+
+    # (2) Test on behaving trials
+    train_inds = np.random.choice(np.where(Y_beh_codes)[0], int((frac_train * len(Y_beh_codes))))
+    test_beh = np.array([x for x in np.where(Y_beh_codes)[0] if x not in train_inds])
+    if len(test_beh) > 0:
+        clf.fit(X[train_inds, :], Y_stim_codes[train_inds])
+        p_beh.append(clf.score(X[test_beh, :], Y_stim_codes[test_beh]))
+
+    # (3) Test on nonbehaving trials
+    train_inds = np.random.choice(np.where(~Y_beh_codes)[0], int((frac_train * len(Y_beh_codes))))
+    test_nonbeh = np.array([x for x in np.where(~Y_beh_codes)[0] if x not in train_inds])
+    if len(test_nonbeh) > 0:
+        clf.fit(X[train_inds, :], Y_stim_codes[train_inds])
+        p_nonbeh.append(clf.score(X[test_nonbeh, :], Y_stim_codes[test_nonbeh]))
+
+fh, ax = plt.subplots(1, 1, figsize=(2, 4))
+ax.set_ylim([0, 1])
+# ax.plot(np.ones_like(p_all), p_all, 'k.')
+ax.errorbar(x=1, y=np.mean(p_all), yerr=np.std(p_all), color='k', marker='o')
+
+# ax.plot(2*np.ones_like(p_beh), p_beh, 'g.')
+ax.errorbar(x=2, y=np.mean(p_beh), yerr=np.std(p_beh), color='g', marker='o')
+
+# ax.plot(3*np.ones_like(p_nonbeh), p_nonbeh, 'r.')
+ax.errorbar(x=3, y=np.mean(p_nonbeh), yerr=np.std(p_nonbeh), color='r', marker='o')
+
+ax.set_xticks([1, 2, 3])
+ax.set_xticklabels(['All', 'Walking', 'Stationary'])
+
+ax.set_ylabel('Performance')
+# %%
 
 X[np.isnan(X)] = 0
 pca = PCA(n_components=13).fit(X)
@@ -264,10 +312,18 @@ pc_2 = pca.components_[1, :]
 
 proj_1 = np.dot(pc_1, X.T)
 proj_2 = np.dot(pc_2, X.T)
+Y_beh_codes.shape
+Y_beh_codes.shape
+proj_1.shape
+rgb_values = sns.color_palette("Set2", 6)
+fh, ax = plt.subplots(1, 2, figsize=(8, 4))
+[x.set_xlim([proj_1.min(), proj_1.max()]) for x in ax]
+[x.set_ylim([proj_2.min(), proj_2.max()]) for x in ax]
+sc = ax[0].scatter(proj_1[Y_beh_codes], proj_2[Y_beh_codes], marker='.', c=Y_stim_codes[Y_beh_codes], cmap='Set1')
+ax[1].scatter(proj_1[~Y_beh_codes], proj_2[~Y_beh_codes], marker='.', c=Y_stim_codes[~Y_beh_codes], cmap='Set1')
 
-fh, ax = plt.subplots(1, 1, figsize=(4, 4))
-ax.scatter(proj_1, proj_2, marker='.', c=Y_stim_codes)
-# ax.scatter(proj_1, proj_2, marker='.', c=Y_beh_codes)
+fh.colorbar(sc)
+
 
 # %%
 
