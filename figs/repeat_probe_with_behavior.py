@@ -2,16 +2,15 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from visanalysis.analysis import imaging_data, shared_analysis
-from scipy.stats import ttest_1samp
+from scipy.stats import ttest_1samp, ttest_rel
 from scipy.interpolate import interp1d
 from scipy.stats import spearmanr
 from statsmodels.stats.multitest import multipletests
 from visanalysis.util import plot_tools
 from glom_pop import dataio, util
 
-
-# PROTOCOL_ID = 'ExpandingMovingSpot'
-PROTOCOL_ID = 'LoomingSpot'
+PROTOCOL_ID = 'ExpandingMovingSpot'
+# PROTOCOL_ID = 'LoomingSpot'
 
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
@@ -27,9 +26,10 @@ if PROTOCOL_ID == 'ExpandingMovingSpot':
     y_min = -0.15
     y_max = 0.80
     eg_trials = np.arange(30, 50)
+    rows = [0, 0, 0, 1, 1, 2, 2, 2]
+    cols = [0, 1, 2, 0, 1, 0, 1, 2]
 
     included_gloms = ['LC11', 'LC21', 'LC18', 'LC6', 'LC26', 'LC17', 'LC12', 'LC15']
-
     included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
     matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
@@ -48,8 +48,9 @@ elif PROTOCOL_ID == 'LoomingSpot':
     y_min = -0.05
     y_max = 0.35
     eg_trials = np.arange(0, 20)
-    included_gloms = ['LC6', 'LC26', 'LPLC2', 'LC4', 'LPLC1', 'LC9', 'LC17', 'LC12']
-
+    rows = [0, 0, 0, 0, 1, 1, 1, 2, 2]
+    cols = [0, 1, 2, 3, 0, 1, 2, 0, 1]
+    included_gloms = ['LC6', 'LC26', 'LC16', 'LPLC2', 'LC4', 'LPLC1', 'LC9', 'LC17', 'LC12']
     included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
     matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sync_dir, 'datafiles'),
@@ -75,6 +76,7 @@ corr_with_running = []
 response_amps = []
 walking_amps = []
 all_behaving = []
+all_is_behaving = []
 
 for s_ind, series in enumerate(matching_series):
     series_number = series['series']
@@ -95,9 +97,9 @@ for s_ind, series in enumerate(matching_series):
     behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
                                              response_len=response_data.get('response').shape[1],
                                              process_behavior=True, fps=50, exclude_thresh=300)
+    all_is_behaving.append(behavior_data.get('is_behaving')[0])
     walking_amps.append(behavior_data.get('walking_amp'))
     new_beh_corr = np.array([spearmanr(behavior_data.get('walking_amp')[0, :], response_amp[x, :]).correlation for x in range(len(included_gloms))])
-
     corr_with_running.append(new_beh_corr)
 
     # # QC: check thresholding
@@ -167,6 +169,7 @@ for s_ind, series in enumerate(matching_series):
 corr_with_running = np.vstack(corr_with_running)  # flies x gloms
 walking_amps = np.vstack(walking_amps)  # flies x trials
 response_amps = np.dstack(response_amps)  # gloms x trials x flies
+all_is_behaving = np.stack(all_is_behaving, axis=-1)  # trials x flies
 
 ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
@@ -176,6 +179,39 @@ tw_ax.spines['right'].set_visible(False)
 fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
 fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
 # %%
+# shape = flies x gloms
+beh_mean = np.vstack([np.nanmean(response_amps[:, :, f][:, all_is_behaving[:, f]], axis=1) for f in range(response_amps.shape[-1])])
+nonbeh_mean = np.vstack([np.nanmean(response_amps[:, :, f][:, ~all_is_behaving[:, f]], axis=1) for f in range(response_amps.shape[-1])])
+
+fh, ax = plt.subplots(np.max(rows)+1, np.max(cols)+1, figsize=(1.5*np.max(cols), 2*np.max(rows)), tight_layout=True)
+[x.set_axis_off() for x in ax.ravel()]
+[x.spines['right'].set_visible(False) for x in ax.ravel()]
+[x.spines['top'].set_visible(False) for x in ax.ravel()]
+p_vals = []
+for g_ind, glom in enumerate(included_gloms):
+    ax[rows[g_ind], cols[g_ind]].set_axis_on()
+    ax[rows[g_ind], cols[g_ind]].plot([0, 0.5], [0, 0.5], 'k--')
+    h, p = ttest_rel(beh_mean[:, g_ind], nonbeh_mean[:, g_ind], nan_policy='omit')
+    p_vals.append(p)
+    ax[rows[g_ind], cols[g_ind]].plot(beh_mean[:, g_ind], nonbeh_mean[:, g_ind],
+                                      marker='o', linestyle='None',
+                                      color=util.get_color_dict()[glom])
+    ax[rows[g_ind], cols[g_ind]].set_title(glom)
+    if np.logical_and(rows[g_ind] == np.max(rows), cols[g_ind] == 0):
+        pass
+    else:
+        ax[rows[g_ind], cols[g_ind]].set_yticks([])
+        ax[rows[g_ind], cols[g_ind]].set_xticks([])
+
+# Multiple comparisons test. Step down bonferroni
+h, p_corrected, _, _ = multipletests(p_vals, alpha=0.05, method='holm')
+for g_ind, glom in enumerate(included_gloms):
+    if h[g_ind]:
+        ax[rows[g_ind], cols[g_ind]].annotate('*', (0, 0.45), fontsize=12)
+
+fh.supxlabel('Response, walking')
+fh.supylabel('Response, stationary')
+
 
 
 # %% Summary plots
@@ -217,38 +253,6 @@ ax2.spines['left'].set_visible(False)
 
 
 # %% OLD STUFF
-
-# Corr w turning
-trial_gain = response_amps / np.nanmean(response_amps, axis=1)[:, np.newaxis, :]
-
-rows = [0, 0, 0, 1, 1, 2, 2, 2]
-cols = [0, 1, 2, 0, 1, 0, 1, 2]
-fh, ax = plt.subplots(3, 3, figsize=(5, 4))
-[x.set_xlim([-150, 150]) for x in ax.ravel()]
-[x.set_ylim([0, 3.8]) for x in ax.ravel()]
-[x.spines['top'].set_visible(False) for x in ax.ravel()]
-[x.spines['right'].set_visible(False) for x in ax.ravel()]
-[x.set_axis_off() for x in ax.ravel()]
-[x.set_xticks([-100, 0, 100]) for x in ax.ravel()]
-[x.set_yticks([0, 1, 2, 3]) for x in ax.ravel()]
-for g_ind, glom in enumerate(included_gloms):
-    ax[rows[g_ind], cols[g_ind]].set_axis_on()
-    ax[rows[g_ind], cols[g_ind]].annotate(glom, (-140, 3))
-    ax[rows[g_ind], cols[g_ind]].axvline(x=0, color='k', alpha=0.5)
-    ax[rows[g_ind], cols[g_ind]].axhline(y=1, color='k', alpha=0.5)
-    ax[rows[g_ind], cols[g_ind]].scatter(turning_amps[:, :].ravel(), trial_gain[g_ind, :, :].T.ravel(),
-                      color=util.get_color_dict()[glom], marker='.')
-
-    if g_ind == 5:
-        pass
-    else:
-        ax[rows[g_ind], cols[g_ind]].set_xticklabels([])
-        ax[rows[g_ind], cols[g_ind]].set_yticklabels([])
-
-fh.supylabel('Trial gain (norm.)')
-fh.supxlabel('Trial average rotation ($\degree$/sec)')
-
-fh.savefig(os.path.join(save_directory, 'repeat_beh_{}_rotation_summary.svg'.format(PROTOCOL_ID)), transparent=True)
 
 
 # %% (1) Response-weighted behavior

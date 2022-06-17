@@ -1,14 +1,11 @@
 from visanalysis.analysis import imaging_data, shared_analysis
 from visanalysis.util import plot_tools
 import matplotlib.pyplot as plt
-from matplotlib.colors import to_rgba
 import numpy as np
 import os
 from glom_pop import dataio, util
 from scipy.stats import ttest_rel
-from skimage.io import imread
 # from flystim import image
-import ast
 from scipy.interpolate import interp1d
 
 

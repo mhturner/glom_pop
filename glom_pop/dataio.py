@@ -208,8 +208,12 @@ def load_fictrac_data(ID, ft_data_path, response_len, process_behavior=True, fps
 
     walking_mag = np.sqrt(xrot_filt**2 + yrot_filt**2 + zrot_filt**2)
     walking_mag_ds = resample(walking_mag, response_len)
+    turning_ds = resample(zrot_filt, response_len)
+    speed_ds = resample(yrot_filt, response_len)
     if exclude_thresh is not None:
-        # Filter walking mag to remove timepoints when tracking is lost
+        # Filter to remove timepoints when tracking is lost
+        turning_ds[walking_mag_ds > exclude_thresh] = 0
+        speed_ds[walking_mag_ds > exclude_thresh] = 0
         walking_mag_ds[walking_mag_ds > exclude_thresh] = 0
 
     thresh = filters.threshold_li(walking_mag_ds)
@@ -219,14 +223,24 @@ def load_fictrac_data(ID, ft_data_path, response_len, process_behavior=True, fps
     _, walking_response_matrix = ID.getEpochResponseMatrix(walking_mag_ds[np.newaxis, :],
                                                            dff=False)
 
+    _, turning_response_matrix = ID.getEpochResponseMatrix(turning_ds[np.newaxis, :],
+                                                           dff=False)
+
+    _, speed_response_matrix = ID.getEpochResponseMatrix(speed_ds[np.newaxis, :],
+                                                         dff=False)
+
     is_behaving = ID.getResponseAmplitude(behavior_binary_matrix, metric='mean') > 0.25
     walking_amp = ID.getResponseAmplitude(walking_response_matrix, metric='mean')
+    turning_amp = ID.getResponseAmplitude(turning_response_matrix, metric='mean')
+    speed_amp = ID.getResponseAmplitude(speed_response_matrix, metric='mean')
 
     behavior_data = {'walking_mag': walking_mag,  # n video frames
                      'walking_mag_ds': walking_mag_ds,  # n imaging frames
                      'behavior_binary_matrix': behavior_binary_matrix,  # 1 x trials x time
                      'walking_response_matrix': walking_response_matrix,  # 1 x trials x time
                      'walking_amp': walking_amp,  # n trials
+                     'turning_amp': turning_amp,
+                     'speed_amp': speed_amp,
                      'is_behaving': is_behaving,  # n trials
                      'thresh': thresh
                      }
