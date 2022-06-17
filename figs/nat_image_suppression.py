@@ -139,6 +139,7 @@ fh1.suptitle('Background speed ($\degree$/s)')
 fh1.savefig(os.path.join(save_directory, 'natimage_egfly_{}.svg'.format(included_gloms[eg_glom_ind])), transparent=True)
 
 # %% heatmaps for all gloms
+all_resp_mat.shape
 np.nanmax(np.nanmean(all_resp_mat, axis=-1).ravel())
 rows = [0, 0, 0, 1, 1, 2, 2, 2]
 cols = [0, 1, 2, 0, 1, 0, 1, 2]
@@ -174,6 +175,32 @@ ax2[2, 0].set_xlabel('Speed ($\degree$/sec)')
 
 fh2.savefig(os.path.join(save_directory, 'natimage_tuning.svg'), transparent=True)
 
+# %% Surround speed tuning for diff gloms, orig image
+
+fh, ax = plt.subplots(1, 3, figsize=(5, 2))
+[x.set_ylim([-0.1, 1.1]) for x in ax]
+cols = [0, 0, 0, 1, 1, 2, 2, 2]
+for g_ind, glom in enumerate(included_gloms):
+    glom_data = ID.getResponseAmplitude(np.nanmean(all_resp_mat[g_ind, ...], axis=-1), metric='max')
+    spd_resp = glom_data[:, 0]
+    spd_resp = spd_resp / spd_resp[0]
+    ax[cols[g_ind]].plot(image_speeds, spd_resp,
+            color=util.get_color_dict()[glom],
+            marker='o',
+            linewidth=2,
+            label=glom)
+
+[x.set_yticks([0, 0.25, 0.5, 0.75, 1.0]) for x in ax]
+ax[1].set_yticklabels([])
+ax[2].set_yticklabels([])
+[x.set_xticks(image_speeds) for x in ax]
+ax[1].set_xlabel('Image Speed ($\degree$/s)')
+ax[0].set_ylabel('Probe response (norm.)')
+[x.spines['top'].set_visible(False) for x in ax]
+[x.spines['right'].set_visible(False) for x in ax]
+[x.legend(ncol=1, fontsize=9) for x in ax]
+
+fh.savefig(os.path.join(save_directory, 'natimage_speedtuning.svg'), transparent=True)
 
 # %% +/- behavior for no filter
 
