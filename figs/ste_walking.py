@@ -320,8 +320,9 @@ fh, ax = plt.subplots(1, 2, figsize=(8, 4))
 [x.set_xlim([proj_1.min(), proj_1.max()]) for x in ax]
 [x.set_ylim([proj_2.min(), proj_2.max()]) for x in ax]
 sc = ax[0].scatter(proj_1[Y_beh_codes], proj_2[Y_beh_codes], marker='.', c=Y_stim_codes[Y_beh_codes], cmap='Set1')
+ax[0].set_title('Walking')
 ax[1].scatter(proj_1[~Y_beh_codes], proj_2[~Y_beh_codes], marker='.', c=Y_stim_codes[~Y_beh_codes], cmap='Set1')
-
+ax[1].set_title('Stationary')
 fh.colorbar(sc)
 
 
