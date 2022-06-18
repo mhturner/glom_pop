@@ -2,7 +2,6 @@ import os
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.ndimage.filters import gaussian_filter1d
-from scipy.signal import medfilt
 
 
 class Trial:
@@ -67,7 +66,7 @@ class Cnc:
 
 
 class Fly:
-    def __init__(self, trial, time_res=0.01, sigma=0):
+    def __init__(self, trial, time_res=0.033, sigma=0):
         """
         trial: Trial object, defined above
         time_res: in seconds
@@ -103,10 +102,10 @@ class Fly:
 
 
         if sigma != 0:  # smooth x, y, angle trajectory with gaussian(sigma)
-            medfilt_sz = np.int(np.ceil(2*sigma) // 2 * 2 + 1)  # round up to nearest odd integer
-            self.x = medfilt(self.x, medfilt_sz)
-            self.y = medfilt(self.y, medfilt_sz)
-            self.a = medfilt(self.a, medfilt_sz)
+            # medfilt_sz = np.int(np.ceil(2*sigma) // 2 * 2 + 1)  # round up to nearest odd integer
+            # self.x = medfilt(self.x, medfilt_sz)
+            # self.y = medfilt(self.y, medfilt_sz)
+            # self.a = medfilt(self.a, medfilt_sz)
 
             self.x = gaussian_filter1d(self.x, sigma)
             self.y = gaussian_filter1d(self.y, sigma)
@@ -114,7 +113,7 @@ class Fly:
 
 
         # Compute instantaneous velocities
-        d_xy = np.sqrt(np.diff(self.x)**2 + np.diff(self.y)**2) # m per time point
+        d_xy = np.sqrt(np.diff(self.x)**2 + np.diff(self.y)**2)  # m per time point
         self.vel = 100 * d_xy / time_res  # cm/sec
         self.ang_vel = np.diff(self.a) / time_res  # deg/sec
 
