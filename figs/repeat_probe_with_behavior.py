@@ -9,8 +9,8 @@ from statsmodels.stats.multitest import multipletests
 from visanalysis.util import plot_tools
 from glom_pop import dataio, util
 
-# PROTOCOL_ID = 'ExpandingMovingSpot'
-PROTOCOL_ID = 'LoomingSpot'
+PROTOCOL_ID = 'ExpandingMovingSpot'
+# PROTOCOL_ID = 'LoomingSpot'
 
 sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
@@ -251,6 +251,11 @@ ax2.spines['right'].set_visible(False)
 ax2.spines['left'].set_visible(False)
 fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
 
+
+# %% TODO: response amp at time when response should peak vs behavior leading up to it
+
+
+# TODO: peak response time gcamp vs. behavior at that time
 
 # %% OLD STUFF
 
