@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from glom_pop import dataio, util
-from scipy.stats import ttest_rel
+from scipy.stats import ttest_rel, pearsonr
 # from flystim import image
 from scipy.interpolate import interp1d
 
@@ -144,7 +144,6 @@ rows = [0, 0, 0, 1, 1, 2, 2, 2]
 cols = [0, 1, 2, 0, 1, 0, 1, 2]
 
 # Response onset := peak slope of mean response across all stims, animals
-all_responses.shape
 onset_inds = [np.argmax(np.diff(np.mean(all_responses[x, :, :, :], axis=(0, 2)))) for x in range(len(included_gloms))]
 tt = response_data['time_vector'] - ID.getRunParameters('pre_time')
 # Norm by: last saccade response, nonbehaving condition
@@ -190,8 +189,8 @@ for s_ind, series in enumerate(matching_series):
     file_path = series['file_name'] + '.hdf5'
     file_name = os.path.split(series['file_name'])[-1]
     ID = imaging_data.ImagingDataObject(file_path,
-                                     series_number,
-                                     quiet=True)
+                                        series_number,
+                                        quiet=True)
 
     # Load response data
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
@@ -201,8 +200,8 @@ for s_ind, series in enumerate(matching_series):
     # Load behavior data
     ft_data_path = dataio.get_ft_datapath(ID, ft_dir)
     behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
-                                          response_len=response_data.get('response').shape[1],
-                                          process_behavior=True, fps=50, exclude_thresh=300)
+                                             response_len=response_data.get('response').shape[1],
+                                             process_behavior=True, fps=50, exclude_thresh=300)
     behaving_trials = np.where(behavior_data.get('is_behaving')[0])[0]
     nonbehaving_trials = np.where(~behavior_data.get('is_behaving')[0])[0]
 
@@ -277,23 +276,33 @@ fh.savefig(os.path.join(save_directory, 'saccade_beh_eg_traces.svg'), transparen
 
 # %%
 # Summary:
-all_response_amps.shape
-np.min(all_response_amps)
+
+# Norm by: last saccade response, nonbehaving condition
+all_response_amps_normed = all_response_amps / all_response_amps[:, -1, 1, :][:, np.newaxis, np.newaxis, :]
+
 fh3, ax3 = plt.subplots(3, 3, figsize=(4, 4), tight_layout=True)
 [x.set_axis_off() for x in ax3.ravel()]
 [x.spines['top'].set_visible(False) for x in ax3.ravel()]
 [x.spines['right'].set_visible(False) for x in ax3.ravel()]
+beh_suppression = []
+visual_suppression = []
+
+fh4, ax4 = plt.subplots(1, 1, figsize=(4, 4))
+ax4.set_xlim([0, 0.6])
+ax4.set_ylim([-0.38, 0.5])
+ax4.spines['top'].set_visible(False)
+ax4.spines['right'].set_visible(False)
+
 for g_ind, glom in enumerate(included_gloms):
-    fly_beh = np.mean(all_response_amps[g_ind, 5:10, 0, :], axis=(0))
+    fly_beh = np.mean(all_response_amps_normed[g_ind, 5:10, 0, :], axis=(0))
     mean_beh = np.mean(fly_beh)
     err_beh = np.std(fly_beh) / np.sqrt(fly_beh.shape[-1])
 
-    fly_nonbeh = np.mean(all_response_amps[g_ind, 5:10, 1, :], axis=(0))
+    fly_nonbeh = np.mean(all_response_amps_normed[g_ind, 5:10, 1, :], axis=(0))
     mean_nonbeh = np.mean(fly_nonbeh)
     err_nonbeh = np.std(fly_nonbeh) / np.sqrt(fly_nonbeh.shape[-1])
-
-
     ymax = 1.1*np.max([fly_beh, fly_nonbeh])
+    ymax = np.max([ymax, 1.1])
 
     h, p = ttest_rel(fly_beh, fly_nonbeh)
     if p < 0.05:
@@ -309,8 +318,37 @@ for g_ind, glom in enumerate(included_gloms):
                                            linestyle='None', marker='o',
                                            color=util.get_color_dict()[glom])
     ax3[rows[g_ind], cols[g_ind]].set_title('{}'.format(glom))
-fh3.supxlabel('Response amp, walking (dF/F)')
-fh3.supylabel('Response amp, stationary (dF/F)')
+
+    # suppression due to vis saccade and beh suppression
+    new_visual_suppression = np.mean(1-fly_nonbeh)  # already normalized to non-saccade condition, by def'n of gain. So just sub from 1
+    visual_suppression.append(new_visual_suppression)
+    new_beh_suppression = np.mean((fly_nonbeh-fly_beh)/fly_nonbeh)  # relative effect of behavior suppression
+    beh_suppression.append(new_beh_suppression)
+
+    ax4.errorbar(x=new_beh_suppression, y=new_visual_suppression,
+                 xerr=np.std((fly_nonbeh-fly_beh)/fly_nonbeh)/np.sqrt(fly_nonbeh.shape[-1]),
+                 yerr=np.std(1-fly_nonbeh)/np.sqrt(fly_nonbeh.shape[-1]),
+                 color=util.get_color_dict()[glom], marker='o', linewidth=2)
+    ax4.annotate(glom,
+                 (new_beh_suppression, new_visual_suppression),
+                 fontsize=10, weight='bold', ha='center')
+
+fh3.supxlabel('Response gain, walking')
+fh3.supylabel('Response gain, stationary')
 fh3.savefig(os.path.join(save_directory, 'saccade_beh_summary.svg'), transparent=True)
+
+
+coef = np.polyfit(beh_suppression, visual_suppression, 1)
+linfit = np.poly1d(coef)
+xx = [0.05, 0.6]
+yy = linfit(xx)
+ax4.plot(xx, yy, color='k', alpha=0.5, linestyle='-')
+r, p = pearsonr(beh_suppression, visual_suppression)
+ax4.annotate('r = {:.2f}'.format(r), (0.05, 0.4))
+
+ax4.set_xlabel('Behavioral suppression')
+ax4.set_ylabel('Visual suppression')
+fh4.savefig(os.path.join(save_directory, 'saccade_beh_vis_corr.svg'), transparent=True)
+
 
 # %%

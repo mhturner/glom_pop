@@ -279,6 +279,73 @@ fh1.legend()
 
 fh1.savefig(os.path.join(save_directory, 'single_trial_shuffle_stims.svg'))
 
-
-
 # %%
+
+# %% SUPP: DECODE USING FULL RESPONSE TRACES
+
+clusters = [['LC11', 'LC21', 'LC18'],
+            ['LC6', 'LC26', 'LC16', 'LPLC2'],
+            ['LC4', 'LPLC1', 'LC9'],
+            ['LC17', 'LC12', 'LC15']]
+
+cluster_performance = []
+for clust_ind, included_gloms in enumerate(clusters):
+    ste_clust = model.SingleTrialEncoding(data_series=matching_series, included_gloms=included_gloms)
+    ste_clust.evaluate_performance(
+                                    model_type='LogReg',
+                                    iterations=100,
+                                    pull_eg=1,
+                                    classify_on_amplitude=False,
+                                    random_state=np.random.RandomState(seed=0)
+                                    )
+
+    cluster_performance.append(ste_clust.performance)
+
+
+# %% Plot
+fh5, ax5 = plt.subplots(4, 1, figsize=(4.0, 5.5))
+ax5 = ax5.ravel()
+[x.set_xticks([]) for x in ax5]
+[x.set_ylim([-0.1, 1.1]) for x in ax5]
+[x.spines['top'].set_visible(False) for x in ax5]
+[x.spines['right'].set_visible(False) for x in ax5]
+
+col_names = [str(x) for x in ste.included_parameter_values]
+mean_cmat = pd.DataFrame(data=ste.cmats.mean(axis=-1), index=col_names, columns=col_names)
+
+# Plot performance for each cluster:
+colors = ['b',
+          'g',
+          'y',
+          'm']
+offset = [-0.2, 0, 0.2]
+for clust_ind in range(4):
+    # Chance line
+    ax5[clust_ind].axhline(y=1/len(ste_clust.classifier_model.classes_), color='k', zorder=10)
+
+    # Overall performance
+    mean_diag = np.mean(ste.performance, axis=0)
+    err_diag = np.std(ste.performance, axis=0) / np.sqrt(ste.performance.shape[0])
+
+    ax5[clust_ind].bar(col_names, mean_diag,
+                       label='All glomeruli' if clust_ind==0 else '_',
+                       color=[0.5, 0.5, 0.5])
+    for d_ind in range(len(col_names)):
+        ax5[clust_ind].plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]],
+                            color=[0.5, 0.5, 0.5])
+
+    # Single group performance
+    mean_diag = np.mean(cluster_performance[clust_ind], axis=0)
+    err_diag = np.std(cluster_performance[clust_ind], axis=0) / np.sqrt(cluster_performance[clust_ind].shape[0])
+
+    ax5[clust_ind].bar(np.arange(0, len(mean_diag)), mean_diag,
+                       color=colors[clust_ind],
+                       label='Group {}'.format(clust_ind+1))
+    for d_ind in range(len(col_names)):
+        ax5[clust_ind].plot([d_ind, d_ind], [mean_diag[d_ind]-err_diag[d_ind], mean_diag[d_ind]+err_diag[d_ind]],
+                            linestyle='-',
+                            color=colors[clust_ind])
+
+ax5[3].set_xlabel('Stimulus identity')
+fh5.supylabel('Performance')
+# fh5.savefig(os.path.join(save_directory, 'supp_ste_cluster_traces_performance.svg'))

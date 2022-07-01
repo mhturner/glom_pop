@@ -6,7 +6,6 @@ import pandas as pd
 import seaborn as sns
 from visanalysis.util import plot_tools
 from sklearn.metrics import explained_variance_score
-from scipy.optimize import least_squares
 from scipy.stats import pearsonr, zscore, multivariate_normal, spearmanr
 from sklearn.decomposition import PCA
 
