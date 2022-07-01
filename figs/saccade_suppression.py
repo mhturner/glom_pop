@@ -250,7 +250,7 @@ eg_fly_ind = 4
 # Eg glom: mean response to saccade suppression in walking vs. stationary
 mean_resp = np.nanmean(all_responses[eg_glom_ind, 5:10, :, : , eg_fly_ind], axis=(0))  # beh/nonbeh x time
 baseline_resp = all_responses[eg_glom_ind, -1, :, : , eg_fly_ind]
-fh, ax = plt.subplots(1, 2, figsize=(3.5, 2))
+fh, ax = plt.subplots(2, 1, figsize=(1.5, 2.75))
 [x.set_ylim([-0.1, 0.5]) for x in ax]
 [util.clean_axes(x) for x in ax]
 ax[0].axhline(y=0, color='k', alpha=0.5)
@@ -260,7 +260,7 @@ ax[0].plot(response_data['time_vector'], baseline_resp[0, :],
 ax[0].plot(response_data['time_vector'], baseline_resp[1, :],
            alpha=0.5, color=util.get_color_dict()[included_gloms[eg_glom_ind]], linewidth=2,
            label='Stationary')
-ax[0].set_title('No visual\nsaccade')
+ax[0].set_ylabel('No visual\nsaccade')
 plot_tools.addScaleBars(ax[0], dT=2, dF=0.25, T_value=-0.1, F_value=-0.08)
 
 ax[1].axhline(y=0, color='k', alpha=0.5)
@@ -268,14 +268,13 @@ ax[1].plot(response_data['time_vector'], mean_resp[0, :],
            alpha=1, color=util.get_color_dict()[included_gloms[eg_glom_ind]], linewidth=2)
 ax[1].plot(response_data['time_vector'], mean_resp[1, :],
            alpha=0.5, color=util.get_color_dict()[included_gloms[eg_glom_ind]], linewidth=2)
-ax[1].set_title('With visual\nsaccade')
+ax[1].set_ylabel('With visual\nsaccade')
 
 fh.legend()
 
 fh.savefig(os.path.join(save_directory, 'saccade_beh_eg_traces.svg'), transparent=True)
 
-# %%
-# Summary:
+# %% Summary beh vs nonbeh
 
 # Norm by: last saccade response, nonbehaving condition
 all_response_amps_normed = all_response_amps / all_response_amps[:, -1, 1, :][:, np.newaxis, np.newaxis, :]
@@ -287,11 +286,7 @@ fh3, ax3 = plt.subplots(3, 3, figsize=(4, 4), tight_layout=True)
 beh_suppression = []
 visual_suppression = []
 
-fh4, ax4 = plt.subplots(1, 1, figsize=(4, 4))
-ax4.set_xlim([0, 0.6])
-ax4.set_ylim([-0.38, 0.5])
-ax4.spines['top'].set_visible(False)
-ax4.spines['right'].set_visible(False)
+
 
 for g_ind, glom in enumerate(included_gloms):
     fly_beh = np.mean(all_response_amps_normed[g_ind, 5:10, 0, :], axis=(0))
@@ -325,30 +320,105 @@ for g_ind, glom in enumerate(included_gloms):
     new_beh_suppression = np.mean((fly_nonbeh-fly_beh)/fly_nonbeh)  # relative effect of behavior suppression
     beh_suppression.append(new_beh_suppression)
 
-    ax4.errorbar(x=new_beh_suppression, y=new_visual_suppression,
-                 xerr=np.std((fly_nonbeh-fly_beh)/fly_nonbeh)/np.sqrt(fly_nonbeh.shape[-1]),
-                 yerr=np.std(1-fly_nonbeh)/np.sqrt(fly_nonbeh.shape[-1]),
-                 color=util.get_color_dict()[glom], marker='o', linewidth=2)
-    ax4.annotate(glom,
-                 (new_beh_suppression, new_visual_suppression),
-                 fontsize=10, weight='bold', ha='center')
 
 fh3.supxlabel('Response gain, walking')
 fh3.supylabel('Response gain, stationary')
 fh3.savefig(os.path.join(save_directory, 'saccade_beh_summary.svg'), transparent=True)
 
 
-coef = np.polyfit(beh_suppression, visual_suppression, 1)
-linfit = np.poly1d(coef)
-xx = [0.05, 0.6]
-yy = linfit(xx)
-ax4.plot(xx, yy, color='k', alpha=0.5, linestyle='-')
-r, p = pearsonr(beh_suppression, visual_suppression)
-ax4.annotate('r = {:.2f}'.format(r), (0.05, 0.4))
 
-ax4.set_xlabel('Behavioral suppression')
-ax4.set_ylabel('Visual suppression')
+
+# %%
+# Corr between visual & behavioral suppression for each glom
+
+# each is shape: gloms x flies
+baseline = all_response_amps[:, -1, 1, :]  # Baseline, no vis no beh. Last saccade time, stationary
+vis = all_response_amps[:, 6, 1, :]  # vis, no beh
+beh = all_response_amps[:, -1, 0, :]  # beh, no vis
+vis_beh = all_response_amps[:, 6, 0, :]  # beh + vis suppression
+
+# avg across animals before normalizing
+baseline = np.mean(baseline, axis=-1)
+vis = np.mean(vis, axis=-1)
+beh = np.mean(beh, axis=-1)
+vis_beh = np.mean(vis_beh, axis=-1)
+
+vis_gain = vis / baseline
+beh_gain = beh / baseline
+vis_beh_gain = vis_beh / baseline
+
+fh4, ax4 = plt.subplots(1, 1, figsize=(2.25, 2.25))
+ax4.spines['top'].set_visible(False)
+ax4.spines['right'].set_visible(False)
+ax4.plot([0.45, 1.3], [0.45, 1.3], color='k', alpha=0.5, linestyle='--')
+# coef = np.polyfit(beh_gain, vis_gain, 1)
+# linfit = np.poly1d(coef)
+# xx = [0.6, 1.2]
+# yy = linfit(xx)
+# ax4.plot(xx, yy, color='k', alpha=0.5, linestyle='-')
+r, p = pearsonr(beh_gain, vis_gain)
+ax4.scatter(beh_gain, vis_gain, marker='o', c=[util.get_color_dict()[x] for x in included_gloms])
+print('r = {:.2f}'.format(r))
+# ax4.annotate('r = {:.2f}'.format(r), (xx[-1]+0.01, yy[-1]-0.05), va='center')
+[ax4.annotate(included_gloms[g_ind],
+              [beh_gain[g_ind]+0.02, vis_gain[g_ind]],
+              ha='left', va='center', fontsize=10)
+              for g_ind in range(len(included_gloms))]
+
+
+ax4.set_ylim([0.45, 1.3])
+ax4.set_xlim([0.45, 1.3])
+ax4.set_xlabel('Gain while walking')
+ax4.set_ylabel('Gain during visual saccade')
 fh4.savefig(os.path.join(save_directory, 'saccade_beh_vis_corr.svg'), transparent=True)
+# %%
+
+# each is shape: gloms x flies
+baseline = all_response_amps[:, -1, 1, :]  # Baseline, no vis no beh. Last saccade time, stationary
+vis = all_response_amps[:, 6, 1, :]  # vis, no beh
+beh = all_response_amps[:, -1, 0, :]  # beh, no vis
+vis_beh = all_response_amps[:, 6, 0, :]  # beh + vis suppression
+
+vis_norm = vis / baseline
+beh_norm = beh / baseline
+vis_beh_norm = vis_beh / baseline
+rows = [0, 0, 0, 1, 1, 2, 2, 2]
+cols = [0, 1, 2, 0, 1, 0, 1, 2]
+
+fh5, ax5 = plt.subplots(3, 3, figsize=(4, 4), tight_layout=True)
+[x.set_axis_off() for x in ax5.ravel()]
+[x.set_xticks([]) for x in ax5.ravel()]
+[x.set_yticks([]) for  x in ax5.ravel()]
+[x.set_ylim([0, 1.5]) for x in ax5.ravel()]
+[x.set_xlim([0.5, 3.5]) for x in ax5.ravel()]
+[x.spines['top'].set_visible(False) for x in ax5.ravel()]
+[x.spines['right'].set_visible(False) for x in ax5.ravel()]
+for g_ind, glom in enumerate(included_gloms):
+    ax5[rows[g_ind], cols[g_ind]].set_axis_on()
+    ax5[rows[g_ind], cols[g_ind]].axhline(y=1, color=[0.5, 0.5, 0.5], alpha=0.5, linestyle='--')
+    ax5[rows[g_ind], cols[g_ind]].errorbar(x=1,
+                                           y=np.mean(vis_norm[g_ind, :]),
+                                           yerr=np.std(vis_norm[g_ind, :])/np.sqrt(vis_norm.shape[-1]),
+                                           marker='o', linewidth=2, color='r')
+    ax5[rows[g_ind], cols[g_ind]].errorbar(x=2,
+                                           y=np.mean(beh_norm[g_ind, :]),
+                                           yerr=np.std(beh_norm[g_ind, :])/np.sqrt(beh_norm.shape[-1]),
+                                           marker='o', linewidth=2, color='b')
+    ax5[rows[g_ind], cols[g_ind]].errorbar(x=3,
+                                           y=np.mean(vis_beh_norm[g_ind, :]),
+                                           yerr=np.std(vis_beh_norm[g_ind, :])/np.sqrt(vis_beh_norm.shape[-1]),
+                                           marker='o', linewidth=2, color='m')
+    ax5[rows[g_ind], cols[g_ind]].set_title(glom)
+
+
+[x.set_xticks([1, 2, 3]) for x in ax5[2, :]]
+[x.set_xticklabels(['Vis.', 'Beh.', 'Vis.+Beh.'], rotation=90) for x in ax5[2, :]]
+
+[x.set_yticks([0, 0.5, 1, 1.5]) for x in ax5.ravel()]
+
+fh5.supylabel('Response gain')
+
+fh5.savefig(os.path.join(save_directory, 'saccade_beh_vis_conditions.svg'), transparent=True)
 
 
 # %%

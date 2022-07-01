@@ -221,7 +221,7 @@ normed = all_response_amps / np.nanmax(all_response_amps, axis=(1, 2))[:, np.new
 fly_avg_scored = np.nanmean(normed, axis=-1)  # shape = gloms x stims x beh
 fly_err_scored = np.nanstd(normed, axis=-1) / np.sqrt(normed.shape[-1])
 # %%
-fh, ax = plt.subplots(6, 1, figsize=(5, 10), tight_layout=True)
+fh, ax = plt.subplots(6, 1, figsize=(2.5, 10), tight_layout=True)
 beh_gloms = np.mean(fly_avg_scored[:, :, 0], axis=1)
 nonbeh_gloms = np.mean(fly_avg_scored[:, :, 1], axis=1)
 [x.set_ylim([-0.1, 1.1]) for x in ax]
