@@ -153,7 +153,8 @@ poperr = np.nanstd(all_response_amps_normed, axis=-1) / np.sqrt(all_response_amp
 fh3, ax3 = plt.subplots(3, 3, figsize=(5, 4), tight_layout=True)
 [x.set_axis_off() for x in ax3.ravel()]
 [x.set_xlim([-2, 2]) for x in ax3.ravel()]
-
+[x.set_ylim([0, 1.5]) for x in ax3.ravel()]
+[x.set_xticks([-2, -1, 0, 1, 2]) for x in ax3.ravel()]
 for g_ind, glom in enumerate(included_gloms):
     # indication of response onset time
     onset_time = tt[onset_inds[g_ind]]
@@ -173,7 +174,7 @@ for g_ind, glom in enumerate(included_gloms):
 
 
 fh3.supylabel('Response gain')
-fh3.supxlabel('Relative Saccade time (s)')
+fh3.supxlabel('Saccade time relative to response onset (s)')
 fh3.savefig(os.path.join(save_directory, 'saccade_gain_summary.svg'), transparent=True)
 
 
@@ -420,5 +421,31 @@ fh5.supylabel('Response gain')
 
 fh5.savefig(os.path.join(save_directory, 'saccade_beh_vis_conditions.svg'), transparent=True)
 
+# %%
 
+indep_prod = vis_norm * beh_norm
+indep_prod.shape
+fh, ax = plt.subplots(1, 1, figsize=(3, 3))
+ax.plot([0, 3], [0, 3], color='k', alpha=0.5, linestyle='--')
+
+for g_ind, glom in enumerate(included_gloms):
+    ax.scatter(indep_prod[g_ind, :],
+               vis_beh_norm[g_ind, :],
+               color=util.get_color_dict()[glom])
+
+
+ax.set_xlabel('gain(Vis.) x gain(Beh.)')
+ax.set_ylabel('gain(Vis. & Beh.)')
+
+# %% gain(vis+beh) vs. gain(vis) * gain(beh)
+
+indep_prod = np.mean(vis_norm, axis=-1) * np.mean(beh_norm, axis=-1)
+
+fh, ax = plt.subplots(1, 1, figsize=(3, 3))
+ax.plot([0, 1.5], [0, 1.5], color='k', alpha=0.5, linestyle='--')
+ax.scatter(indep_prod.ravel(),
+           np.mean(vis_beh_norm, axis=-1).ravel(),
+           c=[util.get_color_dict()[x] for x in included_gloms])
+ax.set_xlabel('gain(Vis.) x gain(Beh.)')
+ax.set_ylabel('gain(Vis. & Beh.)')
 # %%
