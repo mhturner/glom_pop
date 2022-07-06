@@ -251,7 +251,7 @@ eg_fly_ind = 4
 # Eg glom: mean response to saccade suppression in walking vs. stationary
 mean_resp = np.nanmean(all_responses[eg_glom_ind, 5:10, :, : , eg_fly_ind], axis=(0))  # beh/nonbeh x time
 baseline_resp = all_responses[eg_glom_ind, -1, :, : , eg_fly_ind]
-fh, ax = plt.subplots(2, 1, figsize=(1.5, 2.75))
+fh, ax = plt.subplots(1, 2, figsize=(2.75, 1.5))
 [x.set_ylim([-0.1, 0.5]) for x in ax]
 [util.clean_axes(x) for x in ax]
 ax[0].axhline(y=0, color='k', alpha=0.5)
@@ -261,7 +261,7 @@ ax[0].plot(response_data['time_vector'], baseline_resp[0, :],
 ax[0].plot(response_data['time_vector'], baseline_resp[1, :],
            alpha=0.5, color=util.get_color_dict()[included_gloms[eg_glom_ind]], linewidth=2,
            label='Stationary')
-ax[0].set_ylabel('No visual\nsaccade')
+ax[0].set_title('No visual\nsaccade')
 plot_tools.addScaleBars(ax[0], dT=2, dF=0.25, T_value=-0.1, F_value=-0.08)
 
 ax[1].axhline(y=0, color='k', alpha=0.5)
@@ -269,7 +269,7 @@ ax[1].plot(response_data['time_vector'], mean_resp[0, :],
            alpha=1, color=util.get_color_dict()[included_gloms[eg_glom_ind]], linewidth=2)
 ax[1].plot(response_data['time_vector'], mean_resp[1, :],
            alpha=0.5, color=util.get_color_dict()[included_gloms[eg_glom_ind]], linewidth=2)
-ax[1].set_ylabel('With visual\nsaccade')
+ax[1].set_title('With visual\nsaccade')
 
 fh.legend()
 
@@ -421,31 +421,31 @@ fh5.supylabel('Response gain')
 
 fh5.savefig(os.path.join(save_directory, 'saccade_beh_vis_conditions.svg'), transparent=True)
 
-# %%
-
-indep_prod = vis_norm * beh_norm
-indep_prod.shape
-fh, ax = plt.subplots(1, 1, figsize=(3, 3))
-ax.plot([0, 3], [0, 3], color='k', alpha=0.5, linestyle='--')
-
-for g_ind, glom in enumerate(included_gloms):
-    ax.scatter(indep_prod[g_ind, :],
-               vis_beh_norm[g_ind, :],
-               color=util.get_color_dict()[glom])
-
-
-ax.set_xlabel('gain(Vis.) x gain(Beh.)')
-ax.set_ylabel('gain(Vis. & Beh.)')
-
 # %% gain(vis+beh) vs. gain(vis) * gain(beh)
 
+indep_prod = vis_norm * beh_norm
+fh, ax = plt.subplots(1, 1, figsize=(2.25, 2.25))
+ax.plot([0, 1.5], [0, 1.5], color='k', alpha=0.5, linestyle='--')
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+for g_ind, glom in enumerate(included_gloms):
+    ax.errorbar(x=np.mean(indep_prod[g_ind, :]),
+                y=np.mean(vis_beh_norm[g_ind, :]),
+                xerr=np.std(indep_prod[g_ind, :])/np.sqrt(indep_prod.shape[-1]),
+                yerr=np.std(vis_beh_norm[g_ind, :])/np.sqrt(vis_beh_norm.shape[-1]),
+                color=util.get_color_dict()[glom],
+                marker='o',
+                linewidth=2)
 indep_prod = np.mean(vis_norm, axis=-1) * np.mean(beh_norm, axis=-1)
 
-fh, ax = plt.subplots(1, 1, figsize=(3, 3))
-ax.plot([0, 1.5], [0, 1.5], color='k', alpha=0.5, linestyle='--')
-ax.scatter(indep_prod.ravel(),
-           np.mean(vis_beh_norm, axis=-1).ravel(),
-           c=[util.get_color_dict()[x] for x in included_gloms])
-ax.set_xlabel('gain(Vis.) x gain(Beh.)')
+# [ax.annotate(included_gloms[g_ind],
+#              [indep_prod[g_ind]+0.02, np.mean(vis_beh_norm, axis=-1)[g_ind]],
+#              ha='left', va='center', fontsize=10)
+#              for g_ind in range(len(included_gloms))];
+ax.set_xlabel('gain(Vis. only) x gain(Beh. only)')
 ax.set_ylabel('gain(Vis. & Beh.)')
+ax.set_title('Independence of \ngain mechanisms')
+fh.savefig(os.path.join(save_directory, 'saccade_beh_vis_indep.svg'), transparent=True)
+
+
 # %%
