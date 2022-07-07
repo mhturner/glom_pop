@@ -5,7 +5,7 @@ import numpy as np
 import os
 from glom_pop import dataio, util
 from scipy.stats import ttest_rel, pearsonr
-# from flystim import image
+from flystim import image
 from scipy.interpolate import interp1d
 
 
@@ -40,7 +40,7 @@ for series in np.array(matching_series):
 
 # %% Stim schematic
 
-fh2, ax2 = plt.subplots(1, 1, figsize=(2, 1.))
+fh2, ax2 = plt.subplots(1, 1, figsize=(2, 2))
 ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 tt = np.linspace(0.01, 2.99, 100)
@@ -120,11 +120,11 @@ all_responses = np.stack(all_responses, axis=-1)
 
 # %% eg glom and fly traces
 eg_fly_ind = 4
-eg_glom_ind = 0   # 0, LC11
+eg_glom_ind = 0    # 0, LC11; 3, LC6
 
 eg_saccade_inds = np.arange(0, 12, 2)
 
-fh1, ax1 = plt.subplots(1, len(eg_saccade_inds), figsize=(5, 1.5))
+fh1, ax1 = plt.subplots(1, len(eg_saccade_inds), figsize=(3, 1.5))
 [x.set_ylim([-0.1, 0.5]) for x in ax1.ravel()]
 [x.set_axis_off() for x in ax1.ravel()]
 for ind, si in enumerate(eg_saccade_inds):
@@ -150,7 +150,7 @@ tt = response_data['time_vector'] - ID.getRunParameters('pre_time')
 all_response_amps_normed = all_response_amps / all_response_amps[:, -1, :][:, np.newaxis, :]
 popmean = np.nanmean(all_response_amps_normed, axis=-1)
 poperr = np.nanstd(all_response_amps_normed, axis=-1) / np.sqrt(all_response_amps.shape[-1])
-fh3, ax3 = plt.subplots(3, 3, figsize=(5, 4), tight_layout=True)
+fh3, ax3 = plt.subplots(3, 3, figsize=(4, 3.5), tight_layout=True)
 [x.set_axis_off() for x in ax3.ravel()]
 [x.set_xlim([-2, 2]) for x in ax3.ravel()]
 [x.set_ylim([0, 1.5]) for x in ax3.ravel()]
@@ -338,40 +338,64 @@ vis = all_response_amps[:, 6, 1, :]  # vis, no beh
 beh = all_response_amps[:, -1, 0, :]  # beh, no vis
 vis_beh = all_response_amps[:, 6, 0, :]  # beh + vis suppression
 
-# avg across animals before normalizing
-baseline = np.mean(baseline, axis=-1)
-vis = np.mean(vis, axis=-1)
-beh = np.mean(beh, axis=-1)
-vis_beh = np.mean(vis_beh, axis=-1)
 
 vis_gain = vis / baseline
 beh_gain = beh / baseline
 vis_beh_gain = vis_beh / baseline
 
-fh4, ax4 = plt.subplots(1, 1, figsize=(2.25, 2.25))
-ax4.spines['top'].set_visible(False)
-ax4.spines['right'].set_visible(False)
-ax4.plot([0.45, 1.3], [0.45, 1.3], color='k', alpha=0.5, linestyle='--')
-# coef = np.polyfit(beh_gain, vis_gain, 1)
-# linfit = np.poly1d(coef)
-# xx = [0.6, 1.2]
-# yy = linfit(xx)
-# ax4.plot(xx, yy, color='k', alpha=0.5, linestyle='-')
-r, p = pearsonr(beh_gain, vis_gain)
-ax4.scatter(beh_gain, vis_gain, marker='o', c=[util.get_color_dict()[x] for x in included_gloms])
+fh4, ax4 = plt.subplots(1, 2, figsize=(5, 2.75), tight_layout=True)
+ax4[0].spines['top'].set_visible(False)
+ax4[0].spines['right'].set_visible(False)
+ax4[0].plot([0.25, 1.3], [0.25, 1.3], color='k', alpha=0.5, linestyle='--')
+
+r, p = pearsonr(np.mean(beh_gain, axis=-1), np.mean(vis_gain, axis=-1))
+for g_ind, glom in enumerate(included_gloms):
+    ax4[0].errorbar(x=np.mean(beh_gain, axis=-1)[g_ind],
+                 y=np.mean(vis_gain, axis=-1)[g_ind],
+                 xerr=np.std(beh_gain, axis=-1)[g_ind] / np.sqrt(beh_gain.shape[1]),
+                 yerr=np.std(vis_gain, axis=-1)[g_ind] / np.sqrt(vis_gain.shape[1]),
+                 marker='o', color=util.get_color_dict()[glom], label=glom)
+
 print('r = {:.2f}'.format(r))
-# ax4.annotate('r = {:.2f}'.format(r), (xx[-1]+0.01, yy[-1]-0.05), va='center')
-[ax4.annotate(included_gloms[g_ind],
-              [beh_gain[g_ind]+0.02, vis_gain[g_ind]],
-              ha='left', va='center', fontsize=10)
-              for g_ind in range(len(included_gloms))]
+# [ax4[0].annotate(included_gloms[g_ind],
+#               [np.mean(beh_gain, axis=-1)[g_ind]+0.02, np.mean(vis_gain, axis=-1)[g_ind]],
+#               ha='left', va='center', fontsize=10)
+#               for g_ind in range(len(included_gloms))]
+
+ax4[0].set_ylim([0.4, 1.3])
+ax4[0].set_xlim([0.4, 1.3])
+ax4[0].set_xlabel('Gain while walking')
+ax4[0].set_ylabel('Gain during visual saccade')
+# fh4[0].savefig(os.path.join(save_directory, 'saccade_beh_vis_corr.svg'), transparent=True)
+fh4.legend(ncol=3, fontsize=9)
+ax4[0].set_title('Balance of \ngain mechanisms')
 
 
-ax4.set_ylim([0.45, 1.3])
-ax4.set_xlim([0.45, 1.3])
-ax4.set_xlabel('Gain while walking')
-ax4.set_ylabel('Gain during visual saccade')
-fh4.savefig(os.path.join(save_directory, 'saccade_beh_vis_corr.svg'), transparent=True)
+
+indep_prod = vis_norm * beh_norm
+# fh, ax = plt.subplots(1, 1, figsize=(2.25, 2.25))
+ax4[1].plot([0, 1.5], [0, 1.5], color='k', alpha=0.5, linestyle='--')
+ax4[1].spines['top'].set_visible(False)
+ax4[1].spines['right'].set_visible(False)
+for g_ind, glom in enumerate(included_gloms):
+    ax4[1].errorbar(x=np.mean(indep_prod[g_ind, :]),
+                y=np.mean(vis_beh_norm[g_ind, :]),
+                xerr=np.std(indep_prod[g_ind, :])/np.sqrt(indep_prod.shape[-1]),
+                yerr=np.std(vis_beh_norm[g_ind, :])/np.sqrt(vis_beh_norm.shape[-1]),
+                color=util.get_color_dict()[glom],
+                marker='o',
+                linewidth=2)
+indep_prod = np.mean(vis_norm, axis=-1) * np.mean(beh_norm, axis=-1)
+
+# [ax.annotate(included_gloms[g_ind],
+#              [indep_prod[g_ind]+0.02, np.mean(vis_beh_norm, axis=-1)[g_ind]],
+#              ha='left', va='center', fontsize=10)
+#              for g_ind in range(len(included_gloms))];
+ax4[1].set_xlabel('gain(Vis. only) x gain(Beh. only)')
+ax4[1].set_ylabel('gain(Vis. & Beh.)')
+ax4[1].set_title('Independence of \ngain mechanisms')
+
+fh4.savefig(os.path.join(save_directory, 'saccade_beh_vis_indep.svg'), transparent=True)
 # %%
 
 # each is shape: gloms x flies
@@ -423,29 +447,6 @@ fh5.savefig(os.path.join(save_directory, 'saccade_beh_vis_conditions.svg'), tran
 
 # %% gain(vis+beh) vs. gain(vis) * gain(beh)
 
-indep_prod = vis_norm * beh_norm
-fh, ax = plt.subplots(1, 1, figsize=(2.25, 2.25))
-ax.plot([0, 1.5], [0, 1.5], color='k', alpha=0.5, linestyle='--')
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-for g_ind, glom in enumerate(included_gloms):
-    ax.errorbar(x=np.mean(indep_prod[g_ind, :]),
-                y=np.mean(vis_beh_norm[g_ind, :]),
-                xerr=np.std(indep_prod[g_ind, :])/np.sqrt(indep_prod.shape[-1]),
-                yerr=np.std(vis_beh_norm[g_ind, :])/np.sqrt(vis_beh_norm.shape[-1]),
-                color=util.get_color_dict()[glom],
-                marker='o',
-                linewidth=2)
-indep_prod = np.mean(vis_norm, axis=-1) * np.mean(beh_norm, axis=-1)
-
-# [ax.annotate(included_gloms[g_ind],
-#              [indep_prod[g_ind]+0.02, np.mean(vis_beh_norm, axis=-1)[g_ind]],
-#              ha='left', va='center', fontsize=10)
-#              for g_ind in range(len(included_gloms))];
-ax.set_xlabel('gain(Vis. only) x gain(Beh. only)')
-ax.set_ylabel('gain(Vis. & Beh.)')
-ax.set_title('Independence of \ngain mechanisms')
-fh.savefig(os.path.join(save_directory, 'saccade_beh_vis_indep.svg'), transparent=True)
 
 
 # %%

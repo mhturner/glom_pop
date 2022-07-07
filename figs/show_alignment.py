@@ -82,6 +82,25 @@ util.make_glom_map(ax=ax,
 fh.savefig(os.path.join(save_directory, 'alignment_gloms.svg'), transparent=True)
 
 # %%
+fh, ax = plt.subplots(1, 1, figsize=(3, 2))
+ax.set_axis_off()
+util.make_glom_map(ax=ax,
+                   glom_map=glom_mask_2_meanbrain,
+                   z_val=None,
+                   highlight_names=['LC6'])
+
+fh.savefig(os.path.join(save_directory, 'glom_map_LC6_gloms.svg'), transparent=True)
+
+fh, ax = plt.subplots(1, 1, figsize=(3, 2))
+ax.set_axis_off()
+util.make_glom_map(ax=ax,
+                   glom_map=glom_mask_2_meanbrain,
+                   z_val=None,
+                   highlight_names=['LC11'])
+
+fh.savefig(os.path.join(save_directory, 'glom_map_LC11_gloms.svg'), transparent=True)
+
+# %%
 # Show z slices of meanbrain, template, & glom map for alignment
 z_levels = [5, 10, 20, 30, 40]
 
