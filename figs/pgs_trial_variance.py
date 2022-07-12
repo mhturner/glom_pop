@@ -215,9 +215,9 @@ for idx_1, glom_1_ind in enumerate(eg_glom_inds):
         if idx_1 < idx_2:
             ax1[idx_2, idx_1].set_axis_on()
             if idx_2 == 2:
-                ax1[idx_2, idx_1].set_xlabel(included_gloms[glom_2_ind])
+                ax1[idx_2, idx_1].set_xlabel(included_gloms[glom_1_ind])
             if idx_1 == 0:
-                ax1[idx_1, idx_1].set_ylabel(included_gloms[glom_1_ind])
+                ax1[idx_2, idx_1].set_ylabel(included_gloms[glom_2_ind])
             ax1[idx_2, idx_1].plot(tmp_amps[glom_1_ind, :], tmp_amps[glom_2_ind, :],
                                    color='k', alpha=0.5, marker='.', linestyle='None')
 
