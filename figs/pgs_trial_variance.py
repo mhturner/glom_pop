@@ -212,29 +212,28 @@ fh1, ax1 = plt.subplots(len(eg_glom_inds), len(eg_glom_inds), figsize=(4.5, 4), 
 [x.set_axis_off() for x in ax1.ravel()]
 for idx_1, glom_1_ind in enumerate(eg_glom_inds):
     for idx_2, glom_2_ind in enumerate(eg_glom_inds):
-        if idx_1 > idx_2:
-            ax1[idx_1, idx_2].set_axis_on()
-            if idx_1 == 2:
-                ax1[idx_1, idx_2].set_xlabel(included_gloms[glom_2_ind])
-            if idx_2 == 0:
-                ax1[idx_1, idx_2].set_ylabel(included_gloms[glom_1_ind])
-            ax1[idx_1, idx_2].plot(tmp_amps[glom_1_ind, :], tmp_amps[glom_2_ind, :],
+        if idx_1 < idx_2:
+            ax1[idx_2, idx_1].set_axis_on()
+            if idx_2 == 2:
+                ax1[idx_2, idx_1].set_xlabel(included_gloms[glom_2_ind])
+            if idx_1 == 0:
+                ax1[idx_1, idx_1].set_ylabel(included_gloms[glom_1_ind])
+            ax1[idx_2, idx_1].plot(tmp_amps[glom_1_ind, :], tmp_amps[glom_2_ind, :],
                                    color='k', alpha=0.5, marker='.', linestyle='None')
 
             X, Y, Z = getGaussianPDF(tmp_amps[glom_1_ind, :], tmp_amps[glom_2_ind, :], N=100)
-            ax1[idx_1, idx_2].contour(X, Y, Z, colors='k', levels=1, linewidths=1)
+            ax1[idx_2, idx_1].contour(X, Y, Z, colors='k', levels=1, linewidths=1)
             r = np.corrcoef(tmp_amps[glom_1_ind, :], tmp_amps[glom_2_ind, :])[0, 1]
-            ax1[idx_1, idx_2].annotate('r = {:.2f}'.format(r), (0.7, 0.05))
-            ax1[idx_1, idx_2].set_xticks([0, 0.5, 1.0])
-            ax1[idx_1, idx_2].set_yticks([0, 0.5, 1.0])
-            ax1[idx_1, idx_2].set_xticklabels([0, '', 1.0])
-            ax1[idx_1, idx_2].set_yticklabels([0, '', 1.0])
+            ax1[idx_2, idx_1].annotate('r = {:.2f}'.format(r), (0.7, 0.05))
+            ax1[idx_2, idx_1].set_xticks([0, 0.5, 1.0])
+            ax1[idx_2, idx_1].set_yticks([0, 0.5, 1.0])
+            ax1[idx_2, idx_1].set_xticklabels([0, '', 1.0])
+            ax1[idx_2, idx_1].set_yticklabels([0, '', 1.0])
 
 
 # ax1[2, 0].set_xticklabels([0, '', 1.0])
 # ax1[2, 0].set_yticklabels([0, '', 1.0])
 
-fh1.supylabel('Glom 1 trial response (dF/F)')
 fh1.supxlabel('Glom 2 trial response (dF/F)')
 
 fh1.savefig(os.path.join(save_directory, 'pgs_variance_eg_responseclouds.svg'), transparent=True)
