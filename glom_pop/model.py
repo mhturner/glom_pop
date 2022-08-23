@@ -6,13 +6,77 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, explained_variance_score
 from scipy.signal import detrend
 from scipy.stats import zscore
+from scipy.optimize import least_squares
 
 from visanalysis.analysis import imaging_data
 from glom_pop import dataio, util
 
+
+class SharedGainModel():
+    """
+    r
+
+
+    """
+    def __init__(self, ID, epoch_response_matrix):
+        unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
+        # Param values for each trial, encoded as indices
+        parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
+        pull_inds = [np.where([pv == up for pv in parameter_values])[0] for up in unique_parameter_values]
+        df = pd.DataFrame(data=np.array(parameter_values, dtype='object'), columns=['params'])
+        df['encoded'] = df['params'].apply(lambda x: list(unique_parameter_values).index(x))
+        self.stim_inds = df['encoded'].values
+
+        self.response_amplitude = ID.getResponseAmplitude(epoch_response_matrix, metric='max')  # gloms x trials
+
+        # gloms x stim IDs:
+        self.mean_tuning = np.vstack([np.nanmean(self.response_amplitude[:, pi], axis=-1) for pi in pull_inds]).T
+        self.n_gloms = self.response_amplitude.shape[0]
+        self.n_trials = self.response_amplitude.shape[1]
+
+    def fit_model(self, K=3):
+        self.K = K
+        W0 = np.random.normal(size=(self.n_gloms, K))
+        M0 = np.random.normal(size=(K, self.n_trials))
+        X0 = np.hstack([np.reshape(W0, -1), np.reshape(M0, -1)])
+
+        res_lsq = least_squares(self.get_err, X0,
+                                args=(self.stim_inds, self.response_amplitude))
+        self.W_fit = np.reshape(res_lsq.x[:(self.n_gloms * K)], (self.n_gloms, K))
+        self.M_fit = np.reshape(res_lsq.x[(self.n_gloms * K):], (K, self.n_trials))
+
+    def evaluate_performance(self):
+        y_hat = self.predict_trial_responses(self.stim_inds, self.W_fit, self.M_fit, self.mean_tuning)
+
+        r2 = [explained_variance_score(self.response_amplitude[g_ind, :], y_hat[g_ind, :]) for g_ind in range(self.n_gloms)]
+
+        results = {'y_hat': y_hat,
+                   'r2': r2}
+
+        return results
+
+    def get_err(self, X, stim_inds, y):
+        W = np.reshape(X[:(self.n_gloms * self.K)], (self.n_gloms, self.K))
+        M = np.reshape(X[(self.n_gloms * self.K):], (self.K, self.n_trials))
+        y_hat = self.predict_trial_responses(self.stim_inds, W, M, self.mean_tuning)
+        return np.reshape(y, -1) - np.reshape(y_hat, -1)
+
+    def predict_trial_responses(self, stim_inds, W, M, mean_tuning):
+        """
+        :stim_ind: stim_inds (1 x trials)
+        :W: gloms x modulators
+        :M: modulators x trials
+        :mean_tuning: gloms x stim IDs
+        """
+        # f(stim_inds, mean_tuning): n_gloms x n_trials. Mean tuning response
+        deterministic_resp = np.vstack([mean_tuning[:, stim_ind] for stim_ind in stim_inds]).T
+        r = deterministic_resp * np.exp(W @ M)
+
+        # r, shape = (gloms x trials)
+        return r
 
 class SingleTrialEncoding_onefly():
     def __init__(self, ID, included_gloms):

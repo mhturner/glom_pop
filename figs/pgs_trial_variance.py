@@ -331,6 +331,97 @@ sns.heatmap(df,
 fh2.savefig(os.path.join(save_directory, 'pgs_variance_behcorr.svg'), transparent=True)
 
 
+# %%
+ID
+epoch_response_matrix
+sgm = model.SharedGainModel(ID, epoch_response_matrix)
+
+sgm.fit_model(K=1)
+
+results=sgm.evaluate_performance()
+
+# %%
+
+fh, ax = plt.subplots(3, 5, figsize=(6, 4), tight_layout=True)
+ax = ax.ravel()
+[x.set_axis_off() for x in ax]
+for g_ind, glom in enumerate(included_gloms):
+    ax[g_ind].set_axis_on()
+    ax[g_ind].spines['top'].set_visible(False)
+    ax[g_ind].spines['right'].set_visible(False)
+    ax[g_ind].set_title(glom)
+    ax[g_ind].plot([0, 1.2], [0, 1.2], 'k--', zorder=0)
+    ax[g_ind].scatter(sgm.response_amplitude[g_ind, :],
+                      results['y_hat'][g_ind, :],
+                      color=util.get_color_dict()[glom])
+
+fh.supxlabel('Trial response measured')
+fh.supylabel('Trial response predicted')
+
+sgm.W_fit.shape
+sgm.M_fit.shape
+
+plt.plot(sgm.M_fit[0, :])
+
+# %% SHARED GAIN MODEL: FLIES WITH BEHAVIOR
+
+for b_ind, f_ind in enumerate(has_beh_inds):
+    series = matching_series[f_ind]
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    ID = imaging_data.ImagingDataObject(file_path,
+                                        series_number,
+                                        quiet=True)
+
+    print('Adding fly from {}: {}'.format(os.path.split(file_path)[-1], series_number))
+    # Load response data
+    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
+
+    # remove nans, from excluded LC17 in some flies
+    epoch_response_matrix[np.isnan(epoch_response_matrix)] = 0
+
+    # Fit shared gain model
+    sgm = model.SharedGainModel(ID, epoch_response_matrix)
+    sgm.fit_model(K=1)
+    results=sgm.evaluate_performance()
+
+    # Load behavior data
+    ft_data_path = dataio.get_ft_datapath(ID, ft_dir)
+    behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
+                                             response_len = response_data.get('response').shape[1],
+                                             process_behavior=True, fps=50, exclude_thresh=300, show_qc=False)
+    walking_amp = behavior_data['walking_amp']
+
+
+    fh, ax = plt.subplots(3, 5, figsize=(6, 4), tight_layout=True)
+    ax = ax.ravel()
+    [x.set_axis_off() for x in ax]
+    for g_ind, glom in enumerate(included_gloms):
+        ax[g_ind].set_axis_on()
+        ax[g_ind].spines['top'].set_visible(False)
+        ax[g_ind].spines['right'].set_visible(False)
+        ax[g_ind].set_title(glom)
+        ax[g_ind].plot([0, 1.2], [0, 1.2], 'k--', zorder=0)
+        ax[g_ind].scatter(sgm.response_amplitude[g_ind, :],
+                          results['y_hat'][g_ind, :],
+                          color=util.get_color_dict()[glom])
+
+    fh.supxlabel('Trial response measured')
+    fh.supylabel('Trial response predicted')
+
+    fh, ax = plt.subplots(2, 1, figsize=(8, 3))
+    ax[0].plot(sgm.M_fit[0, :], 'b')
+    ax[0].set_ylabel('Gain factor')
+    ax[1].plot(walking_amp.T, 'k')
+    ax[1].set_ylabel('Walking amp')
+    ax[1].set_xlabel('Trial')
+
+    fh, ax = plt.subplots(1, 1, figsize=(3, 3))
+    ax.plot(sgm.M_fit[0, :], walking_amp.T, 'ko')
+    ax.set_xlabel('Trial gain factor')
+    ax.set_ylabel('Trial walking amp.')
 
 # %% Covariance analysis
 
