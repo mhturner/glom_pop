@@ -33,7 +33,7 @@ echo $output_format
 
 moco_directory="${directory}/moco/"
 
-ml python/3.6 antspy/0.2.2
+ml python/3.6 py-ants/0.3.2_py36
 
 args="{\"directory\":\"$directory\",\"brain_master\":\"$brain_master\",\"brain_mirror\":\"$brain_mirror\","\
 "\"type_of_transform\":\"$type_of_transform\",\"output_format\":\"$output_format\",\"meanbrain_n_frames\":\"$meanbrain_n_frames\"}"
