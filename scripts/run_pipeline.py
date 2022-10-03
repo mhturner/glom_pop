@@ -162,24 +162,28 @@ else:  # Not anatomical - functional scan
             # h5io.createEpochRunGroup(experiment_filepath, fly_id, series_number)
 
     # ATTACH BEHAVIOR DATA
-    series_dir = 'series' + str(series_number).zfill(3)
-    video_filepaths = glob.glob(os.path.join(args.behavior_dir, date_str, series_dir) + "/*.avi")
-    if len(video_filepaths) == 0:
-        print('No behavior video found for {}: {}'.format(date_str, series_dir))
-    elif len(video_filepaths) == 1:  # should be just one .avi in there
-        print('------PROCESSING BEHAVIOR DATA------')
-        # Process rms image difference on ball. Attach results to h5 file
-        video_results = pipeline.process_behavior(video_filepaths[0],
-                                                  experiment_filepath,
-                                                  series_number,
-                                                  crop_window_size=[100, 100])
-        pipeline.save_behavior_fig(video_results,
-                                   series_name,
-                                   pipeline_dir)
-        print('------/PROCESSING BEHAVIOR DATA/------')
+    if args.use_red_channel:
+        # Behavior already processed and attached from green ch pipeline run
+        pass
+    else:
+        series_dir = 'series' + str(series_number).zfill(3)
+        video_filepaths = glob.glob(os.path.join(args.behavior_dir, date_str, series_dir) + "/*.avi")
+        if len(video_filepaths) == 0:
+            print('No behavior video found for {}: {}'.format(date_str, series_dir))
+        elif len(video_filepaths) == 1:  # should be just one .avi in there
+            print('------PROCESSING BEHAVIOR DATA------')
+            # Process rms image difference on ball. Attach results to h5 file
+            video_results = pipeline.process_behavior(video_filepaths[0],
+                                                      experiment_filepath,
+                                                      series_number,
+                                                      crop_window_size=[100, 100])
+            pipeline.save_behavior_fig(video_results,
+                                       series_name,
+                                       pipeline_dir)
+            print('------/PROCESSING BEHAVIOR DATA/------')
 
-    elif len(video_filepaths) > 1:
-        print('More than one behavior video found in {}'.format(os.path.join(args.behavior_dir, date_str, series_dir)))
+        elif len(video_filepaths) > 1:
+            print('More than one behavior video found in {}'.format(os.path.join(args.behavior_dir, date_str, series_dir)))
 
 
 print('DONE WITH PIPELINE FOR {} ({:.0f} sec)'.format(args.file_base_path, time.time()-t0_overall))
