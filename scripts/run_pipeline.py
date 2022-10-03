@@ -50,7 +50,7 @@ parser.add_argument('-anatomical', action='store_true',
                     help='Flag to pass if series is anatomy scan. Else treats it as fxnal.')
 
 parser.add_argument('-use_red_channel', action='store_true',
-                    help='Flag to pass to extract red channel traces instead of gcamp. For control. Saves as pkl instead of attach to h5)
+                    help='Flag to pass to extract red channel traces instead of gcamp. For control. Saves as pkl instead of attach to h5')
 
 parser.add_argument('--sync_dir', type=str, default='/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync',
                     const=1, nargs='?',
