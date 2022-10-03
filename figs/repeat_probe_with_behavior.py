@@ -62,12 +62,13 @@ elif PROTOCOL_ID == 'LoomingSpot':
 
 
 # %%
+
 for series in matching_series:
     series_number = series['series']
     file_path = series['file_name'] + '.hdf5'
     file_name = os.path.split(series['file_name'])[-1]
     print('{}: {}'.format(file_name, series_number))
-
+series['file_name']
 
 # %%
 
@@ -119,7 +120,7 @@ for s_ind, series in enumerate(matching_series):
         fh0, ax0 = plt.subplots(2+len(included_gloms), 1, figsize=(5.5, 3.35))
         [x.set_ylim([y_min, y_max]) for x in ax0.ravel()]
         [util.clean_axes(x) for x in ax0.ravel()]
-        [x.set_ylim() for x in ax0.ravel()]
+        # [x.set_ylim() for x in ax0.ravel()]
 
         concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in eg_trials], axis=1)
         concat_walking = np.concatenate([behavior_data.get('walking_response_matrix')[:, x, :] for x in eg_trials], axis=1)
@@ -147,9 +148,9 @@ for s_ind, series in enumerate(matching_series):
             ax0[2+g_ind].set_ylabel(glom, rotation=0)
             ax0[2+g_ind].fill_between(concat_time, concat_behaving, color='k', alpha=0.25, linewidth=0)
             ax0[2+g_ind].plot(concat_time, concat_response[g_ind, :], color=util.get_color_dict()[glom])
-            ax0[2+g_ind].set_ylim([concat_response.min(), concat_response.max()])
+            # ax0[2+g_ind].set_ylim([concat_response.min(), concat_response.max()])
             if g_ind == 0:
-                plot_tools.addScaleBars(ax0[2+g_ind], dT=4, dF=0.25, T_value=-1, F_value=-0.1)
+                plot_tools.addScaleBars(ax0[2+g_ind], dT=4, dF=0.25, T_value=0, F_value=-0.1)
 
         # fh2: overall movement trace, with threshold and classification shading
         time_ds = ID.getAcquisitionMetadata('sample_period') * np.arange(response_data.get('response').shape[1])
