@@ -6,6 +6,7 @@
 #SBATCH --cpus-per-task=3
 #SBATCH --output=/home/users/mhturner/glom_pop/moco/%x.%j.out
 #SBATCH --open-mode=append
+#SBATCH --partition=trc
 
 # Params: (1) base directory, (2) series base name (no suffixes) (3) optional - type_of_transform (4) optional - meanbrain_n_frames (5) optional - aff_metric
 # USAGE: sbatch moco_brainsss.sh /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/.../ TSeries-2022MMDD-00n
