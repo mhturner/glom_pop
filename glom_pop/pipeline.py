@@ -194,7 +194,9 @@ def align_glom_responses(experiment_filepath,
                          series_number,
                          sync_dir,
                          meanbrain_datestr='20211217',
-                         data_dir='/oak/stanford/groups/trc/data/Max/ImagingData/Bruker'):
+                         data_dir='/oak/stanford/groups/trc/data/Max/ImagingData/Bruker',
+                         attach_responses_flag=True,
+                         target_channel=1):  # target_channel = 1 (index, 0=Red, 1=Green)
 
     t0 = time.time()
     transform_directory = os.path.join(sync_dir, 'transforms')
@@ -276,32 +278,34 @@ def align_glom_responses(experiment_filepath,
     save_path = os.path.join(sync_dir, 'overlays', '{}_masked.nii'.format(functional_fn))
     ants.image_write(merged, save_path)
 
-    # Load functional (green) brain series
-    green_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj)[..., 1]
+    # Load functional (green, default) brain series
+    fxn_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj)[..., target_channel]
 
     # yank out glom responses
     # glom_responses: mean response across all voxels in each glom
     # shape = glom ID x Time
-    glom_responses = alignment.get_glom_responses(green_brain,
+    glom_responses = alignment.get_glom_responses(fxn_brain,
                                                   glom_mask_2_fxn.numpy(),
                                                   mask_values=vals)
 
     # voxel_responses: list of arrays, each is all individual voxel responses for that glom
     # list of len=gloms, each with array nvoxels x time
-    voxel_responses = alignment.get_glom_voxel_responses(green_brain,
+    voxel_responses = alignment.get_glom_voxel_responses(fxn_brain,
                                                          glom_mask_2_fxn.numpy(),
                                                          mask_values=vals)
 
     # attach all this to the hdf5 file
     meanbrain = dataio.merge_channels(fxn_red.numpy(), fxn_green.numpy())
-    dataio.attach_responses(file_path=experiment_filepath,
-                            series_number=series_number,
-                            mask=glom_mask_2_fxn.numpy(),
-                            meanbrain=meanbrain,
-                            responses=glom_responses,
-                            mask_vals=vals,
-                            response_set_name='glom',
-                            voxel_responses=voxel_responses)
+    print('attach_responses_flag is {}'.format(attach_responses_flag))
+    if attach_responses_flag:
+        dataio.attach_responses(file_path=experiment_filepath,
+                                series_number=series_number,
+                                mask=glom_mask_2_fxn.numpy(),
+                                meanbrain=meanbrain,
+                                responses=glom_responses,
+                                mask_vals=vals,
+                                response_set_name='glom',
+                                voxel_responses=voxel_responses)
 
     print('Done. Attached responses to {} (total: {:.1f} sec)'.format(experiment_filepath, time.time()-t0))
 

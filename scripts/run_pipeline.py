@@ -15,6 +15,7 @@ If functional scan:
 1. For ChAT brains: attach extracted glom responses to H5
 2. For series with behavior videos: process behavioral video and attach results to H5
 
+
 e.g. usage:
 python3 run_pipeline.py /oak/stanford/groups/trc/data/Max/ImagingData/Bruker/20220308/TSeries-20220308-001 -chat
 
@@ -30,6 +31,7 @@ import os
 import shutil
 import sys
 import time
+import pickle as pkl
 
 from glom_pop import pipeline, util
 from visanalysis.util import h5io
@@ -46,6 +48,9 @@ parser.add_argument('-chat', action='store_true',
 
 parser.add_argument('-anatomical', action='store_true',
                     help='Flag to pass if series is anatomy scan. Else treats it as fxnal.')
+
+parser.add_argument('-use_red_channel', action='store_true',
+                    help='Flag to pass to extract red channel traces instead of gcamp. For control. Saves as pkl instead of attach to h5)
 
 parser.add_argument('--sync_dir', type=str, default='/oak/stanford/groups/trc/data/Max/Analysis/glom_pop/sync',
                     const=1, nargs='?',
@@ -125,14 +130,30 @@ else:  # Not anatomical - functional scan
         experiment_filepath = os.path.join(datafile_dir, experiment_file_name)
 
         if h5io.seriesExists(experiment_filepath, series_number):
-            glom_responses, merged_overlay = pipeline.align_glom_responses(experiment_filepath,
-                                                                           series_number,
-                                                                           args.sync_dir,
-                                                                           meanbrain_datestr='20211217')
-            pipeline.save_glom_response_fig(glom_responses,
-                                            merged_overlay,
-                                            series_name,
-                                            pipeline_dir)
+            if args.use_red_channel:  # pull glom responses from red channel, for control traces. Doesn't attach to hdf5, but saves as pkl
+                glom_responses, merged_overlay = pipeline.align_glom_responses(experiment_filepath,
+                                                                               series_number,
+                                                                               args.sync_dir,
+                                                                               meanbrain_datestr='20211217',
+                                                                               attach_responses_flag=False,
+                                                                               target_channel=0)  # channel index, 0=red
+                filename = 'red_glom_traces_{}_{}.pkl'.format(date_str, series_number)
+                filepath = os.path.join(args.sync_dir, 'red_channel_ctl', filename)
+                with open(filepath,'wb') as f:
+                    # glom_responses is n gloms x time, for all 21 gloms. Vals given by nonzero vals of glom_mask_reg2meanbrain
+                    pkl.dump(glom_responses, f)
+
+            else:
+                glom_responses, merged_overlay = pipeline.align_glom_responses(experiment_filepath,
+                                                                               series_number,
+                                                                               args.sync_dir,
+                                                                               meanbrain_datestr='20211217',
+                                                                               attach_responses_flag=True,
+                                                                               target_channel=1)  # channel index, 1=green
+                pipeline.save_glom_response_fig(glom_responses,
+                                                merged_overlay,
+                                                series_name,
+                                                pipeline_dir)
         else:
             print('No existing series {} found in {}'.format(series_number, experiment_filepath))
             print('No glomeruli responses attached')
