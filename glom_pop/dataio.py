@@ -217,13 +217,9 @@ def load_fictrac_data(ID, ft_data_path, process_behavior=True, exclude_thresh=No
     walking_mag = np.sqrt(xrot_filt**2 + yrot_filt**2 + zrot_filt**2)
 
     # Downsample from camera frame rate to imaging frame rate
-    walking_mag_interp = interp1d(timestamp, walking_mag, kind='linear', bounds_error=False, fill_value=np.nan)
-    turning_interp = interp1d(timestamp, zrot_filt, kind='linear', bounds_error=False, fill_value=np.nan)
-    speed_interp = interp1d(timestamp, yrot_filt, kind='linear', bounds_error=False, fill_value=np.nan)
-
-    walking_mag_ds = walking_mag_interp(imaging_time_vector)
-    turning_ds = turning_interp(imaging_time_vector)
-    speed_ds = speed_interp(imaging_time_vector)
+    walking_mag_ds = resample(walking_mag, len(imaging_time_vector))
+    turning_ds = resample(zrot_filt, len(imaging_time_vector))
+    speed_ds = resample(yrot_filt, len(imaging_time_vector))
 
     if exclude_thresh is not None:
         # Filter to remove timepoints when tracking is lost
