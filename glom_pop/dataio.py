@@ -18,6 +18,7 @@ import xml.etree.ElementTree as ET
 import pims
 from sewar.full_ref import rmse as sewar_rmse
 from scipy.signal import resample, savgol_filter
+from scipy.interpolate import interp1d
 from skimage import filters
 
 from glom_pop import util
@@ -193,11 +194,18 @@ def get_ft_datapath(ID, ft_dir):
 
 
 
-def load_fictrac_data(ID, ft_data_path, response_len, process_behavior=True, fps=50, exclude_thresh=None, show_qc=True):
+def load_fictrac_data(ID, ft_data_path, process_behavior=True, exclude_thresh=None, show_qc=True):
+    # Imaging time stamps
+    imaging_time_vector = ID.getResponseTiming()['time_vector']
+
     # exclude_thresh: deg per sec
     ft_data = pd.read_csv(ft_data_path, header=None)
 
     frame = ft_data.iloc[:, 0]
+    timestamp = ft_data.iloc[:, 21].values / 1e3  # msec -> sec
+    timestamp = timestamp - timestamp[0]
+    fps = 1 / np.mean(np.diff(timestamp))
+
     xrot = ft_data.iloc[:, 5] * 180 / np.pi * fps  # rot  --> deg/sec
     yrot = ft_data.iloc[:, 6] * 180 / np.pi * fps  # rot  --> deg/sec
     zrot = ft_data.iloc[:, 7] * 180 / np.pi * fps  # rot  --> deg/sec
@@ -207,9 +215,16 @@ def load_fictrac_data(ID, ft_data_path, response_len, process_behavior=True, fps
     zrot_filt = savgol_filter(zrot, 151, 3)
 
     walking_mag = np.sqrt(xrot_filt**2 + yrot_filt**2 + zrot_filt**2)
-    walking_mag_ds = resample(walking_mag, response_len)
-    turning_ds = resample(zrot_filt, response_len)
-    speed_ds = resample(yrot_filt, response_len)
+
+    # Downsample from camera frame rate to imaging frame rate
+    walking_mag_interp = interp1d(timestamp, walking_mag, kind='linear', bounds_error=False, fill_value=np.nan)
+    turning_interp = interp1d(timestamp, zrot_filt, kind='linear', bounds_error=False, fill_value=np.nan)
+    speed_interp = interp1d(timestamp, yrot_filt, kind='linear', bounds_error=False, fill_value=np.nan)
+
+    walking_mag_ds = walking_mag_interp(imaging_time_vector)
+    turning_ds = turning_interp(imaging_time_vector)
+    speed_ds = speed_interp(imaging_time_vector)
+
     if exclude_thresh is not None:
         # Filter to remove timepoints when tracking is lost
         turning_ds[walking_mag_ds > exclude_thresh] = 0
@@ -238,11 +253,14 @@ def load_fictrac_data(ID, ft_data_path, response_len, process_behavior=True, fps
                      'walking_mag_ds': walking_mag_ds,  # n imaging frames
                      'behavior_binary_matrix': behavior_binary_matrix,  # 1 x trials x time
                      'walking_response_matrix': walking_response_matrix,  # 1 x trials x time
+                     'turning_response_matrix': turning_response_matrix,  # 1 x trials x time
+                     'speed_response_matrix': speed_response_matrix,  # 1 x trials x time
                      'walking_amp': walking_amp,  # n trials
                      'turning_amp': turning_amp,
                      'speed_amp': speed_amp,
                      'is_behaving': is_behaving,  # n trials
-                     'thresh': thresh
+                     'thresh': thresh,
+                     'timestamp': timestamp  # sec
                      }
 
     if show_qc:

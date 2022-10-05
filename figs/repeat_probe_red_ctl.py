@@ -86,8 +86,7 @@ for s_ind, series in enumerate(matching_series):
     # # Fictrac data:
     ft_data_path = dataio.get_ft_datapath(ID, ft_dir)
     behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
-                                             response_len=response_data.get('response').shape[1],
-                                             process_behavior=True, fps=50, exclude_thresh=300, show_qc=False)
+                                             process_behavior=True, exclude_thresh=300, show_qc=False)
     all_is_behaving.append(behavior_data.get('is_behaving')[0])
     walking_amps.append(behavior_data.get('walking_amp'))
     new_beh_corr = np.array([spearmanr(behavior_data.get('walking_amp')[0, :], response_amp[x, :]).correlation for x in range(len(included_gloms))])
@@ -95,8 +94,9 @@ for s_ind, series in enumerate(matching_series):
 
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
     # if True:
-        trial_time = ID.getStimulusTiming(plot_trace_flag=False)['stimulus_start_times'] - ID.getRunParameters('pre_time')
-        f_interp_behaving = interp1d(trial_time, behavior_data.get('is_behaving')[0, :], kind='previous', bounds_error=False, fill_value=np.nan)
+        behaving_trial_matrix = np.zeros_like(behavior_data.get('walking_response_matrix'))
+        behaving_trial_matrix[behavior_data.get('is_behaving'), :] = 1
+
 
         # fh0: snippet of movement and glom response traces
         fh0, ax0 = plt.subplots(2+len(included_gloms), 1, figsize=(5.5, 3.35))
@@ -106,16 +106,17 @@ for s_ind, series in enumerate(matching_series):
         concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in eg_trials], axis=1)
         concat_walking = np.concatenate([behavior_data.get('walking_response_matrix')[:, x, :] for x in eg_trials], axis=1)
         concat_time = np.arange(0, concat_walking.shape[1]) * ID.getAcquisitionMetadata('sample_period')
-        concat_behaving = f_interp_behaving(trial_time[eg_trials][0]+concat_time)
+        concat_behaving = np.concatenate([behaving_trial_matrix[:, x, :] for x in eg_trials], axis=1)
 
         # Red triangles when stim hits center of screen (middle of trial)
         dt = np.diff(concat_time)[0]  # sec
         trial_len = epoch_response_matrix.shape[2]
         concat_len = len(concat_time)
-        y_val = 0.5
-        ax0[0].plot(dt * np.linspace(trial_len/2,
+        trial_time = dt * np.linspace(trial_len/2,
                                      concat_len-trial_len/2,
-                                     len(eg_trials)),
+                                     len(eg_trials))
+        y_val = 0.5
+        ax0[0].plot(trial_time,
                     y_val * np.ones(len(eg_trials)),
                     'rv', markersize=4)
         ax0[0].set_ylim([0.25, 0.75])
@@ -126,7 +127,7 @@ for s_ind, series in enumerate(matching_series):
         ax0[1].set_ylabel('Walking', rotation=0)
         for g_ind, glom in enumerate(included_gloms):
             ax0[2+g_ind].set_ylabel(glom, rotation=0)
-            ax0[2+g_ind].fill_between(concat_time, concat_behaving, color='k', alpha=0.25, linewidth=0)
+            ax0[2+g_ind].fill_between(concat_time, concat_behaving[0, :], color='k', alpha=0.25, linewidth=0)
             ax0[2+g_ind].plot(concat_time, concat_response[g_ind, :], color=util.get_color_dict()[glom])
             # ax0[2+g_ind].set_ylim([concat_response.min(), concat_response.max()])
             if g_ind == 0:

@@ -96,45 +96,40 @@ for s_ind, series in enumerate(matching_series):
     # # Fictrac data:
     ft_data_path = dataio.get_ft_datapath(ID, ft_dir)
     behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
-                                             response_len=response_data.get('response').shape[1],
-                                             process_behavior=True, fps=50, exclude_thresh=300)
+                                             process_behavior=True, exclude_thresh=300)
     all_is_behaving.append(behavior_data.get('is_behaving')[0])
     walking_amps.append(behavior_data.get('walking_amp'))
     new_beh_corr = np.array([spearmanr(behavior_data.get('walking_amp')[0, :], response_amp[x, :]).correlation for x in range(len(included_gloms))])
     corr_with_running.append(new_beh_corr)
 
-    # # QC: check thresholding
-    # fh, ax = plt.subplots(1, 2, figsize=(8, 4))
-    # ax[0].plot(behavior_data.get('walking_mag_ds'))
-    # ax[0].axhline(behavior_data.get('thresh'), color='r')
-    # ax[1].hist(behavior_data.get('walking_mag_ds'), 100)
-    # ax[1].axvline(behavior_data.get('thresh'), color='r')
-    # ax[0].set_title('{}: {}'.format(file_name, series_number))
-
     if np.logical_and(file_name == eg_series[0], series_number == eg_series[1]):
     # if True:
-        trial_time = ID.getStimulusTiming(plot_trace_flag=False)['stimulus_start_times'] - ID.getRunParameters('pre_time')
-        f_interp_behaving = interp1d(trial_time, behavior_data.get('is_behaving')[0, :], kind='previous', bounds_error=False, fill_value=np.nan)
-
         # fh0: snippet of movement and glom response traces
         fh0, ax0 = plt.subplots(2+len(included_gloms), 1, figsize=(5.5, 3.35))
         [x.set_ylim([y_min, y_max]) for x in ax0.ravel()]
         [util.clean_axes(x) for x in ax0.ravel()]
         # [x.set_ylim() for x in ax0.ravel()]
 
+        behaving_trial_matrix = np.zeros_like(behavior_data.get('walking_response_matrix'))
+        behaving_trial_matrix[behavior_data.get('is_behaving'), :] = 1
+
         concat_response = np.concatenate([epoch_response_matrix[:, x, :] for x in eg_trials], axis=1)
         concat_walking = np.concatenate([behavior_data.get('walking_response_matrix')[:, x, :] for x in eg_trials], axis=1)
         concat_time = np.arange(0, concat_walking.shape[1]) * ID.getAcquisitionMetadata('sample_period')
-        concat_behaving = f_interp_behaving(trial_time[eg_trials][0]+concat_time)
+        concat_behaving = np.concatenate([behaving_trial_matrix[:, x, :] for x in eg_trials], axis=1)
 
-        # Red triangles when stim hits center of screen (middle of trial)
+
         dt = np.diff(concat_time)[0]  # sec
         trial_len = epoch_response_matrix.shape[2]
         concat_len = len(concat_time)
-        y_val = 0.5
-        ax0[0].plot(dt * np.linspace(trial_len/2,
+        trial_time = dt * np.linspace(trial_len/2,
                                      concat_len-trial_len/2,
-                                     len(eg_trials)),
+                                     len(eg_trials))
+
+
+        # Red triangles when stim hits center of screen (middle of trial)
+        y_val = 0.5
+        ax0[0].plot(trial_time,
                     y_val * np.ones(len(eg_trials)),
                     'rv', markersize=4)
         ax0[0].set_ylim([0.25, 0.75])
@@ -146,22 +141,25 @@ for s_ind, series in enumerate(matching_series):
 
         for g_ind, glom in enumerate(included_gloms):
             ax0[2+g_ind].set_ylabel(glom, rotation=0)
-            ax0[2+g_ind].fill_between(concat_time, concat_behaving, color='k', alpha=0.25, linewidth=0)
+            ax0[2+g_ind].fill_between(concat_time, concat_behaving[0, :], color='k', alpha=0.25, linewidth=0)
             ax0[2+g_ind].plot(concat_time, concat_response[g_ind, :], color=util.get_color_dict()[glom])
             # ax0[2+g_ind].set_ylim([concat_response.min(), concat_response.max()])
             if g_ind == 0:
                 plot_tools.addScaleBars(ax0[2+g_ind], dT=4, dF=0.25, T_value=0, F_value=-0.1)
 
         # fh2: overall movement trace, with threshold and classification shading
-        time_ds = ID.getAcquisitionMetadata('sample_period') * np.arange(response_data.get('response').shape[1])
+        concat_walking = np.concatenate([behavior_data.get('walking_response_matrix')[:, x, :] for x in np.arange(100)], axis=1)
+        concat_time = np.arange(0, concat_walking.shape[1]) * ID.getAcquisitionMetadata('sample_period')
+        concat_behaving = np.concatenate([behaving_trial_matrix[:, x, :] for x in np.arange(100)], axis=1)
+
         fh2, ax2 = plt.subplots(1, 1, figsize=(4.5, 1.5))
         ax2.set_ylabel('Walking amp.')
         tw_ax = ax2.twinx()
-        tw_ax.fill_between(time_ds,
-                           f_interp_behaving(time_ds),
+        tw_ax.fill_between(concat_time,
+                           concat_behaving[0, :],
                            color=[0.5, 0.5, 0.5], alpha=0.5, linewidth=0.0)
         ax2.axhline(behavior_data.get('thresh'), color='r')
-        ax2.plot(time_ds, behavior_data.get('walking_mag_ds'),
+        ax2.plot(concat_time, concat_walking[0, :],
                          color='k')
         tw_ax.set_yticks([])
 
@@ -177,8 +175,8 @@ ax2.spines['right'].set_visible(False)
 tw_ax.spines['top'].set_visible(False)
 tw_ax.spines['right'].set_visible(False)
 
-fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
-fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
+# fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
+# fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
 # %%
 # shape = flies x gloms
 beh_mean = np.vstack([np.nanmean(response_amps[:, :, f][:, all_is_behaving[:, f]], axis=1) for f in range(response_amps.shape[-1])])
@@ -250,123 +248,7 @@ ax2.set_xlabel(r'Corr. with behavior ($\rho$)')
 ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 ax2.spines['left'].set_visible(False)
-fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
+# fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
 
 
 # %% TODO: response amp at time when response should peak vs behavior leading up to it
-
-
-# TODO: peak response time gcamp vs. behavior at that time
-
-# %% OLD STUFF
-
-
-# %% (1) Response-weighted behavior
-window_size = 16  # sec
-
-def getResponseWeightedAverage(stimulus_ensemble, response_ensemble, seed=1):
-        ResponseWeightedAverage = np.mean(response_ensemble * stimulus_ensemble, axis=1)
-        ResponseWeightedAverage_prior = np.mean(np.mean(response_ensemble) * stimulus_ensemble, axis=1)
-
-        np.random.seed(seed)
-        ResponseWeightedAverage_random = np.mean(np.random.permutation(response_ensemble) * stimulus_ensemble, axis=1)
-
-        results_dict = {'rwa': ResponseWeightedAverage,
-                        'rwa_prior': ResponseWeightedAverage_prior,
-                        'rwa_random': ResponseWeightedAverage_random}
-        return results_dict
-
-all_rwa = []
-all_rwa_prior = []
-all_rwa_corrected = []
-for s_ind, series in enumerate(matching_series):
-    series_number = series['series']
-    file_path = series['file_name'] + '.hdf5'
-    file_name = os.path.split(series['file_name'])[-1]
-    ID = imaging_data.ImagingDataObject(file_path,
-                                        series_number,
-                                        quiet=True)
-
-    # Get behavior data
-    behavior_data = dataio.load_behavior(ID, process_behavior=True)
-
-    # Load response data
-    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
-    epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
-
-    # Get response amps and response times in raw series time
-    response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
-    # Normalize within each glom
-    response_amp = response_amp / np.mean(response_amp, axis=1)[:, np.newaxis]
-
-    # Frame index of response onset, avg across all trials and gloms
-    response_ind = np.argmax(np.diff(np.mean(epoch_response_matrix, axis=(0, 1))))
-    # response_times: seconds into stim presentation that onset response occurs
-    response_time = response_data['time_vector'][response_ind] - ID.getRunParameters('pre_time')
-    stimulus_start_times = ID.getStimulusTiming(plot_trace_flag=False)['stimulus_start_times']
-    response_times = stimulus_start_times + response_time
-
-    behavior_rmse = behavior_data.get('rmse_smooth') / np.max(behavior_data.get('rmse_smooth'))  # Note normed behavior RMSE
-    behavior_timepoints = behavior_data['frame_times'][:len(behavior_rmse)]
-    stimulus_ensemble = []
-    response_ensemble = []
-    for pt_ind, pt in enumerate(response_times):
-        # window_indices = np.where(np.logical_and(behavior_timepoints < (pt), behavior_timepoints > (pt-window_size)))[0]
-        window_indices = np.where(np.logical_and(behavior_timepoints < (pt+window_size/2), behavior_timepoints > (pt-window_size/2)))[0]
-        if len(window_indices) == (window_size*50):
-            stimulus_ensemble.append(behavior_rmse[window_indices])
-            response_ensemble.append(response_amp[:, pt_ind])
-
-        else:
-            print('Skipped epoch {}: len = {}'.format(pt_ind, len(window_indices)))
-
-
-    stimulus_ensemble = np.stack(stimulus_ensemble, axis=-1)
-    response_ensemble = np.stack(response_ensemble, axis=-1)
-
-    filter_time = (1/50) * np.arange(-window_size*50, 0)
-    # fh, ax = plt.subplots(len(included_gloms), 1, figsize=(2, 7))
-    fly_rwa = []
-    fly_rwa_prior = []
-    fly_rwa_corrected = []
-    for g_ind, glom in enumerate(included_gloms):
-        rwa_results = getResponseWeightedAverage(stimulus_ensemble, response_ensemble[g_ind, :], seed=1)
-        fly_rwa.append(rwa_results['rwa'])
-        fly_rwa_prior.append(rwa_results['rwa_prior'])
-        rwa_corrected = rwa_results['rwa'] - rwa_results['rwa_prior']
-        # ax[g_ind].plot(filter_time, rwa_results['rwa_prior'].mean() * np.ones_like(filter_time), color=[0.5, 0.5, 0.5])
-        # ax[g_ind].plot(filter_time, rwa_results['rwa'], color=util.get_color_dict()[glom])
-        # ax[g_ind].plot(filter_time, rwa_results['rwa_prior'], color='k')
-        fly_rwa_corrected.append(rwa_corrected)
-
-    all_rwa.append(np.stack(fly_rwa, axis=-1))
-    all_rwa_prior.append(np.stack(fly_rwa_prior, axis=-1))
-    all_rwa_corrected.append(np.stack(fly_rwa_corrected, axis=-1))
-
-all_rwa = np.stack(all_rwa, axis=-1)  # shape = time, gloms, flies
-all_rwa_prior = np.stack(all_rwa_prior, axis=-1)  # shape = time, gloms, flies
-all_rwa_corrected = np.stack(all_rwa_corrected, axis=-1)  # shape = time, gloms, flies
-
-# %% Plot response-weighted behavior...
-
-filter_time = (1/50) * np.arange(-window_size/2*50, window_size/2*50)
-
-fh1, ax1 = plt.subplots(len(included_gloms), 1, figsize=(1.5, 7))
-[x.set_ylim([-0.030, 0.01]) for x in ax1.ravel()]
-# [x.set_xlim([-5, 0]) for x in ax1.ravel()]
-[x.set_yticks([]) for x in ax1[:-1]]
-[x.set_xticks([]) for x in ax1[:-1]]
-[x.spines['top'].set_visible(False) for x in ax1.ravel()]
-[x.spines['right'].set_visible(False) for x in ax1.ravel()]
-for g_ind, glom in enumerate(included_gloms):
-    corrected_mean = np.nanmean(all_rwa_corrected[:, g_ind, :], axis=-1)
-    corrected_sem = np.nanstd(all_rwa_corrected[:, g_ind, :], axis=-1) / all_rwa.shape[-1]
-    ax1[g_ind].axhline(y=0, color=[0.5, 0.5, 0.5])
-    ax1[g_ind].fill_between(filter_time,
-                           corrected_mean-corrected_sem,
-                           corrected_mean+corrected_sem,
-                           color=util.get_color_dict()[glom], linewidth=0)
-    ax1[g_ind].plot(filter_time, corrected_mean, color=util.get_color_dict()[glom], linewidth=2)
-
-ax1[g_ind].set_xlabel('Time to response onset (s)')
-fh1.supylabel('Response-weighted behavior (a.u.)')
