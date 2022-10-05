@@ -35,28 +35,7 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
                                                                        'indicator_2': 'TdTomato'},
                                                   target_series_metadata=target_series_metadata,
                                                   target_groups=['aligned_response', 'behavior'])
-
-
-# %%
-
-corr_with_running = []
-
-response_amps = []
-walking_amps = []
-all_behaving = []
-all_is_behaving = []
-
-for s_ind, series in enumerate(matching_series):
-    series_number = series['series']
-    file_path = series['file_name'] + '.hdf5'
-    file_name = os.path.split(series['file_name'])[-1]
-    ID = imaging_data.ImagingDataObject(file_path,
-                                        series_number,
-                                        quiet=True)
-
-    # Load response data
-    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
-
+def getRedEpochResponseMatrix(series):
     # Get red channel glom traces into epoch_response_matrix
     date_str = os.path.split(series['file_name'])[1].replace('-','')
     fn = 'red_glom_traces_{}_{}.pkl'.format(date_str, series_number)
@@ -79,6 +58,32 @@ for s_ind, series in enumerate(matching_series):
             epoch_response_matrix[val_ind, :, :] = response_matrix[pull_ind, :, :]
         else:  # Exclude because this glom, in this fly, is too tiny
             pass
+
+    return epoch_response_matrix
+
+# %%
+
+corr_with_running = []
+
+response_amps = []
+walking_amps = []
+all_behaving = []
+all_is_behaving = []
+
+for s_ind, series in enumerate(matching_series):
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    ID = imaging_data.ImagingDataObject(file_path,
+                                        series_number,
+                                        quiet=True)
+
+    # Load response data
+    response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
+
+
+    # Get red channel epoch response matrix, for control
+    epoch_response_matrix = getRedEpochResponseMatrix(series)
 
     response_amp = ID.getResponseAmplitude(epoch_response_matrix, metric='max')
     response_amps.append(response_amp)
@@ -129,7 +134,6 @@ for s_ind, series in enumerate(matching_series):
             ax0[2+g_ind].set_ylabel(glom, rotation=0)
             ax0[2+g_ind].fill_between(concat_time, concat_behaving[0, :], color='k', alpha=0.25, linewidth=0)
             ax0[2+g_ind].plot(concat_time, concat_response[g_ind, :], color=util.get_color_dict()[glom])
-            # ax0[2+g_ind].set_ylim([concat_response.min(), concat_response.max()])
             if g_ind == 0:
                 plot_tools.addScaleBars(ax0[2+g_ind], dT=4, dF=0.25, T_value=0, F_value=-0.1)
 
@@ -138,8 +142,7 @@ walking_amps = np.vstack(walking_amps)  # flies x trials
 response_amps = np.dstack(response_amps)  # gloms x trials x flies
 all_is_behaving = np.stack(all_is_behaving, axis=-1)  # trials x flies
 
-# fh0.savefig(os.path.join(save_directory, 'repeat_beh_red_ctl_resp.svg'.format(PROTOCOL_ID)), transparent=True)
-# fh2.savefig(os.path.join(save_directory, 'repeat_beh_red_ctl_running.svg'.format(PROTOCOL_ID)), transparent=True)
+fh0.savefig(os.path.join(save_directory, 'repeat_beh_red_ctl_resp.svg'.format(PROTOCOL_ID)), transparent=True)
 
 # %% Summary plots
 
@@ -176,4 +179,4 @@ ax2.set_xlabel(r'Corr. with behavior ($\rho$)')
 ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 ax2.spines['left'].set_visible(False)
-# fh2.savefig(os.path.join(save_directory, 'repeat_beh_red_ctl_summary.svg'.format(PROTOCOL_ID)), transparent=True)
+fh2.savefig(os.path.join(save_directory, 'repeat_beh_red_ctl_summary.svg'.format(PROTOCOL_ID)), transparent=True)

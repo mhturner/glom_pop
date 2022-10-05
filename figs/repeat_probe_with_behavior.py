@@ -9,6 +9,7 @@ from statsmodels.stats.multitest import multipletests
 from visanalysis.util import plot_tools
 from glom_pop import dataio, util
 
+
 PROTOCOL_ID = 'ExpandingMovingSpot'
 # PROTOCOL_ID = 'LoomingSpot'
 
@@ -70,6 +71,9 @@ for series in matching_series:
     print('{}: {}'.format(file_name, series_number))
 series['file_name']
 
+
+
+
 # %%
 
 corr_with_running = []
@@ -96,7 +100,7 @@ for s_ind, series in enumerate(matching_series):
     # # Fictrac data:
     ft_data_path = dataio.get_ft_datapath(ID, ft_dir)
     behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
-                                             process_behavior=True, exclude_thresh=300)
+                                             process_behavior=True, exclude_thresh=300, show_qc=False)
     all_is_behaving.append(behavior_data.get('is_behaving')[0])
     walking_amps.append(behavior_data.get('walking_amp'))
     new_beh_corr = np.array([spearmanr(behavior_data.get('walking_amp')[0, :], response_amp[x, :]).correlation for x in range(len(included_gloms))])
@@ -108,7 +112,6 @@ for s_ind, series in enumerate(matching_series):
         fh0, ax0 = plt.subplots(2+len(included_gloms), 1, figsize=(5.5, 3.35))
         [x.set_ylim([y_min, y_max]) for x in ax0.ravel()]
         [util.clean_axes(x) for x in ax0.ravel()]
-        # [x.set_ylim() for x in ax0.ravel()]
 
         behaving_trial_matrix = np.zeros_like(behavior_data.get('walking_response_matrix'))
         behaving_trial_matrix[behavior_data.get('is_behaving'), :] = 1
@@ -143,7 +146,6 @@ for s_ind, series in enumerate(matching_series):
             ax0[2+g_ind].set_ylabel(glom, rotation=0)
             ax0[2+g_ind].fill_between(concat_time, concat_behaving[0, :], color='k', alpha=0.25, linewidth=0)
             ax0[2+g_ind].plot(concat_time, concat_response[g_ind, :], color=util.get_color_dict()[glom])
-            # ax0[2+g_ind].set_ylim([concat_response.min(), concat_response.max()])
             if g_ind == 0:
                 plot_tools.addScaleBars(ax0[2+g_ind], dT=4, dF=0.25, T_value=0, F_value=-0.1)
 
@@ -175,42 +177,8 @@ ax2.spines['right'].set_visible(False)
 tw_ax.spines['top'].set_visible(False)
 tw_ax.spines['right'].set_visible(False)
 
-# fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
-# fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
-# %%
-# shape = flies x gloms
-beh_mean = np.vstack([np.nanmean(response_amps[:, :, f][:, all_is_behaving[:, f]], axis=1) for f in range(response_amps.shape[-1])])
-nonbeh_mean = np.vstack([np.nanmean(response_amps[:, :, f][:, ~all_is_behaving[:, f]], axis=1) for f in range(response_amps.shape[-1])])
-
-fh, ax = plt.subplots(np.max(rows)+1, np.max(cols)+1, figsize=(1.5*np.max(cols), 2*np.max(rows)), tight_layout=True)
-[x.set_axis_off() for x in ax.ravel()]
-[x.spines['right'].set_visible(False) for x in ax.ravel()]
-[x.spines['top'].set_visible(False) for x in ax.ravel()]
-p_vals = []
-for g_ind, glom in enumerate(included_gloms):
-    ax[rows[g_ind], cols[g_ind]].set_axis_on()
-    ax[rows[g_ind], cols[g_ind]].plot([0, 0.5], [0, 0.5], 'k--')
-    h, p = ttest_rel(beh_mean[:, g_ind], nonbeh_mean[:, g_ind], nan_policy='omit')
-    p_vals.append(p)
-    ax[rows[g_ind], cols[g_ind]].plot(beh_mean[:, g_ind], nonbeh_mean[:, g_ind],
-                                      marker='o', linestyle='None',
-                                      color=util.get_color_dict()[glom])
-    ax[rows[g_ind], cols[g_ind]].set_title(glom)
-    if np.logical_and(rows[g_ind] == np.max(rows), cols[g_ind] == 0):
-        pass
-    else:
-        ax[rows[g_ind], cols[g_ind]].set_yticks([])
-        ax[rows[g_ind], cols[g_ind]].set_xticks([])
-
-# Multiple comparisons test. Step down bonferroni
-h, p_corrected, _, _ = multipletests(p_vals, alpha=0.05, method='holm')
-for g_ind, glom in enumerate(included_gloms):
-    if h[g_ind]:
-        ax[rows[g_ind], cols[g_ind]].annotate('*', (0, 0.45), fontsize=12)
-
-fh.supxlabel('Response, walking')
-fh.supylabel('Response, stationary')
-
+fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
+fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
 
 
 # %% Summary plots
@@ -248,7 +216,7 @@ ax2.set_xlabel(r'Corr. with behavior ($\rho$)')
 ax2.spines['top'].set_visible(False)
 ax2.spines['right'].set_visible(False)
 ax2.spines['left'].set_visible(False)
-# fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
+fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
 
 
 # %% TODO: response amp at time when response should peak vs behavior leading up to it
