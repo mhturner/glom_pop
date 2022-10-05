@@ -27,10 +27,9 @@ matching_series
 # %%
 eg_s_ind = 2
 target_roi = 'dend_stalk'
-y_min = -0.1
-y_max = 0.3
-# eg_trials = np.arange(20, 40)
-eg_trials = np.arange(0, 100)
+y_min = -0.15
+y_max = 0.8
+eg_trials = np.arange(20, 40)
 
 response_amps = []
 walking_amps = []
@@ -61,8 +60,8 @@ for s_ind, series in enumerate(matching_series):
 
     corr_with_running.append(new_beh_corr)
 
-    # if s_ind == eg_s_ind:
-    if True:
+    if s_ind == eg_s_ind:
+    # if True:
         behaving_trial_matrix = np.zeros_like(behavior_data.get('walking_response_matrix'))
         behaving_trial_matrix[behavior_data.get('is_behaving'), :] = 1
 
@@ -81,22 +80,21 @@ for s_ind, series in enumerate(matching_series):
                                      len(eg_trials))
         y_val = 0.5
 
-        fh0, ax0 = plt.subplots(3, 1, figsize=(20, 2))
+        fh0, ax0 = plt.subplots(3, 1, figsize=(5.5, 2))
         [util.clean_axes(x) for x in ax0.ravel()]
         ax0[0].plot(trial_time,
                     y_val * np.ones(len(eg_trials)),
                     'rv', markersize=4)
         ax0[0].set_ylim([0.25, 0.75])
-        # ax0[0].plot(concat_time, np.zeros_like(concat_time), color='w')
 
         ax0[1].plot(concat_time, concat_walking[0, :], color='k')
-        # ax0[1].set_ylim([concat_walking.min(), concat_walking.max()])
+        ax0[1].set_ylim([concat_walking.min(), concat_walking.max()])
         ax0[1].set_ylabel('Walking', rotation=0)
 
         ax0[2].fill_between(concat_time, concat_behaving[0, :], color='k', alpha=0.25, linewidth=0)
-        ax0[2].plot(concat_time, concat_response)
-        ax0[2].set_ylim([concat_response.min(), concat_response.max()])
-        plot_tools.addScaleBars(ax0[2], dT=4, dF=0.1, T_value=0, F_value=-0.1)
+        ax0[2].plot(concat_time, concat_response, color=util.get_color_dict()['LC11'])
+        ax0[2].set_ylabel('LC11', rotation=0)
+        plot_tools.addScaleBars(ax0[2], dT=4, dF=0.25, T_value=0, F_value=-0.1)
 
 
 
@@ -104,13 +102,46 @@ corr_with_running = np.vstack(corr_with_running)  # flies x gloms
 walking_amps = np.vstack(walking_amps)  # flies x trials
 response_amps = np.dstack(response_amps)  # gloms x trials x flies
 
-# fh0.savefig(os.path.join(save_directory, 'LC11_repeat_beh_dend_resp.svg'), transparent=True)
-
-print(corr_with_running)
-# corr_with_running.mean(axis=0)
-# TODO check out timing on S=2, some issue with frame timing maybe?
+fh0.savefig(os.path.join(save_directory, 'LC11_repeat_beh_dend_resp.svg'), transparent=True)
 
 
+# %% Roi map
+fh1 = ID.generateRoiMap('dend_stalk', z=5, return_fighandle=True)
+ax = fh1.axes[0]
+ax.set_ylim([150, 25])
+fh1.set_size_inches(1.2, 1.2)
+fh1.savefig(os.path.join(save_directory, 'LC11_repeat_beh_dend_roimap.svg'), transparent=True)
+
+# %%
+
+fh2, ax2 = plt.subplots(1, 1, figsize=(2, 1))
+ax2.axvline(0, color='k', alpha=0.50)
+ax2.set_xlim([-0.8, 0.8])
+ax2.invert_yaxis()
+
+t_result = ttest_1samp(corr_with_running, popmean=0, nan_policy='omit')
+
+y_mean = np.nanmean(corr_with_running)
+y_err = np.nanstd(corr_with_running) / np.sqrt(corr_with_running.shape[0])
+ax2.plot(corr_with_running, np.ones(corr_with_running.shape[0]),
+         marker='.', color=util.get_color_dict()['LC11'], linestyle='none', alpha=0.5)
+
+ax2.plot(y_mean, 1,
+         marker='o', color=util.get_color_dict()['LC11'])
+
+ax2.plot([y_mean-y_err, y_mean+y_err], [1, 1],
+         color=util.get_color_dict()['LC11'])
+print('p = {:.4f}'.format(t_result.pvalue[0]))
+if t_result.pvalue < 0.05:
+    ax2.annotate('*', (0.5, 1), fontsize=12)
+
+ax2.set_yticks([])
+ax2.set_xlabel(r'Corr. with behavior ($\rho$)')
+ax2.spines['top'].set_visible(False)
+ax2.spines['right'].set_visible(False)
+ax2.spines['left'].set_visible(False)
+
+fh2.savefig(os.path.join(save_directory, 'LC11_repeat_beh_dend_summary.svg'), transparent=True)
 
 
 # %%
