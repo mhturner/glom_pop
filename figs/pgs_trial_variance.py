@@ -8,6 +8,7 @@ from visanalysis.util import plot_tools
 from sklearn.metrics import explained_variance_score
 from scipy.stats import pearsonr, zscore, multivariate_normal, spearmanr
 from sklearn.decomposition import PCA
+import pickle as pkl
 
 
 from glom_pop import dataio, util, model
@@ -38,8 +39,46 @@ included_gloms = dataio.get_included_gloms()
 included_gloms = np.array(included_gloms)[leaves]
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
 
+def getRedEpochResponseMatrix(series, dff=True):
+    # Get red channel glom traces into epoch_response_matrix
+    date_str = os.path.split(series['file_name'])[1].replace('-','')
+    fn = 'red_glom_traces_{}_{}.pkl'.format(date_str, series_number)
+    with open(os.path.join(sync_dir, 'red_channel_ctl', fn),'rb') as f:
+        glom_responses = pkl.load(f)
+
+    time_vector, response_matrix = ID.getEpochResponseMatrix(glom_responses, dff=dff)
+
+    # Filter erm by included vals
+    glom_size_threshold=10
+    # epoch_response_matrix: shape=(gloms, trials, time)
+    epoch_response_matrix = np.zeros((len(included_vals), response_data.get('epoch_response').shape[1], response_data.get('epoch_response').shape[2]))
+    epoch_response_matrix[:] = np.nan
+
+    for val_ind, included_val in enumerate(included_vals):
+        new_glom_size = np.sum(response_data.get('mask') == included_val)
+
+        if new_glom_size > glom_size_threshold:
+            pull_ind = np.where(included_val == response_data.get('mask_vals'))[0][0]
+            epoch_response_matrix[val_ind, :, :] = response_matrix[pull_ind, :, :]
+        else:  # Exclude because this glom, in this fly, is too tiny
+            pass
+
+    return epoch_response_matrix
+
+# %%
+
+for series in matching_series:
+    series_number = series['series']
+    file_path = series['file_name'] + '.hdf5'
+    file_name = os.path.split(series['file_name'])[-1]
+    print('{}: {}'.format(file_name, series_number))
+
+
+
 # %%
 all_cmats = []
+all_cov_red = []
+all_cov = []
 all_cmats_shuffled = []
 r_gain_behavior = []
 all_gain_by_trial = []
@@ -58,13 +97,23 @@ for s_ind, series in enumerate(matching_series):
     response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
     epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
 
+    # Resp amps for gcamp:
     # Align responses
     unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
-
     # Calculate gain for each trial. Gain := response amplitude normalized by median response amplitude to that stim
     parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
     pull_inds = [np.where([pv == up for pv in parameter_values])[0] for up in unique_parameter_values]
     response_amplitude = ID.getResponseAmplitude(epoch_response_matrix, metric='max')  # gloms x trials
+
+    # Trial by trial gain for red channel (ctl):
+    # Get red channel epoch response matrix, for control
+    erm_red = getRedEpochResponseMatrix(series, dff=True)
+    response_amplitude_red = ID.getResponseAmplitude(erm_red, metric='max')  # gloms x trials
+
+    # Covariance of df/F responses, both channels
+    cov_red = np.cov(response_amplitude_red)
+    cov = np.cov(response_amplitude)
+
     gain_by_trial = np.zeros((len(included_gloms), epoch_response_matrix.shape[1]))  # gloms x trials
     gain_by_trial[:] = np.nan
 
@@ -96,14 +145,16 @@ for s_ind, series in enumerate(matching_series):
     all_cmats.append(np.stack(cmats, axis=-1))  # stack across stims
     all_cmats_shuffled.append(np.stack(cmats_shuffled, axis=-1))
 
+    all_cov.append(cov)
+    all_cov_red.append(cov_red)
+
     # Load behavior data
     ft_data_path = dataio.get_ft_datapath(ID, ft_dir)
     if ft_data_path:
         has_beh_inds.append(s_ind)
         print('HAS BEHAVIOR')
         behavior_data = dataio.load_fictrac_data(ID, ft_data_path,
-                                                 response_len = response_data.get('response').shape[1],
-                                                 process_behavior=True, fps=50, exclude_thresh=300)
+                                                 process_behavior=True, exclude_thresh=300)
 
         r_gain_behavior_new = np.zeros((len(included_gloms), len(pull_inds)))
         r_gain_behavior_new[:] = np.nan
@@ -125,6 +176,8 @@ r_gain_behavior = np.stack(r_gain_behavior, axis=-1)  # (gloms x stim x fly)
 all_gain_by_trial = np.stack(all_gain_by_trial, axis=-1)  # (gloms x trial x fly)
 all_beh = np.stack(all_beh, axis=-1)  # (time x fly) for subset of flies with behavior
 
+all_cov = np.stack(all_cov, axis=-1)  # (glom x glom x fly)
+all_cov_red = np.stack(all_cov_red, axis=-1)  # (glom x glom x fly)
 
 # %% # Plot eg trials for eg fly
 eg_fly_ind = 4
@@ -143,8 +196,14 @@ ID = imaging_data.ImagingDataObject(file_path,
 response_data = dataio.load_responses(ID, response_set_name='glom', get_voxel_responses=False)
 epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, included_vals)
 
+
+
 # Align responses
 unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
+
+# Get red traces
+erm_red = getRedEpochResponseMatrix(series)
+_, _, _, trial_response_by_stimulus_red = ID.getTrialAverages(erm_red)
 
 # Calculate gain for each trial. Gain := response amplitude normalized by median response amplitude to that stim
 parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
@@ -156,8 +215,9 @@ fh0, ax0 = plt.subplots(len(eg_glom_inds), len(stim_inds), figsize=(5.5, 2.5), g
 
 for up_ind, up in enumerate(stim_inds):
     concat_trial_response = np.concatenate([trial_response_by_stimulus[up][:, x, :] for x in eg_trials], axis=1)
+    concat_trial_red = np.concatenate([trial_response_by_stimulus_red[up][:, x, :] for x in eg_trials], axis=1)
     concat_time = np.arange(concat_trial_response.shape[1]) * ID.getAcquisitionMetadata('sample_period')
-    [x.set_ylim([-0.15, 1.1]) for x in ax0.ravel()]
+    [x.set_ylim([-0.3, 1.1]) for x in ax0.ravel()]
     [util.clean_axes(x) for x in ax0.ravel()]
     [x.set_ylim() for x in ax0.ravel()]
     for idx, eg_glom_ind in enumerate(eg_glom_inds):
@@ -175,6 +235,7 @@ for up_ind, up in enumerate(stim_inds):
                                                 len(eg_trials))* ID.getAcquisitionMetadata('sample_period'),
                                     y_val * np.ones(len(eg_trials)),
                                     'rv')
+        ax0[idx, up_ind].plot(concat_time, -0.2+concat_trial_red[eg_glom_ind, :], color=[0.5, 0.5, 0.5], linewidth=0.5)
         ax0[idx, up_ind].plot(concat_time, concat_trial_response[eg_glom_ind, :], color=util.get_color_dict()[glom])
 
 fh0.savefig(os.path.join(save_directory, 'pgs_variance_eg_fly.svg'), transparent=True)
@@ -313,6 +374,45 @@ for s in range(fly_average_cmats.shape[-1]):
                 rasterized=True
                 )
 fh3.savefig(os.path.join(save_directory, 'pgs_variance_cmat_per_stim.svg'), transparent=True)
+
+
+# %% Covariance matrices for red and green channels
+# filter for big excursions, due to dF/F calc on small baselines
+covariance_red = all_cov_red.copy()
+thresh_red = np.nanquantile(covariance_red.ravel(), 0.999)
+covariance_red[covariance_red >= thresh_red] = np.nan
+
+covariance_green = all_cov.copy()
+thresh_green = np.nanquantile(covariance_green.ravel(), 0.999)
+covariance_green[covariance_green >= thresh_green] = np.nan
+
+glom_cov_red_df = pd.DataFrame(data=np.nanmean(covariance_red, axis=-1), index=included_gloms, columns=included_gloms)
+glom_cov_green_df = pd.DataFrame(data=np.nanmean(covariance_green, axis=-1), index=included_gloms, columns=included_gloms)
+
+fh1, ax1 = plt.subplots(1, 2, figsize=(5.5, 2.25), tight_layout=True)
+g=sns.heatmap(glom_cov_red_df,
+            ax=ax1[0],
+            vmin=0, vmax=0.04,
+            cmap='Reds',
+            xticklabels=True,
+            yticklabels=True,
+            cbar_kws={'label': 'Resp. covar. (df/F$^{2}$)'},
+            rasterized=True
+            )
+ax1[0].tick_params(axis='both', which='major', labelsize=8)
+ax1[0].set_title('myr::tdTomato')
+g=sns.heatmap(glom_cov_green_df,
+            ax=ax1[1],
+            vmin=0, vmax=0.04,
+            cmap='Reds',
+            xticklabels=True,
+            yticklabels=True,
+            cbar_kws={'label': 'Resp. covar. (df/F$^{2}$)'},
+            rasterized=True
+            )
+ax1[1].set_title('syt1-GCaMP6F')
+ax1[1].tick_params(axis='both', which='major', labelsize=8)
+fh1.savefig(os.path.join(save_directory, 'pgs_variance_covmat_RED.svg'), transparent=True)
 
 
 # %% For flies w behavior tracking: corr between gain & behavior, for each stim and glom
