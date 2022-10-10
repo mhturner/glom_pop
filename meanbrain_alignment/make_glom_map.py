@@ -156,23 +156,3 @@ for x in ax.ravel():
     x.locator_params(axis='x', nbins=10)
     x.grid(which='major', axis='both', linestyle='--', color='k')
     x.grid(which='minor', axis='both', linestyle='--', color='k')
-
-# %% For R code to get all T-Bar identities within each glom
-# Final closed_eroded_mask is in trimmed, flipped space, take it back to where the original LC TBar density map was (JRC2018) for comparison w hemibrain
-
-closed_eroded_mask = ants.image_read(os.path.join(sync_dir, 'template_brain', 'vpn_glom_mask_closed.nii'))
-
-# Un-flip and trim the mask
-# Original JRC2018 space points were trimmed and then flipped along z: [410:645, 250:450, 230:340]
-
-# Density map, original, untrimmed
-fileh = h5py.File(os.path.join(sync_dir, 'template_brain', 'vpn_glom_map.h5'), 'r')  # dim order = zxy
-brain_density = np.zeros(fileh.get('density/array').shape, dtype='uint8')
-fileh['density/array'].read_direct(brain_density)
-brain_density = np.moveaxis(brain_density, (0, 1, 2), (2, 0, 1))  # to xyz
-
-glom_mask_4_r_untrimmed = np.zeros_like(brain_density)
-glom_mask_4_r_untrimmed[410:645, 250:450, 230:340] = np.flip(closed_eroded_mask.numpy(), axis=2)
-
-# Convert back to ANTs image & save: closed mask
-ants.image_write(ants.from_numpy(glom_mask_4_r_untrimmed), os.path.join(sync_dir, 'template_brain', 'glom_mask_4_r.nii'))

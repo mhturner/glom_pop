@@ -1,4 +1,4 @@
-"""
+f"""
 Make Meanbrain from anatomical scans
 
 maxwellholteturner@gmail.com
