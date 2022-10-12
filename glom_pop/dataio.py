@@ -188,7 +188,8 @@ def get_ft_datapath(ID, ft_dir):
         return False
     elif len(glob_res) > 1:
         print('Warning! Multiple FT .dat files found at {}'.format(look_path))
-        return glob_res[0]
+        print('Returning first file in list: {}'.format(sorted(glob_res)[0]))
+        return sorted(glob_res)[0]
     elif len(glob_res) == 1:
         return glob_res[0]
 
@@ -206,13 +207,19 @@ def load_fictrac_data(ID, ft_data_path, process_behavior=True, exclude_thresh=No
     timestamp = timestamp - timestamp[0]
     fps = 1 / np.mean(np.diff(timestamp))
 
-    xrot = ft_data.iloc[:, 5] * 180 / np.pi * fps  # rot  --> deg/sec
-    yrot = ft_data.iloc[:, 6] * 180 / np.pi * fps  # rot  --> deg/sec
-    zrot = ft_data.iloc[:, 7] * 180 / np.pi * fps  # rot  --> deg/sec
+    xrot = np.rad2deg(ft_data.iloc[:, 5]) * fps  # rot  --> deg/sec
+    yrot = np.rad2deg(ft_data.iloc[:, 6]) * fps  # rot  --> deg/sec
+    zrot = np.rad2deg(ft_data.iloc[:, 7]) * fps  # rot  --> deg/sec
 
     xrot_filt = savgol_filter(xrot, 151, 3)
     yrot_filt = savgol_filter(yrot, 151, 3)
     zrot_filt = savgol_filter(zrot, 151, 3)
+
+    if exclude_thresh is not None:
+        # Filter to remove timepoints when tracking is lost
+        xrot_filt[xrot_filt > exclude_thresh] = 0
+        yrot_filt[yrot_filt > exclude_thresh] = 0
+        zrot_filt[zrot_filt > exclude_thresh] = 0
 
     walking_mag = np.sqrt(xrot_filt**2 + yrot_filt**2 + zrot_filt**2)
 
@@ -221,16 +228,16 @@ def load_fictrac_data(ID, ft_data_path, process_behavior=True, exclude_thresh=No
     turning_ds = resample(zrot_filt, len(imaging_time_vector))
     speed_ds = resample(yrot_filt, len(imaging_time_vector))
 
-    if exclude_thresh is not None:
-        # Filter to remove timepoints when tracking is lost
-        turning_ds[walking_mag_ds > exclude_thresh] = 0
-        speed_ds[walking_mag_ds > exclude_thresh] = 0
-        walking_mag_ds[walking_mag_ds > exclude_thresh] = 0
+    # Compute inferred forward walking speed based on y ball rotation and ball size
+    ball_diameter = 9  # mm
+    ball_circumference = np.pi * ball_diameter  # mm
+    fwd_vel = (yrot_filt/360) * ball_circumference  # deg/sec --> mm/sec
 
     thresh = filters.threshold_li(walking_mag_ds)
     binary_behavior_ds = (walking_mag_ds > thresh).astype('int')
     _, behavior_binary_matrix = ID.getEpochResponseMatrix(binary_behavior_ds[np.newaxis, :],
                                                           dff=False)
+
     _, walking_response_matrix = ID.getEpochResponseMatrix(walking_mag_ds[np.newaxis, :],
                                                            dff=False)
 
@@ -245,18 +252,27 @@ def load_fictrac_data(ID, ft_data_path, process_behavior=True, exclude_thresh=No
     turning_amp = ID.getResponseAmplitude(turning_response_matrix, metric='mean')
     speed_amp = ID.getResponseAmplitude(speed_response_matrix, metric='mean')
 
+    # Peak walking during trial
+    smth = savgol_filter(walking_response_matrix, 5, 3, axis=-1)
+    walking_peak = ID.getResponseAmplitude(smth, metric='max')
+
     behavior_data = {'walking_mag': walking_mag,  # n video frames
+                     'fwd_vel': fwd_vel,  # mm/sec, shape=n video frames
                      'walking_mag_ds': walking_mag_ds,  # n imaging frames
                      'behavior_binary_matrix': behavior_binary_matrix,  # 1 x trials x time
                      'walking_response_matrix': walking_response_matrix,  # 1 x trials x time
                      'turning_response_matrix': turning_response_matrix,  # 1 x trials x time
                      'speed_response_matrix': speed_response_matrix,  # 1 x trials x time
                      'walking_amp': walking_amp,  # n trials
+                     'walking_peak': walking_peak,
                      'turning_amp': turning_amp,
                      'speed_amp': speed_amp,
                      'is_behaving': is_behaving,  # n trials
                      'thresh': thresh,
-                     'timestamp': timestamp  # sec
+                     'timestamp': timestamp,  # sec
+                     'xrot_filt': xrot_filt,
+                     'yrot_filt': yrot_filt,
+                     'zrot_filt': zrot_filt,
                      }
 
     if show_qc:
