@@ -8,6 +8,7 @@ from scipy.stats import spearmanr
 from statsmodels.stats.multitest import multipletests
 from visanalysis.util import plot_tools
 from glom_pop import dataio, util
+from scipy.stats import zscore, mstats
 
 
 PROTOCOL_ID = 'ExpandingMovingSpot'
@@ -71,15 +72,13 @@ for series in matching_series:
     print('{}: {}'.format(file_name, series_number))
 series['file_name']
 
-
-
-
 # %%
 
 corr_with_running = []
 
 response_amps = []
 walking_amps = []
+walking_peaks = []
 all_behaving = []
 all_is_behaving = []
 
@@ -103,6 +102,7 @@ for s_ind, series in enumerate(matching_series):
                                              process_behavior=True, exclude_thresh=300, show_qc=False)
     all_is_behaving.append(behavior_data.get('is_behaving')[0])
     walking_amps.append(behavior_data.get('walking_amp'))
+    walking_peaks.append(behavior_data.get('walking_peak'))
     new_beh_corr = np.array([spearmanr(behavior_data.get('walking_amp')[0, :], response_amp[x, :]).correlation for x in range(len(included_gloms))])
     corr_with_running.append(new_beh_corr)
 
@@ -169,6 +169,7 @@ for s_ind, series in enumerate(matching_series):
 
 corr_with_running = np.vstack(corr_with_running)  # flies x gloms
 walking_amps = np.vstack(walking_amps)  # flies x trials
+walking_peaks = np.vstack(walking_peaks)
 response_amps = np.dstack(response_amps)  # gloms x trials x flies
 all_is_behaving = np.stack(all_is_behaving, axis=-1)  # trials x flies
 
@@ -180,8 +181,47 @@ tw_ax.spines['right'].set_visible(False)
 fh0.savefig(os.path.join(save_directory, 'repeat_beh_{}_resp.svg'.format(PROTOCOL_ID)), transparent=True)
 fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_running.svg'.format(PROTOCOL_ID)), transparent=True)
 
+# # %% Relationship between walking amp and amplitude
+# across-glom mean response, proxy for gain
 
-# %% Summary plots
+
+pull_glom_inds = np.array([0, 1, 2, 6, 7])
+# pop'n response gain := for gloms with sig corr w behavior, mean across all gloms and zscore across flies
+glom_gain = zscore(response_amps[pull_glom_inds, ...], axis=1)  # modulated gloms x trials x flies
+pop_gain = np.mean(glom_gain, axis=0)  # avg across gloms -> trials x flies
+pop_gain = pop_gain.T  # flies x trials, to match walking_peaks
+
+# equally populated bins
+bins = mstats.mquantiles(walking_peaks.ravel(), np.linspace(0, 1, 16))
+inds =  np.digitize(walking_peaks.ravel(), bins=bins)
+
+fh, ax = plt.subplots(1, 1, figsize=(3, 2))
+ax.set_xscale('log')
+ax.axhline(y=0, color=[0.5, 0.5, 0.5], linestyle='-', alpha=0.5)
+# ax.plot(walking_peaks.ravel(), pop_gain.ravel(),
+#         color=[0.5, 0.5, 0.5], alpha=0.5, linestyle='None', marker='.')
+for b_ind, bin in enumerate(bins):
+    pull_inds = np.where(inds == (b_ind+1))[0]
+    walking_peaks_current = walking_peaks.ravel()[pull_inds]
+    mean_x = np.nanmean(walking_peaks_current)
+    err_x = np.nanstd(walking_peaks_current) / np.sqrt(len(walking_peaks_current))
+
+    pop_gain_current = pop_gain.ravel()[pull_inds]
+    mean_y = np.nanmean(pop_gain_current)
+    err_y = np.nanstd(pop_gain_current) / np.sqrt(len(pop_gain_current))
+    ax.errorbar(x=mean_x, xerr=err_x,
+                y=mean_y, yerr=err_y, marker='o', color='k')
+
+ax.set_xlabel('Walking amplitude ($\degree$/sec)')
+ax.set_ylabel('Population response\ngain (z-score)')
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+fh.savefig(os.path.join(save_directory, 'repeat_beh_popgain_vs_amp_{}.svg'.format(PROTOCOL_ID)), transparent=True)
+
+
+
+# %% Summary plot
 
 # For each fly: corr between trial amplitude and trial behavior amount
 fh2, ax2 = plt.subplots(1, 1, figsize=(2, 2.6))
@@ -219,4 +259,4 @@ ax2.spines['left'].set_visible(False)
 fh2.savefig(os.path.join(save_directory, 'repeat_beh_{}_summary.svg'.format(PROTOCOL_ID)), transparent=True)
 
 
-# %% TODO: response amp at time when response should peak vs behavior leading up to it
+# %%
