@@ -102,11 +102,6 @@ class Fly:
 
 
         if sigma != 0:  # smooth x, y, angle trajectory with gaussian(sigma)
-            # medfilt_sz = np.int(np.ceil(2*sigma) // 2 * 2 + 1)  # round up to nearest odd integer
-            # self.x = medfilt(self.x, medfilt_sz)
-            # self.y = medfilt(self.y, medfilt_sz)
-            # self.a = medfilt(self.a, medfilt_sz)
-
             self.x = gaussian_filter1d(self.x, sigma)
             self.y = gaussian_filter1d(self.y, sigma)
             self.a = gaussian_filter1d(self.a, sigma)
