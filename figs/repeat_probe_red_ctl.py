@@ -67,7 +67,6 @@ corr_with_running = []
 
 response_amps = []
 walking_amps = []
-all_behaving = []
 all_is_behaving = []
 
 for s_ind, series in enumerate(matching_series):

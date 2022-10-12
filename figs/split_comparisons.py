@@ -18,8 +18,6 @@ target_gloms = ['LC18', 'LC9', 'LC4']
 
 chat_response_amplitudes = np.load(os.path.join(save_directory, 'chat_response_amplitudes.npy'))
 all_chat_responses = np.load(os.path.join(save_directory, 'chat_responses.npy'))
-mean_chat_responses = np.load(os.path.join(save_directory, 'mean_chat_responses.npy'))
-sem_chat_responses = np.load(os.path.join(save_directory, 'sem_chat_responses.npy'))
 included_gloms = dataio.get_included_gloms()
 
 # Load mask key for VPN types
@@ -155,9 +153,6 @@ for g_ind, target_glom in enumerate(target_gloms):
     elif g_ind == 0:
         ax1[g_ind].set_ylabel('Split-Gal4 \nresponse (dF/F)')
 
-    mean_split_responses = split_responses.mean(axis=0)
-    sem_split_responses = split_responses.std(axis=0) / split_responses.shape[0]
-
     ax3[g_ind].plot(concat_time,
                     np.mean(individual_split_concat, axis=0),
                     color='k',
@@ -169,19 +164,9 @@ for g_ind, target_glom in enumerate(target_gloms):
     if g_ind == 2:
         plot_tools.addScaleBars(ax3[g_ind], dT=2, dF=0.25, T_value=0, F_value=-0.05)
 
-    # for s in range(30):
-    #     ax3[g_ind, s].plot(roi_data['time_vector'], np.mean(split_responses, axis=0)[s, :], color='k')
-    #     ax3[g_ind, s].plot(roi_data['time_vector'], np.mean(all_chat_responses[chat_glom_ind, ...], axis=-1)[s, :], color=util.get_color_dict()[target_glom])
-    #     if s == 0:
-    #         if g_ind == 2:
-    #             plot_tools.addScaleBars(ax3[g_ind, s], dT=2, dF=0.25, T_value=0, F_value=-0.05)
-
     fh0.savefig(os.path.join(save_directory, 'split_images_{}.svg'.format(target_glom)), transparent=True)
 
 fh3.legend()
 fh1.savefig(os.path.join(save_directory, 'split_amp_scatter.svg'), transparent=True)
 fh3.savefig(os.path.join(save_directory, 'split_amp_traces.svg'), transparent=True)
-# %%
-
-
 # %%

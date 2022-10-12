@@ -251,7 +251,6 @@ for f_ind, series in enumerate(matching_series):
     transform_dir = os.path.join(sync_dir, 'transforms', 'meanbrain_anatomical', 'TSeries-{}'.format(fp))
     brain_fp = os.path.join(transform_dir, 'meanbrain_reg.nii')
     ind_red = ants.split_channels(ants.image_read(brain_fp))[0]
-    ind_green = ants.split_channels(ants.image_read(brain_fp))[1]
 
     ax[0, f_ind+1].imshow(ind_red[box1_xy[0]:box1_xy[0]+dx, box1_xy[1]:box1_xy[1]+dy, 10].T, cmap=cmap)
     ax[1, f_ind+1].imshow(ind_red[box2_xy[0]:box2_xy[0]+dx, box2_xy[1]:box2_xy[1]+dy, 39].T, cmap=cmap)

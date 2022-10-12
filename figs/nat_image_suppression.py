@@ -9,8 +9,7 @@ from scipy.stats import ttest_rel
 
 # from flystim import image
 import pandas as pd
-import seaborn as sns
-import PIL
+import seaborn as snsx
 
 
 util.config_matplotlib()
@@ -19,7 +18,6 @@ sync_dir = dataio.get_config_file()['sync_dir']
 save_directory = dataio.get_config_file()['save_directory']
 transform_directory = os.path.join(sync_dir, 'transforms', 'meanbrain_template')
 images_dir = os.path.join(dataio.get_config_file()['images_dir'], 'vh_tif')
-whitened_dir = os.path.join(dataio.get_config_file()['images_dir'], 'vh_tif')
 ft_dir = os.path.join(sync_dir, 'behavior_tracking')
 
 # Include only small spot responder gloms

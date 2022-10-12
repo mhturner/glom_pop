@@ -33,5 +33,3 @@ for img_ind, image_path in enumerate(input_image_list):
     imsave(os.path.join(output_images_dir, image_name + '.tif'), img)
 
 print(np.sort(im_names))
-
-im_names

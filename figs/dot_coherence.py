@@ -137,7 +137,7 @@ for g_ind, glom in enumerate(included_gloms):
                        color=util.get_color_dict()[glom], linestyle='-')
 
 # Multiple comparisons test. Step down bonferroni
-h, p_corrected, _, _ = multipletests(p_vals, alpha=0.05, method='holm')
+h, _, _, _ = multipletests(p_vals, alpha=0.05, method='holm')
 for g_ind, glom in enumerate(included_gloms):
     if h[g_ind]:
         ax[g_ind].annotate('*', (0.5, 1.2), fontsize=18, ha='center')
@@ -179,7 +179,7 @@ cbar_ax.set_axis_off()
 [x.set_axis_off() for x in ax3.ravel()]
 [x.set_xlim([50, 150]) for x in ax3.ravel()]
 [x.set_ylim([50, 150]) for x in ax3.ravel()]
-mp = ax3[0].imshow(rand_step, cmap='Greys', vmin=-0.5, vmax=1.0)
+ax3[0].imshow(rand_step, cmap='Greys', vmin=-0.5, vmax=1.0)
 ax3[0].set_title('Coherence = 0', fontsize=12)
 
 ax3[1].imshow(coh_step, cmap='Greys', vmin=-0.5, vmax=1.0)

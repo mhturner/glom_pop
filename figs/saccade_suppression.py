@@ -341,7 +341,6 @@ vis_beh = all_response_amps[:, 6, 0, :]  # beh + vis suppression
 
 vis_gain = vis / baseline
 beh_gain = beh / baseline
-vis_beh_gain = vis_beh / baseline
 
 fh4, ax4 = plt.subplots(1, 2, figsize=(5, 2.75), tight_layout=True)
 ax4[0].spines['top'].set_visible(False)
@@ -373,7 +372,6 @@ ax4[0].set_title('Balance of \ngain mechanisms')
 
 
 indep_prod = vis_norm * beh_norm
-# fh, ax = plt.subplots(1, 1, figsize=(2.25, 2.25))
 ax4[1].plot([0, 1.5], [0, 1.5], color='k', alpha=0.5, linestyle='--')
 ax4[1].spines['top'].set_visible(False)
 ax4[1].spines['right'].set_visible(False)

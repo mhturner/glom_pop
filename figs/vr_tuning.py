@@ -52,7 +52,6 @@ for s_ind, series in enumerate(matching_series):
     epoch_response_matrix_vr = dataio.filter_epoch_response_matrix(response_data_vr, included_vals)
     # Align responses
     unique_parameter_values_vr, mean_response_vr, _, _ = ID_vr.getTrialAverages(epoch_response_matrix_vr, parameter_key='current_trajectory_index')
-    concatenated_tuning_vr = np.concatenate([mean_response_vr[:, x, :] for x in range(len(unique_parameter_values_vr))], axis=1)  # responses, time (concat stims)
     peak_vr = ID_vr.getResponseAmplitude(mean_response_vr)
 
     # associated PGS series from that fly: L & R dark bar for comparison...

@@ -26,9 +26,6 @@ vpn_types = pd.read_csv(os.path.join(sync_dir, 'template_brain', 'vpn_types.csv'
 glom_mask_2_meanbrain = ants.image_read(os.path.join(sync_dir, 'transforms', 'meanbrain_template', 'glom_mask_reg2meanbrain.nii')).numpy()
 all_vals, all_names = dataio.get_glom_mask_decoder(glom_mask_2_meanbrain)
 
-all_sizes = pd.DataFrame(data=[np.sum(glom_mask_2_meanbrain == mv) for mv in all_vals],
-                         index=all_names.values)
-
 # Get included gloms
 included_gloms = dataio.get_included_gloms()
 included_vals = dataio.get_glom_vals_from_names(included_gloms)
@@ -67,7 +64,7 @@ for s_ind, series in enumerate(matching_series):
         glom_sizes[val_ind] = new_glom_size
 
     # Align responses
-    unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
+    unique_parameter_values, mean_response, _, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
 
     response_amp = ID.getResponseAmplitude(mean_response, metric='max')
 
@@ -394,10 +391,7 @@ fh7.savefig(os.path.join(save_directory, 'pgs_fly_cv.svg'), transparent=True)
 # cv := std across animals normalized by mean across animals and across all stims for that glom
 
 # Normalize sigma by the maximum response of this glom across all stims
-scaling = np.nanmax(np.nanmean(response_amplitudes, axis=-1), axis=-1)
-# cv = np.nanstd(response_amplitudes, axis=-1) / scaling[:, None]
 cv = np.nanstd(response_amplitudes, -1) / np.nanmean(response_amplitudes, -1)
-# eg_leaf_inds = [2, 6, 8]
 eg_glom_names = ['LC18', 'LC9', 'LC4']
 eg_stim_ind = 8  # 8
 fh2, ax2 = plt.subplots(len(eg_glom_names), all_responses.shape[-1], figsize=(3.0, 2.5))

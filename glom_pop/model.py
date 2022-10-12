@@ -6,10 +6,9 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix, explained_variance_score
+from sklearn.metrics import confusion_matrix
 from scipy.signal import detrend
 from scipy.stats import zscore
-from scipy.optimize import least_squares
 
 from visanalysis.analysis import imaging_data
 from glom_pop import dataio, util

@@ -5,7 +5,6 @@ import os
 import pandas as pd
 import seaborn as sns
 from visanalysis.util import plot_tools
-from sklearn.metrics import explained_variance_score
 from scipy.stats import pearsonr, zscore, multivariate_normal, spearmanr
 from sklearn.decomposition import PCA
 import pickle as pkl
@@ -99,7 +98,7 @@ for s_ind, series in enumerate(matching_series):
 
     # Resp amps for gcamp:
     # Align responses
-    unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
+    unique_parameter_values, mean_response, _, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
     # Calculate gain for each trial. Gain := response amplitude normalized by median response amplitude to that stim
     parameter_values = [list(pd.values()) for pd in ID.getEpochParameterDicts()]
     pull_inds = [np.where([pv == up for pv in parameter_values])[0] for up in unique_parameter_values]
@@ -199,7 +198,7 @@ epoch_response_matrix = dataio.filter_epoch_response_matrix(response_data, inclu
 
 
 # Align responses
-unique_parameter_values, mean_response, sem_response, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
+unique_parameter_values, mean_response, _, trial_response_by_stimulus = ID.getTrialAverages(epoch_response_matrix)
 
 # Get red traces
 erm_red = getRedEpochResponseMatrix(series)
