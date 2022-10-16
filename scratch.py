@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import pickle as pkl
 import os
 import numpy as np
@@ -130,3 +131,6 @@ ax2.set_xlabel('Time (s)')
 
 
 # %%
+=======
+import nump as np
+>>>>>>> Stashed changes
