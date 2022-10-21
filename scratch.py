@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+=======
+<<<<<<< Updated upstream
+import pickle as pkl
+import os
+>>>>>>> c7fed02a002d50e1a317d4e1981244a5a4588d4e
 import numpy as np
 import os
 import glob
@@ -80,3 +86,6 @@ imageio.mimwrite(os.path.join(save_directory, 'spot_on_moving.mp4'), spot_on_mov
 
 
 # %%
+=======
+import nump as np
+>>>>>>> Stashed changes

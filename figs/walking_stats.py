@@ -199,7 +199,7 @@ bin_ctr = 0.5 * (bins[1:] + bins[:-1])
 bin_width=np.diff(bin_ctr)[0]
 ct_norm = ct / np.sum(ct)
 ax[0].bar(bin_ctr, ct_norm, color='r', width=bin_width, edgecolor='w', alpha=0.5, label='Saccade')
-ax[0].set_xlabel('Angular velocity ($\degree$/sec)')
+ax[0].set_xlabel('Angular speed ($\degree$/sec)')
 
 # Fwd velocity histograms
 bins = np.linspace(0, 2.1, 20)
@@ -235,7 +235,7 @@ fh2, ax2 = plt.subplots(1, 1, figsize=(2.5, 2.25))
 hb = ax2.hexbin(all_fwd_vel, all_ang_vel, gridsize=35, cmap="Reds", norm=log_norm)
 cb = fh2.colorbar(hb, ax=ax2, label='Count')
 ax2.set_xlabel('Forward velocity (cm/sec)')
-ax2.set_ylabel('Angular velocity ($\degree$/sec)')
+ax2.set_ylabel('Angular speed ($\degree$/sec)')
 
 fh2.savefig(os.path.join(save_directory, 'walk_stats_heatmap.svg'), transparent=True)
 
