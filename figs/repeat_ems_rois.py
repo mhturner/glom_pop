@@ -145,3 +145,24 @@ fh2.savefig(os.path.join(save_directory, 'LC11_repeat_beh_dend_summary.svg'), tr
 
 
 # %%
+roi_ind = 1
+roi_data = ID.getRoiResponses(target_roi)
+
+fh3, ax3 = plt.subplots(1, 1, figsize=(3, 3))
+epoch_response_matrix = roi_data['epoch_response'][roi_ind, :, :]
+epoch_response_matrix.shape
+time_vec = roi_data['time_vector']
+trial_avg = np.mean(epoch_response_matrix, axis=0)
+trial_err = np.std(epoch_response_matrix, axis=0) / np.sqrt(epoch_response_matrix.shape[0])
+ax3.axhline(y=0, color=[0.5, 0.5, 0.5], alpha=0.5)
+ax3.fill_between(time_vec, trial_avg-trial_err, trial_avg+trial_err, color='k', alpha=0.5)
+ax3.plot(time_vec, trial_avg, color='k', linewidth=2)
+
+util.clean_axes(ax3)
+plot_tools.addScaleBars(ax3, dT=2, dF=0.25, T_value=-0.2, F_value=-0.1)
+
+fh3.savefig(os.path.join(save_directory, 'LC11_repeat_trial_avg_trace_.svg'), transparent=True)
+
+
+
+# %%
