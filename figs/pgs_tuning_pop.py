@@ -103,7 +103,13 @@ np.save(os.path.join(save_directory, 'chat_response_amplitudes.npy'), response_a
 np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
 np.save(os.path.join(save_directory, 'sem_chat_responses.npy'), sem_responses)
 np.save(os.path.join(save_directory, 'included_gloms.npy'), included_gloms)
+np.save(os.path.join(save_directory, 'time_vector.npy'), response_data['time_vector'])
+np.save(os.path.join(save_directory, 'unique_parameter_values.npy'), np.array(unique_parameter_values, dtype='object'))
 
+ID.getRunParameters()
+all_responses.shape
+len(unique_parameter_values)
+unique_parameter_values[17]
 # %% QC: Number of voxels in each glomerulus. Included vs. excluded gloms sizes
 
 glom_sizes_pd = pd.DataFrame(data=all_glom_sizes.copy(),
