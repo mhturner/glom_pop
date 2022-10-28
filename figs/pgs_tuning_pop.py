@@ -46,6 +46,7 @@ matching_series = shared_analysis.filterDataFiles(data_directory=os.path.join(sy
 all_responses = []
 response_amplitudes = []
 all_glom_sizes = []
+all_trial_responses = []
 for s_ind, series in enumerate(matching_series):
     series_number = series['series']
     file_path = series['file_name'] + '.hdf5'
@@ -68,18 +69,21 @@ for s_ind, series in enumerate(matching_series):
 
     response_amp = ID.getResponseAmplitude(mean_response, metric='max')
 
+    trial_responses = np.stack(trial_response_by_stimulus[:-2], axis=-1)  # shape = (gloms, trials, time, stim)
+
     all_responses.append(mean_response)
+    all_trial_responses.append(trial_responses)
     response_amplitudes.append(response_amp)
     all_glom_sizes.append(glom_sizes)
     del response_amp, mean_response, glom_sizes
     print('------------')
-
 
 # Stack accumulated responses
 # The glom order here is included_gloms
 all_responses = np.stack(all_responses, axis=-1)  # dims = (glom, param, time, fly)
 response_amplitudes = np.stack(response_amplitudes, axis=-1)  # dims = (gloms, param, fly)
 all_glom_sizes = np.stack(all_glom_sizes, axis=-1)  # dims = (gloms, fly)
+all_trial_responses = np.stack(all_trial_responses, axis=-1)  # dims = (gloms, trials, time, param, fly)
 
 # Exclude last two stims (full field flashes)
 unique_parameter_values = unique_parameter_values[:-2]
@@ -98,6 +102,8 @@ sem_concat = np.vstack(np.concatenate([sem_responses[:, x, :] for x in np.arange
 std_concat = np.vstack(np.concatenate([std_responses[:, x, :] for x in np.arange(len(unique_parameter_values))], axis=1))
 time_concat = np.arange(0, mean_concat.shape[-1]) * ID.getAcquisitionMetadata().get('sample_period')
 
+all_trial_responses.shape
+np.save(os.path.join(save_directory, 'pgs_trial_responses.npy'), all_trial_responses) # dims = (gloms, trials, time, param, fly)
 np.save(os.path.join(save_directory, 'chat_responses.npy'), all_responses)
 np.save(os.path.join(save_directory, 'chat_response_amplitudes.npy'), response_amplitudes)
 np.save(os.path.join(save_directory, 'mean_chat_responses.npy'), mean_responses)
@@ -107,9 +113,7 @@ np.save(os.path.join(save_directory, 'time_vector.npy'), response_data['time_vec
 np.save(os.path.join(save_directory, 'unique_parameter_values.npy'), np.array(unique_parameter_values, dtype='object'))
 
 ID.getRunParameters()
-all_responses.shape
-len(unique_parameter_values)
-unique_parameter_values[17]
+unique_parameter_values
 # %% QC: Number of voxels in each glomerulus. Included vs. excluded gloms sizes
 
 glom_sizes_pd = pd.DataFrame(data=all_glom_sizes.copy(),

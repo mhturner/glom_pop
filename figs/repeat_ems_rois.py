@@ -148,7 +148,7 @@ fh2.savefig(os.path.join(save_directory, 'LC11_repeat_beh_dend_summary.svg'), tr
 roi_ind = 1
 roi_data = ID.getRoiResponses(target_roi)
 
-fh3, ax3 = plt.subplots(1, 1, figsize=(3, 3))
+fh3, ax3 = plt.subplots(1, 1, figsize=(1.5, 1.5))
 epoch_response_matrix = roi_data['epoch_response'][roi_ind, :, :]
 epoch_response_matrix.shape
 time_vec = roi_data['time_vector']
