@@ -2,9 +2,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 from glom_pop import WalkingData
-import os
 import pandas as pd
-import seaborn as sns
 from glom_pop import dataio
 from matplotlib.colors import LogNorm
 
@@ -241,13 +239,13 @@ fh2.savefig(os.path.join(save_directory, 'walk_stats_heatmap.svg'), transparent=
 
 
 
-
 # %% Eg trajectory trace
 data_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/WalkingTrajectories/data_from_avery'
 dir_name = 'exp-20190521-183908'
-trial_dir = 'trial-5-20190521-184532'
+# trial_dir = 'trial-5-20190521-184532'
+trial_dir = 'trial-7-20190521-184834'
 time_res = 0.033  # sec
-sigma = 0.1
+sigma = 0.025
 quiver_stride = 100
 
 trial = WalkingData.Trial(os.path.join(data_dir, dir_name, trial_dir))
@@ -281,6 +279,31 @@ ax.set_ylim([-9, -9+window_width])
 
 
 fh.savefig(os.path.join(save_directory, 'walk_stats_eg_trajectory.svg'), transparent=True)
+
+# %%
+thresh=100
+turn_points, ups, downs = getTurnPoints(fly.ang_vel, thresh=thresh)
+
+y_lev = 300
+# Snippet of rotational velocity, with threshold crossings
+fh, ax = plt.subplots(2, 1, figsize=(4, 3), tight_layout=True)
+ax[0].plot(fly.t[:-1], fly.ang_vel, 'k-')
+ax[0].plot(fly.t[ups], y_lev*np.ones_like(ups), 'rv', alpha=0.5)
+ax[0].plot(fly.t[downs], -y_lev*np.ones_like(downs), 'r^', alpha=0.5)
+ax[0].set_ylabel('Rotational \nvelocity ($\degree$/s)')
+
+ax[0].spines['top'].set_visible(False)
+ax[0].spines['right'].set_visible(False)
+# ax[0].set_xlim([0, 20])
+ax[1].plot(fly.t[:-1], fly.vel, 'k-')
+# ax.plot(up_times, thresh*np.ones_like(up_times), 'rv')
+# ax.plot(down_times, -thresh*np.ones_like(down_times), 'r^')
+ax[1].set_xlabel('Time (s)')
+ax[1].set_ylabel('Forward \nvelocity (cm/sec)')
+ax[1].spines['top'].set_visible(False)
+ax[1].spines['right'].set_visible(False)
+
+fh.savefig(os.path.join(save_directory, 'walk_stats_ang_talk_snippet.svg'), transparent=True)
 
 
 

@@ -1,17 +1,11 @@
-<<<<<<< HEAD
-=======
-<<<<<<< Updated upstream
-import pickle as pkl
+
 import os
->>>>>>> c7fed02a002d50e1a317d4e1981244a5a4588d4e
 import numpy as np
-import os
 import glob
 from glom_pop import dataio
 from skimage.io import imread
 from skimage.transform import resize
 import matplotlib.pyplot as plt
-import seaborn as sns
 import imageio
 
 
@@ -43,7 +37,7 @@ plt.imshow(img, cmap='Greys_r')
 img = img / np.max(img)
 spot_intensity = np.mean(img) + spot_contrast * np.mean(img)
 
-image_speed = 360  # deg/sec
+image_speed = 180  # deg/sec
 
 
 spot_only = []
@@ -79,13 +73,8 @@ spot_on_moving = np.stack(spot_on_moving, axis=-1).astype('uint8')
 spot_only = np.swapaxes(spot_only, 0, -1)
 spot_on_static = np.swapaxes(spot_on_static, 0, -1)
 spot_on_moving = np.swapaxes(spot_on_moving, 0, -1)
-
+spot_only.mean()
+spot_on_moving.mean()
 imageio.mimwrite(os.path.join(save_directory, 'spot_only.mp4'), spot_only , fps=fps)
 imageio.mimwrite(os.path.join(save_directory, 'spot_on_static.mp4'), spot_on_static , fps=fps)
 imageio.mimwrite(os.path.join(save_directory, 'spot_on_moving.mp4'), spot_on_moving , fps=fps)
-
-
-# %%
-=======
-import nump as np
->>>>>>> Stashed changes
