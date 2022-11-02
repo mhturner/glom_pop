@@ -8,6 +8,17 @@ from matplotlib.colors import LogNorm
 
 
 save_directory = dataio.get_config_file()['save_directory']
+
+
+def getTurnPoints(angular_velocity, thresh):
+    # turn often immediately followed by quick rebound turn to other direction
+    # So take +ve and -ve separately
+    V_orig = angular_velocity[0:-2]
+    V_shift = angular_velocity[1:-1]
+    ups = np.where(np.logical_and(V_orig < thresh, V_shift >= thresh))[0] + 1
+    downs = np.where(np.logical_and(V_orig >= -thresh, V_shift < -thresh))[0] + 1
+    turn_points = np.sort(np.append(ups, downs))
+    return turn_points, ups, downs
 # %% # From Ryan pre-processed data...
 data_dir = '/Users/mhturner/Dropbox/ClandininLab/Analysis/WalkingTrajectories'
 
@@ -50,17 +61,6 @@ ax.set_ylabel('Probability')
 ax.spines['top'].set_visible(False)
 ax.spines['right'].set_visible(False)
 fh.savefig(os.path.join(save_directory, 'walk_stats_fwd_hist.svg'), transparent=True)
-
-# %%
-def getTurnPoints(angular_velocity, thresh):
-    # turn often immediately followed by quick rebound turn to other direction
-    # So take +ve and -ve separately
-    V_orig = angular_velocity[0:-2]
-    V_shift = angular_velocity[1:-1]
-    ups = np.where(np.logical_and(V_orig < thresh, V_shift >= thresh))[0] + 1
-    downs = np.where(np.logical_and(V_orig >= -thresh, V_shift < -thresh))[0] + 1
-    turn_points = np.sort(np.append(ups, downs))
-    return turn_points, ups, downs
 
 # %%
 # Get turn times
@@ -253,49 +253,77 @@ fly = WalkingData.Fly(trial, time_res=time_res, sigma=sigma/time_res)
 
 fh, ax = plt.subplots(1, 1, figsize=(2, 2))
 duration = fly.t[-1]  # sec
-print('Duration = {:.1f} sec'.format(duration))
+print('Total Duration = {:.1f} sec'.format(duration))
 
 # center traj and scale to cm
 x = (fly.x - np.mean(fly.x)) * 100
 y = (fly.y - np.mean(fly.y)) * 100
+
+# Trim to subset of trajectory
+start_ind = 100
+end_ind = 280  # 100-280 about 6 sec
+x = x[start_ind:end_ind]
+y = y[start_ind:end_ind]
+a = fly.a[start_ind:end_ind]
+t = fly.t[start_ind:end_ind]
+ang_vel = fly.ang_vel[start_ind:end_ind]
+vel = fly.vel[start_ind:end_ind]
+
+duration = t[-1] - t[0]  # sec
+print('Total Duration = {:.1f} sec'.format(duration))
+
+thresh = 100
+turn_points, ups, downs = getTurnPoints(ang_vel, thresh=thresh)
+
 ax.plot(x, y, linewidth=2, color='k', linestyle='-')
-ax.plot(x[0], y[0], 'go')
-ax.quiver(x[::quiver_stride],
-          y[::quiver_stride],
-          np.cos(np.radians(fly.a[::quiver_stride])),
-          np.sin(np.radians(fly.a[::quiver_stride])),
-          linewidth=2,
-          scale=10, width=0.01, color='r', zorder=10)
+ax.plot(x[turn_points],
+        y[turn_points],
+        'ro')
+# ax.quiver(x[turn_points],
+#           y[turn_points],
+#           np.cos(np.radians(a[turn_points+15])),
+#           np.sin(np.radians(a[turn_points+15])),
+#           linewidth=2,
+#           scale=10, width=0.01, color='r', zorder=10)
 
 ax.set_axis_off()
-window_width = 15  # cm
-dx = 2  # cm
-ax.plot([-5, -5+dx], [4, 4],
+window_buffer = 0.2  # cm
+dx = 0.25  # cm
+ax.plot([x.min()-window_buffer, x.min()-window_buffer+dx], [y.min(), y.min()],
         color='k',
         linewidth=2)
-ax.set_xlim([-7, -7+window_width])
-ax.set_ylim([-9, -9+window_width])
-
-
+ax.set_xlim([x.min()-window_buffer, x.max()+window_buffer])
+ax.set_ylim([y.min()-window_buffer, y.max()+window_buffer])
 
 fh.savefig(os.path.join(save_directory, 'walk_stats_eg_trajectory.svg'), transparent=True)
 
 # %%
-thresh=100
-turn_points, ups, downs = getTurnPoints(fly.ang_vel, thresh=thresh)
+
+start_ind = 250
+end_ind = 900
+x = x[start_ind:end_ind]
+y = y[start_ind:end_ind]
+a = fly.a[start_ind:end_ind]
+t = fly.t[start_ind:end_ind] - fly.t[start_ind]
+ang_vel = fly.ang_vel[start_ind:end_ind]
+vel = fly.vel[start_ind:end_ind]
+
+thresh = 100
+turn_points, ups, downs = getTurnPoints(ang_vel, thresh=thresh)
+
 
 y_lev = 300
 # Snippet of rotational velocity, with threshold crossings
 fh, ax = plt.subplots(2, 1, figsize=(4, 3), tight_layout=True)
-ax[0].plot(fly.t[:-1], fly.ang_vel, 'k-')
-ax[0].plot(fly.t[ups], y_lev*np.ones_like(ups), 'rv', alpha=0.5)
-ax[0].plot(fly.t[downs], -y_lev*np.ones_like(downs), 'r^', alpha=0.5)
+ax[0].plot(t, ang_vel, 'k-')
+ax[0].plot(t[ups], y_lev*np.ones_like(ups), 'rv', alpha=0.5)
+ax[0].plot(t[downs], -y_lev*np.ones_like(downs), 'r^', alpha=0.5)
 ax[0].set_ylabel('Rotational \nvelocity ($\degree$/s)')
 
 ax[0].spines['top'].set_visible(False)
 ax[0].spines['right'].set_visible(False)
 # ax[0].set_xlim([0, 20])
-ax[1].plot(fly.t[:-1], fly.vel, 'k-')
+ax[1].plot(t, vel, 'k-')
 # ax.plot(up_times, thresh*np.ones_like(up_times), 'rv')
 # ax.plot(down_times, -thresh*np.ones_like(down_times), 'r^')
 ax[1].set_xlabel('Time (s)')
