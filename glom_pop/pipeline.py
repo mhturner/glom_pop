@@ -21,40 +21,6 @@ from visanalysis.util import h5io
 # # # # ANATOMICAL BRAIN & MEANBRAIN ALIGNMENT  # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# def do_pre_transform(brain_filepath,
-#                      reference_brain,
-#                      type_of_transform='Affine',
-#                      do_bias_correction=False):
-#     """
-#     Register brain to reference_brain.
-#         Returns transform
-
-#     :brain_filepath: .nii filepath to brain to register (MOVING)
-#     :reference_brain: two-channel ANTs image to register each brain to (FIXED)
-#     :transform_dir: path to transform directory (i.e. where to save transforms and results).
-#         Will make a subdirectory based on series name within this directory.
-#     :type_of_transform: for ants.registration()
-#     """
-#     print('Pre-registering brain {}'.format(brain_filepath))
-#     t0 = time.time()
-
-#     individual_brain = ants.image_read(brain_filepath)
-
-#     if do_bias_correction:
-#         fixed_red = ants.n4_bias_field_correction(ants.split_channels(reference_brain)[0])
-#         moving_red = ants.n4_bias_field_correction(ants.split_channels(individual_brain)[0])
-
-#     else:
-#         fixed_red = ants.split_channels(reference_brain)[0]
-#         moving_red = ants.split_channels(individual_brain)[0]
-
-#     reg = ants.registration(fixed=fixed_red,
-#                             moving=moving_red,
-#                             type_of_transform=type_of_transform)
-    
-
-#     print('Computed pre registration ({} sec)'.format(time.time()-t0))
-
 
 def register_brain_to_reference(brain_filepath,
                                 reference_brain,
@@ -62,7 +28,7 @@ def register_brain_to_reference(brain_filepath,
                                 type_of_transform='SyN',
                                 flow_sigma=3,
                                 total_sigma=0,
-                                do_initial_affine=None,
+                                initial_transform=None,
                                 mask=None,
                                 do_bias_correction=False):
     """
@@ -94,13 +60,6 @@ def register_brain_to_reference(brain_filepath,
     else:
         fixed_red = ants.split_channels(reference_brain)[0]
         moving_red = ants.split_channels(individual_brain)[0]
-
-    # Affine initializer
-    if do_initial_affine is True:
-        print('Performing affine initialization')
-        initial_transform = ants.affine_initializer(fixed_red, moving_red, search_factor=5, radian_fraction=0.25)
-    else:
-        initial_transform=None
 
     reg = ants.registration(fixed=fixed_red,
                             moving=moving_red,
