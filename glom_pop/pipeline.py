@@ -350,7 +350,7 @@ def align_glom_responses(experiment_filepath,
 def save_glom_response_fig(glom_responses, merged, series_name, pipeline_dir):
     fig_directory = os.path.join(pipeline_dir, 'functional_qc')
 
-    ants.plot(ants.split_channels(merged)[0], ants.split_channels(merged)[2],
+    ants.plot(ants.split_channels(merged)[0], ants.split_channels(merged)[-1],
               cmap='Reds', overlay_cmap='Blues', overlay_alpha=0.5,
               axis=2, reorient=False,
               title=series_name, slices=np.arange(0, 12))
