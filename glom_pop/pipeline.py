@@ -196,6 +196,7 @@ def align_glom_responses(experiment_filepath,
                          meanbrain_datestr='20211217',
                          data_dir='/oak/stanford/groups/trc/data/Max/ImagingData/Bruker',
                          attach_responses_flag=True,
+                         fxnal_alignment_channel='red', # 'red' (when fxnal is r/g) or 'green' (when fxnal is g only)
                          target_channel=1):  # target_channel = 1 (index, 0=Red, 1=Green)
 
     t0 = time.time()
@@ -227,6 +228,7 @@ def align_glom_responses(experiment_filepath,
     # # # Load anatomical scan # # #
     anat_filepath = os.path.join(sync_dir, 'anatomical_brains', anatomical_fn + '_anatomical.nii')
     red_brain = ants.split_channels(ants.image_read(anat_filepath))[0]
+    green_brain = ants.split_channels(ants.image_read(anat_filepath))[1]
 
     # # # (1) Transform map from MEANBRAIN -> ANAT # # #
     t0 = time.time()
@@ -253,16 +255,28 @@ def align_glom_responses(experiment_filepath,
                float(metadata_fxn.get('micronsPerPixel_ZAxis', 0))]
     # load brain, average over all frames
     nib_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj).mean(axis=3)
-    fxn_red = ants.from_numpy(nib_brain[:, :, :, 0], spacing=spacing)  # xyz
-    fxn_green = ants.from_numpy(nib_brain[:, :, :, 1], spacing=spacing)  # xyz
 
     print('Loaded fxnal meanbrains ({:.1f} sec)'.format(time.time()-t0))
     t0 = time.time()
-    reg_FA = ants.registration(fxn_red,
-                               red_brain,
-                               type_of_transform='Rigid',  # Within-animal, rigid reg is OK
-                               flow_sigma=3,
-                               total_sigma=0)
+    if fxnal_alignment_channel == 'red':
+        fxn_red = ants.from_numpy(nib_brain[:, :, :, 0], spacing=spacing)  # xyz
+        fxn_green = ants.from_numpy(nib_brain[:, :, :, 1], spacing=spacing)  # xyz
+
+        reg_FA = ants.registration(fxn_red,
+                                red_brain,
+                                type_of_transform='Rigid',  # Within-animal, rigid reg is OK
+                                flow_sigma=3,
+                                total_sigma=0)
+        
+    elif fxnal_alignment_channel == 'green':
+        fxn_green = ants.from_numpy(nib_brain[:, :, :, 0], spacing=spacing)  # xyz
+
+        reg_FA = ants.registration(fxn_green,
+                                    green_brain,
+                                    type_of_transform='Rigid',  # Within-animal, rigid reg is OK
+                                    flow_sigma=3,
+                                    total_sigma=0)
+    
 
     # # # Apply inverse transform to glom mask # # #
     glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_red,
@@ -273,13 +287,28 @@ def align_glom_responses(experiment_filepath,
 
     print('Computed transform from ANAT -> FXN & applied to glom mask ({:.1f} sec)'.format(time.time()-t0))
 
-    # Save multichannel overlay image in fxn space: red, green, mask
-    merged = ants.merge_channels([fxn_red, fxn_green, glom_mask_2_fxn])
-    save_path = os.path.join(sync_dir, 'overlays', '{}_masked.nii'.format(functional_fn))
-    ants.image_write(merged, save_path)
+    if fxnal_alignment_channel == 'red':  # this is when fxnal brain is r/g
+        # Save multichannel overlay image in fxn space: red, green, mask
+        merged = ants.merge_channels([fxn_red, fxn_green, glom_mask_2_fxn])
+        save_path = os.path.join(sync_dir, 'overlays', '{}_masked.nii'.format(functional_fn))
+        ants.image_write(merged, save_path)
 
-    # Load functional (green, default) brain series
-    fxn_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj)[..., target_channel]
+        # Load functional (green, default) brain series
+        fxn_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj)[..., target_channel]
+
+        meanbrain = dataio.merge_channels(fxn_red.numpy(), fxn_green.numpy())
+
+    elif fxnal_alignment_channel == 'green':  # this is when fxnal brain is g only
+        # Save multichannel overlay image in fxn space:  green, mask
+        merged = ants.merge_channels([fxn_green, glom_mask_2_fxn])
+        save_path = os.path.join(sync_dir, 'overlays', '{}_masked.nii'.format(functional_fn))
+        ants.image_write(merged, save_path)
+
+
+        # Load functional (green, default) brain series
+        fxn_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj)
+
+        meanbrain = fxn_green.numpy()
 
     # yank out glom responses
     # glom_responses: mean response across all voxels in each glom
@@ -295,7 +324,6 @@ def align_glom_responses(experiment_filepath,
                                                          mask_values=vals)
 
     # attach all this to the hdf5 file
-    meanbrain = dataio.merge_channels(fxn_red.numpy(), fxn_green.numpy())
     print('attach_responses_flag is {}'.format(attach_responses_flag))
     if attach_responses_flag:
         dataio.attach_responses(file_path=experiment_filepath,

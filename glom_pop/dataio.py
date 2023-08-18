@@ -285,7 +285,7 @@ def load_fictrac_data(ID, ft_data_path, process_behavior=True, exclude_thresh=No
     return behavior_data
 
 
-def load_responses(ID, response_set_name='glom', get_voxel_responses=False):
+def load_responses(ID, response_set_name='glom', get_erm=True, get_voxel_responses=False):
 
     response_data = {}
     with h5py.File(ID.file_path, 'r') as experiment_file:
@@ -310,11 +310,11 @@ def load_responses(ID, response_set_name='glom', get_voxel_responses=False):
         response_data['voxel_responses'] = voxel_responses
         response_data['voxel_epoch_responses'] = voxel_epoch_responses
 
-    # epoch_response matrix for glom responses
-    time_vector, response_matrix = ID.getEpochResponseMatrix(response_data.get('response'), dff=True)
-
-    response_data['epoch_response'] = response_matrix  # shape = (gloms, trials, time)
-    response_data['time_vector'] = time_vector
+    if get_erm:
+        # epoch_response matrix for glom responses
+        time_vector, response_matrix = ID.getEpochResponseMatrix(response_data.get('response'), dff=True)
+        response_data['epoch_response'] = response_matrix  # shape = (gloms, trials, time)
+        response_data['time_vector'] = time_vector
 
     return response_data
 
