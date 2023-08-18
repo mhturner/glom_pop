@@ -268,8 +268,15 @@ def align_glom_responses(experiment_filepath,
                                 flow_sigma=3,
                                 total_sigma=0)
         
+        # # # Apply inverse transform to glom mask # # #
+        glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_red,
+                                                moving=glom_mask_2_anat,
+                                                transformlist=reg_FA['fwdtransforms'],
+                                                interpolator='genericLabel',
+                                                defaultvalue=0)
+        
     elif fxnal_alignment_channel == 'green':
-        fxn_green = ants.from_numpy(nib_brain[:, :, :, 0], spacing=spacing)  # xyz
+        fxn_green = ants.from_numpy(nib_brain[:, :, :], spacing=spacing)  # xyz
 
         reg_FA = ants.registration(fxn_green,
                                     green_brain,
@@ -278,12 +285,12 @@ def align_glom_responses(experiment_filepath,
                                     total_sigma=0)
     
 
-    # # # Apply inverse transform to glom mask # # #
-    glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_red,
-                                            moving=glom_mask_2_anat,
-                                            transformlist=reg_FA['fwdtransforms'],
-                                            interpolator='genericLabel',
-                                            defaultvalue=0)
+        # # # Apply inverse transform to glom mask # # #
+        glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_green,
+                                                moving=glom_mask_2_anat,
+                                                transformlist=reg_FA['fwdtransforms'],
+                                                interpolator='genericLabel',
+                                                defaultvalue=0)
 
     print('Computed transform from ANAT -> FXN & applied to glom mask ({:.1f} sec)'.format(time.time()-t0))
 
