@@ -159,6 +159,7 @@ def get_functional_brain(file_base_path, channel=0):
 
     """
     brain = np.asarray(nib.load(file_base_path+'_reg.nii').dataobj, dtype='uint16')
+    print('Loaded brain from {} (shape {})'.format(file_base_path, brain.shape))
     functional_brain = brain[..., channel]
 
     return functional_brain
