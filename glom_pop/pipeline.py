@@ -151,6 +151,37 @@ def save_alignment_fig(brain_filepath, meanbrain, pipeline_dir):
     print('Saved reg fig to {}'.format(fig_fp))
 
 
+def get_functional_brain(file_base_path, channel=0):
+    """
+    Return anatomical (xyzc) brain from motion-corrected time series brain
+
+    file_base_path: Path to file base path with no suffixes. E.g. /path/to/data/TSeries-20210611-001
+
+    """
+    metadata = bruker.getMetaData(file_base_path)
+    c_dim = metadata['image_dims'][-1]
+
+    spacing = [float(metadata['micronsPerPixel_XAxis']),
+               float(metadata['micronsPerPixel_YAxis']),
+               float(metadata['micronsPerPixel_ZAxis'])]
+    print('Loaded metadata from {}'.format(file_base_path))
+    print('Spacing (um/pix): {}'.format(spacing))
+    print('Shape (xyztc) = {}'.format(metadata['image_dims']))
+
+    brain = np.asarray(nib.load(file_base_path+'_reg.nii').dataobj, dtype='uint16')
+
+    if c_dim == 1:
+        print('One channel data...')
+        functional_brain = ants.from_numpy(brain[:, :, :], spacing=spacing)
+    elif c_dim == 2:
+        print('Two channel data, pulling ch. {}'.format(channel))
+        functional_brain = ants.from_numpy(brain[:, :, :, channel], spacing=spacing)
+    else:
+        raise Exception('{}: Unrecognized c_dim.'.formt(file_base_path))
+
+    return functional_brain
+
+
 def get_anatomical_brain(file_base_path):
     """
     Return anatomical (xyzc) brain from motion-corrected time series brain
@@ -190,161 +221,200 @@ def get_anatomical_brain(file_base_path):
 # # # # GLOM ALIGNMENT / RESPONSES  # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-def align_glom_responses(experiment_filepath,
-                         series_number,
-                         sync_dir,
-                         meanbrain_datestr='20211217',
-                         data_dir='/oak/stanford/groups/trc/data/Max/ImagingData/Bruker',
-                         attach_responses_flag=True,
-                         fxnal_alignment_channel='red', # 'red' (when fxnal is r/g) or 'green' (when fxnal is g only)
-                         target_channel=1):  # target_channel = 1 (index, 0=Red, 1=Green)
+# def extract_glom_responses(image_path,
+#                            glom_mask,
+#                            target_channel=1):
+#     """
+#     Extract glomerulus responses given a time series volume image and a glom mask
 
-    t0 = time.time()
-    transform_directory = os.path.join(sync_dir, 'transforms')
+#     image_path: Path to time series image file without suffixes. E.g. /path/to/data/TSeries-20210611-001
+#     glom_mask: ANTS image of glom mask
+#     target_channel: which channel, C, to use to pull glom responses. Default =1 (green)
 
-    # Load master meanbrain
-    meanbrain_fn = 'chat_meanbrain_{}.nii'.format(meanbrain_datestr)
-    meanbrain = ants.image_read(os.path.join(sync_dir, 'mean_brain', meanbrain_fn))
-    [meanbrain_red, meanbrain_green] = ants.split_channels(meanbrain)
+#     returns 
+#         glom_responses
+#         merged_overlay
 
-    # load transformed mask, in meanbrain space
-    fp_mask = os.path.join(transform_directory, 'meanbrain_template', 'glom_mask_reg2meanbrain.nii')
-    glom_mask_2_meanbrain = ants.image_read(fp_mask)
+#     """
+#     t0 = time.time()
 
-    # mask vals
-    vals = np.unique(glom_mask_2_meanbrain.numpy())[1:].astype('int')  # exclude first val (=0, not a glom)
+#     # mask vals
+#     vals = np.unique(glom_mask.numpy())[1:].astype('int')  # exclude first val (=0, not a glom)
 
-    ID = imaging_data.ImagingDataObject(file_path=experiment_filepath,
-                                        series_number=series_number,
-                                        quiet=True)
+#     fxn_brain = np.asanyarray(nib.load(image_path + '_reg.nii').dataobj)[..., target_channel]
 
-    print('Starting series {}:{}'.format(ID.file_path, ID.series_number))
-    functional_fn = 'TSeries-' + os.path.split(ID.file_path)[-1].split('.')[0].replace('-', '') + '-' + str(ID.series_number).zfill(3)
-    anatomical_fn = 'TSeries-' + ID.getRunParameters('anatomical_brain')
+#     # yank out glom responses
+#     # glom_responses: mean response across all voxels in each glom
+#     # shape = glom ID x Time
+#     glom_responses = alignment.get_glom_responses(fxn_brain,
+#                                                   glom_mask.numpy(),
+#                                                   mask_values=vals)
 
-    date_str = functional_fn.split('-')[1]
-    series_number = ID.series_number
+#     # voxel_responses: list of arrays, each is all individual voxel responses for that glom
+#     # list of len=gloms, each with array nvoxels x time
+#     voxel_responses = alignment.get_glom_voxel_responses(fxn_brain,
+#                                                          glom_mask.numpy(),
+#                                                          mask_values=vals)
+    
+#     merged_overlay = ants.merge_channels([fxn_red, fxn_green, glom_mask_2_fxn])
 
-    # # # Load anatomical scan # # #
-    anat_filepath = os.path.join(sync_dir, 'anatomical_brains', anatomical_fn + '_anatomical.nii')
-    red_brain = ants.split_channels(ants.image_read(anat_filepath))[0]
-    green_brain = ants.split_channels(ants.image_read(anat_filepath))[1]
+#     return glom_responses, merged_overlay
 
-    # # # (1) Transform map from MEANBRAIN -> ANAT # # #
-    t0 = time.time()
-    # Pre-computed is anat->meanbrain, so we want the inverse transform
-    transform_dir = os.path.join(transform_directory, 'meanbrain_anatomical', anatomical_fn)
-    transform_list = dataio.get_transform_list(transform_dir, direction='inverse')
+# def align_glom_responses(experiment_filepath,
+#                          series_number,
+#                          sync_dir,
+#                          meanbrain_datestr='20211217',
+#                          data_dir='/oak/stanford/groups/trc/data/Max/ImagingData/Bruker',
+#                          attach_responses_flag=True,
+#                          fxnal_alignment_channel='red', # 'red' (when fxnal is r/g) or 'green' (when fxnal is g only)
+#                          target_channel=1):  # target_channel = 1 (index, 0=Red, 1=Green)
 
-    # Apply inverse transform to glom mask
-    glom_mask_2_anat = ants.apply_transforms(fixed=red_brain,
-                                             moving=glom_mask_2_meanbrain,
-                                             transformlist=transform_list,
-                                             interpolator='genericLabel',
-                                             defaultvalue=0)
+#     t0 = time.time()
+#     transform_directory = os.path.join(sync_dir, 'transforms')
 
-    print('Applied inverse transform from ANAT -> MEANBRAIN to glom mask ({:.1f} sec)'.format(time.time()-t0))
+#     # Load master meanbrain
+#     meanbrain_fn = 'chat_meanbrain_{}.nii'.format(meanbrain_datestr)
+#     meanbrain = ants.image_read(os.path.join(sync_dir, 'mean_brain', meanbrain_fn))
+#     [meanbrain_red, meanbrain_green] = ants.split_channels(meanbrain)
 
-    # # # (2) Transform from ANAT -> FXN (within fly) # # #
-    t0 = time.time()
-    fxn_filepath = os.path.join(data_dir, date_str, functional_fn)
-    metadata_fxn = dataio.get_bruker_metadata(fxn_filepath + '.xml')
+#     # load transformed mask, in meanbrain space
+#     fp_mask = os.path.join(transform_directory, 'meanbrain_template', 'glom_mask_reg2meanbrain.nii')
+#     glom_mask_2_meanbrain = ants.image_read(fp_mask)
 
-    spacing = [float(metadata_fxn.get('micronsPerPixel_XAxis', 0)),
-               float(metadata_fxn.get('micronsPerPixel_YAxis', 0)),
-               float(metadata_fxn.get('micronsPerPixel_ZAxis', 0))]
-    # load brain, average over all frames
-    nib_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj).mean(axis=3)
+#     # mask vals
+#     vals = np.unique(glom_mask_2_meanbrain.numpy())[1:].astype('int')  # exclude first val (=0, not a glom)
 
-    print('Loaded fxnal meanbrains ({:.1f} sec)'.format(time.time()-t0))
-    t0 = time.time()
-    if fxnal_alignment_channel == 'red':
-        fxn_red = ants.from_numpy(nib_brain[:, :, :, 0], spacing=spacing)  # xyz
-        fxn_green = ants.from_numpy(nib_brain[:, :, :, 1], spacing=spacing)  # xyz
+#     ID = imaging_data.ImagingDataObject(file_path=experiment_filepath,
+#                                         series_number=series_number,
+#                                         quiet=True)
 
-        reg_FA = ants.registration(fxn_red,
-                                red_brain,
-                                type_of_transform='Rigid',  # Within-animal, rigid reg is OK
-                                flow_sigma=3,
-                                total_sigma=0)
+#     print('Starting series {}:{}'.format(ID.file_path, ID.series_number))
+#     functional_fn = 'TSeries-' + os.path.split(ID.file_path)[-1].split('.')[0].replace('-', '') + '-' + str(ID.series_number).zfill(3)
+#     anatomical_fn = 'TSeries-' + ID.getRunParameters('anatomical_brain')
+
+#     date_str = functional_fn.split('-')[1]
+#     series_number = ID.series_number
+
+#     # # # Load anatomical scan # # #
+#     anat_filepath = os.path.join(sync_dir, 'anatomical_brains', anatomical_fn + '_anatomical.nii')
+#     red_brain = ants.split_channels(ants.image_read(anat_filepath))[0]
+#     green_brain = ants.split_channels(ants.image_read(anat_filepath))[1]
+
+#     # # # (1) Transform map from MEANBRAIN -> ANAT # # #
+#     t0 = time.time()
+#     # Pre-computed is anat->meanbrain, so we want the inverse transform
+#     transform_dir = os.path.join(transform_directory, 'meanbrain_anatomical', anatomical_fn)
+#     transform_list = dataio.get_transform_list(transform_dir, direction='inverse')
+
+#     # Apply inverse transform to glom mask
+#     glom_mask_2_anat = ants.apply_transforms(fixed=red_brain,
+#                                              moving=glom_mask_2_meanbrain,
+#                                              transformlist=transform_list,
+#                                              interpolator='genericLabel',
+#                                              defaultvalue=0)
+
+#     print('Applied inverse transform from ANAT -> MEANBRAIN to glom mask ({:.1f} sec)'.format(time.time()-t0))
+
+#     # # # (2) Transform from ANAT -> FXN (within fly) # # #
+#     t0 = time.time()
+#     fxn_filepath = os.path.join(data_dir, date_str, functional_fn)
+#     metadata_fxn = dataio.get_bruker_metadata(fxn_filepath + '.xml')
+
+#     spacing = [float(metadata_fxn.get('micronsPerPixel_XAxis', 0)),
+#                float(metadata_fxn.get('micronsPerPixel_YAxis', 0)),
+#                float(metadata_fxn.get('micronsPerPixel_ZAxis', 0))]
+#     # load brain, average over all frames
+#     nib_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj).mean(axis=3)
+
+#     print('Loaded fxnal meanbrains ({:.1f} sec)'.format(time.time()-t0))
+#     t0 = time.time()
+#     if fxnal_alignment_channel == 'red':
+#         fxn_red = ants.from_numpy(nib_brain[:, :, :, 0], spacing=spacing)  # xyz
+#         fxn_green = ants.from_numpy(nib_brain[:, :, :, 1], spacing=spacing)  # xyz
+
+#         reg_FA = ants.registration(fxn_red,
+#                                 red_brain,
+#                                 type_of_transform='Rigid',  # Within-animal, rigid reg is OK
+#                                 flow_sigma=3,
+#                                 total_sigma=0)
         
-        # # # Apply inverse transform to glom mask # # #
-        glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_red,
-                                                moving=glom_mask_2_anat,
-                                                transformlist=reg_FA['fwdtransforms'],
-                                                interpolator='genericLabel',
-                                                defaultvalue=0)
+#         # # # Apply inverse transform to glom mask # # #
+#         glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_red,
+#                                                 moving=glom_mask_2_anat,
+#                                                 transformlist=reg_FA['fwdtransforms'],
+#                                                 interpolator='genericLabel',
+#                                                 defaultvalue=0)
         
-    elif fxnal_alignment_channel == 'green':
-        fxn_green = ants.from_numpy(nib_brain[:, :, :], spacing=spacing)  # xyz
+#     elif fxnal_alignment_channel == 'green':
+#         fxn_green = ants.from_numpy(nib_brain[:, :, :], spacing=spacing)  # xyz
 
-        reg_FA = ants.registration(fxn_green,
-                                    green_brain,
-                                    type_of_transform='Rigid',  # Within-animal, rigid reg is OK
-                                    flow_sigma=3,
-                                    total_sigma=0)
+#         reg_FA = ants.registration(fxn_green,
+#                                     green_brain,
+#                                     type_of_transform='Rigid',  # Within-animal, rigid reg is OK
+#                                     flow_sigma=3,
+#                                     total_sigma=0)
     
 
-        # # # Apply inverse transform to glom mask # # #
-        glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_green,
-                                                moving=glom_mask_2_anat,
-                                                transformlist=reg_FA['fwdtransforms'],
-                                                interpolator='genericLabel',
-                                                defaultvalue=0)
+#         # # # Apply inverse transform to glom mask # # #
+#         glom_mask_2_fxn = ants.apply_transforms(fixed=fxn_green,
+#                                                 moving=glom_mask_2_anat,
+#                                                 transformlist=reg_FA['fwdtransforms'],
+#                                                 interpolator='genericLabel',
+#                                                 defaultvalue=0)
 
-    print('Computed transform from ANAT -> FXN & applied to glom mask ({:.1f} sec)'.format(time.time()-t0))
+#     print('Computed transform from ANAT -> FXN & applied to glom mask ({:.1f} sec)'.format(time.time()-t0))
 
-    if fxnal_alignment_channel == 'red':  # this is when fxnal brain is r/g
-        # Save multichannel overlay image in fxn space: red, green, mask
-        merged = ants.merge_channels([fxn_red, fxn_green, glom_mask_2_fxn])
-        save_path = os.path.join(sync_dir, 'overlays', '{}_masked.nii'.format(functional_fn))
-        ants.image_write(merged, save_path)
+#     if fxnal_alignment_channel == 'red':  # this is when fxnal brain is r/g
+#         # Save multichannel overlay image in fxn space: red, green, mask
+#         merged = ants.merge_channels([fxn_red, fxn_green, glom_mask_2_fxn])
+#         save_path = os.path.join(sync_dir, 'overlays', '{}_masked.nii'.format(functional_fn))
+#         ants.image_write(merged, save_path)
 
-        # Load functional (green, default) brain series
-        fxn_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj)[..., target_channel]
+#         # Load functional (green, default) brain series
+#         fxn_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj)[..., target_channel]
 
-        meanbrain = dataio.merge_channels(fxn_red.numpy(), fxn_green.numpy())
+#         meanbrain = dataio.merge_channels(fxn_red.numpy(), fxn_green.numpy())
 
-    elif fxnal_alignment_channel == 'green':  # this is when fxnal brain is g only
-        # Save multichannel overlay image in fxn space:  green, mask
-        merged = ants.merge_channels([fxn_green, glom_mask_2_fxn])
-        save_path = os.path.join(sync_dir, 'overlays', '{}_masked.nii'.format(functional_fn))
-        ants.image_write(merged, save_path)
+#     elif fxnal_alignment_channel == 'green':  # this is when fxnal brain is g only
+#         # Save multichannel overlay image in fxn space:  green, mask
+#         merged = ants.merge_channels([fxn_green, glom_mask_2_fxn])
+#         save_path = os.path.join(sync_dir, 'overlays', '{}_masked.nii'.format(functional_fn))
+#         ants.image_write(merged, save_path)
 
 
-        # Load functional (green, default) brain series
-        fxn_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj)
+#         # Load functional (green, default) brain series
+#         fxn_brain = np.asanyarray(nib.load(fxn_filepath + '_reg.nii').dataobj)
 
-        meanbrain = fxn_green.numpy()
+#         meanbrain = fxn_green.numpy()
 
-    # yank out glom responses
-    # glom_responses: mean response across all voxels in each glom
-    # shape = glom ID x Time
-    glom_responses = alignment.get_glom_responses(fxn_brain,
-                                                  glom_mask_2_fxn.numpy(),
-                                                  mask_values=vals)
+#     # yank out glom responses
+#     # glom_responses: mean response across all voxels in each glom
+#     # shape = glom ID x Time
+#     glom_responses = alignment.get_glom_responses(fxn_brain,
+#                                                   glom_mask_2_fxn.numpy(),
+#                                                   mask_values=vals)
 
-    # voxel_responses: list of arrays, each is all individual voxel responses for that glom
-    # list of len=gloms, each with array nvoxels x time
-    voxel_responses = alignment.get_glom_voxel_responses(fxn_brain,
-                                                         glom_mask_2_fxn.numpy(),
-                                                         mask_values=vals)
+#     # voxel_responses: list of arrays, each is all individual voxel responses for that glom
+#     # list of len=gloms, each with array nvoxels x time
+#     voxel_responses = alignment.get_glom_voxel_responses(fxn_brain,
+#                                                          glom_mask_2_fxn.numpy(),
+#                                                          mask_values=vals)
 
-    # attach all this to the hdf5 file
-    print('attach_responses_flag is {}'.format(attach_responses_flag))
-    if attach_responses_flag:
-        dataio.attach_responses(file_path=experiment_filepath,
-                                series_number=series_number,
-                                mask=glom_mask_2_fxn.numpy(),
-                                meanbrain=meanbrain,
-                                responses=glom_responses,
-                                mask_vals=vals,
-                                response_set_name='glom',
-                                voxel_responses=voxel_responses)
+#     # attach all this to the hdf5 file
+#     print('attach_responses_flag is {}'.format(attach_responses_flag))
+#     if attach_responses_flag:
+#         dataio.attach_responses(file_path=experiment_filepath,
+#                                 series_number=series_number,
+#                                 mask=glom_mask_2_fxn.numpy(),
+#                                 meanbrain=meanbrain,
+#                                 responses=glom_responses,
+#                                 mask_vals=vals,
+#                                 response_set_name='glom',
+#                                 voxel_responses=voxel_responses)
 
-    print('Done. Attached responses to {} (total: {:.1f} sec)'.format(experiment_filepath, time.time()-t0))
+#     print('Done. Attached responses to {} (total: {:.1f} sec)'.format(experiment_filepath, time.time()-t0))
 
-    return glom_responses, merged
+#     return glom_responses, merged
 
 
 def save_glom_response_fig(glom_responses, merged, series_name, pipeline_dir):
