@@ -158,9 +158,20 @@ def get_functional_brain(file_base_path, channel=0):
     file_base_path: Path to file base path with no suffixes. E.g. /path/to/data/TSeries-20210611-001
 
     """
+    metadata = bruker.getMetaData(file_base_path)
+    c_dim = metadata['image_dims'][-1]
+
     brain = np.asarray(nib.load(file_base_path+'_reg.nii').dataobj, dtype='uint16')
     print('Loaded brain from {} (shape {})'.format(file_base_path, brain.shape))
-    functional_brain = brain[..., channel]
+
+    if c_dim == 1:
+        print('One channel data...')
+        functional_brain = brain
+    elif c_dim == 2:
+        print('Two channel data...')
+        functional_brain = brain[..., channel]
+    else:
+        raise Exception('{}: Unrecognized c_dim.'.formt(file_base_path))
 
     return functional_brain
 
